@@ -545,23 +545,23 @@ ev13은 보존 기간이 지났다고 바로 지우지 않는다. 아래 조건�
 
 ## 15. 변경 이력
 
-### v0.2 (2026-10-27) — v0.1 리뷰 반영
+### v0.2 (2026-10-27) 리뷰 반영
 
-| # | 리뷰 지적 | 판정 | 반영 |
+| # | 지적 | 판정 | 반영 |
 |---|---|---|---|
-| ① | `max_active_runs=1`은 실행 누적을 막지 못함 | **부분 타당.** Airflow 3.3.2 소스상 `catchup=False`의 정기 실행은 누적되지 않고 틱을 건너뛴다. 다만 v0.1의 "다음 실행은 대기"라는 표현이 부정확했고, 수동 회차 대기·pool 대기·건너뛴 틱이 커버리지에 주는 영향은 다루지 않았다 | §4.1.1: 정책을 네 가지(동시 실행 방지, 예약 누적 방지, 지연 회차 폐기, 실행 시간 상한)로 분리. `check_run_freshness`와 `dagrun_timeout` 추가, 커버리지 영향 명시 |
-| ② | 센서 조건과 `base_month` 불일치 | 타당 | §4.2.1: `resolve_base_month`로 기준월을 명시적으로 결정, 센서는 "대상 월 공표 여부"만 확인, `params` 우선, soft_fail → `publication_delayed`. §4.2.2 재공표 비교 추가 |
-| ③ | ev11의 Asset 트리거와 명시 트리거 중복 | 타당 | §4.5: 범위별 단일 경로(registration은 Asset, timeband·mart는 명시 트리거)로 정리하고, 세 분기의 의존성을 명시. fingerprint를 안전망으로 둠 |
-| ④ | 부분 실패 DAG의 최종 상태 모호 | 타당 | §4.1.2: 허용된 부분 실패와 핵심 처리 실패를 구분. `finalize_run_status`(all_done) 추가, 검증은 staging과 `ops` 묶음 상태 기준, `all_done_min_one_success` 적용 |
-| ⑤ | 치명 오류 지역의 이전 결과 잔존 | 타당 | §4.3.3: 후보에 대상 행정동 전체를 포함하고 `WITHHELD` 상태 추가. 게시는 파티션 교체로, 게시 상태 `current`/`stale`/`never_published` 추가 |
-| 4.1 | `skip_unchanged`와 대상 없음 혼동 | 타당 | `no_eligible_period` 분기·상태 분리 |
-| 4.2 | Asset `extra` ≠ `params` | 타당 | §4.3.1: 이벤트는 힌트로만 쓰고, DB의 dirty 월 판정으로 대상을 결정 |
-| 4.3 | `record_lineage`가 실패 시 미실행 | 타당 | `record_run_result`(all_done)로 변경. 계보는 게시 트랜잭션 안으로 옮겨 원자화. 리뷰 제안보다 강화: 게시 후 기록 실패로 계보가 손실되는 경우 자체를 제거 |
-| 5 | CI 정책은 문서일 뿐 | 타당 | §12를 "테스트 계획"으로 바꾸고 미구현임을 명시. outlet 위치, 게시 원자성, 파티션 교체 테스트 추가 |
-| 5 | ev10·ev12·ev13 보완 | 타당 | ev10 pending → active 분리, ev12 실행 상태 × 데이터 상태 교차 확인, ev13 조건부 삭제 |
-| 6-4 | Airflow 3.3.2 실행 검증 | 타당 | §14: 소스 확인 6건, 파싱 검증 예정 3건 |
+| ① | `max_active_runs=1`로는 실행 누적을 못 막음 | 일부 타당. `catchup=False` 정기 실행은 쌓이지 않고 틱을 건너뛴다(소스 확인). 다만 "다음 실행은 대기"라는 표현이 틀렸고, 수동 회차·pool 대기·커버리지 영향은 빠져 있었다 | §4.1.1 정책 네 가지로 분리, `check_run_freshness`·`dagrun_timeout` 추가 |
+| ② | 센서 조건과 `base_month` 불일치 | 타당 | §4.2.1 `resolve_base_month`, 센서는 대상 월 공표만 확인, soft_fail. §4.2.2 재공표 비교 |
+| ③ | ev11 Asset 트리거와 명시 트리거 중복 | 타당 | §4.5 범위별 경로 하나로 정리, fingerprint는 안전망 |
+| ④ | 부분 실패 DAG의 최종 상태 모호 | 타당 | §4.1.2 허용된 부분 실패와 핵심 실패 구분, `finalize_run_status`, `all_done_min_one_success` |
+| ⑤ | 치명 지역의 옛 결과 잔존 | 타당 | §4.3.3 전 행정동 포함, `WITHHELD`, 파티션 교체, 게시 상태 |
+| 4.1 | 변경 없음과 대상 없음 혼동 | 타당 | `no_eligible_period` 분리 |
+| 4.2 | Asset `extra` ≠ `params` | 타당 | §4.3.1 이벤트는 힌트, 대상은 DB dirty 월 |
+| 4.3 | 실패 시 계보 미기록 | 타당 | `record_run_result`(all_done). 계보를 게시 트랜잭션 안으로 옮겨 원자화 |
+| 5 | CI 정책은 문서뿐 | 타당 | §12 테스트 계획으로 바꾸고 미구현 명시, 게시 원자성·파티션 교체 테스트 추가 |
+| 5 | ev10·ev12·ev13 보완 | 타당 | ev10 pending → active, ev12 교차 확인, ev13 조건부 삭제 |
+| 6-4 | Airflow 3.3.2 검증 | 타당 | §14 소스 확인 6건, 파싱 검증 예정 3건 |
 
-추가 변경: ev02 timetable을 `CronDataIntervalTimetable`에서 `CronTriggerTimetable`과 명시적 기준월 결정으로 변경. ev03 대상 선택을 dirty 월 모델로 정의하고, 보류된 월이 무한 재평가되지 않도록 함.
+그 밖에 ev02 timetable을 `CronTriggerTimetable` + 명시적 기준월 결정으로 바꾸고, ev03 대상 선택을 dirty 월 방식으로 정했다.
 
 ### v0.1 (2026-10-27)
-- 최초 초안.
+- 최초 초안
