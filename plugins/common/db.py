@@ -30,3 +30,17 @@ def execute(sql, params=None, fetch=False):
 
 def execute_file(rel_path, params=None, fetch=False):
     return execute(read_sql(rel_path), params, fetch)
+
+
+# 여러 SQL 파일을 단일 트랜잭션으로 실행 (하나라도 실패하면 전체 롤백)
+# steps: [(rel_path, params, fetch)], fetch 결과는 다음 단계 params 에 병합
+def run_in_transaction(steps):
+    results = {}
+    with closing(get_conn()) as conn:
+        with conn, conn.cursor() as cur:
+            for rel_path, params, fetch in steps:
+                cur.execute(read_sql(rel_path), {**(params or {}), **results})
+                if fetch:
+                    cols = [d[0] for d in cur.description]
+                    results.update(dict(zip(cols, cur.fetchone())))
+    return results
