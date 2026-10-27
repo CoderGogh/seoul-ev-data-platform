@@ -1,0 +1,32 @@
+# Environment variables / secrets (.env.example 은 추적)
+.env
+.env.*
+!.env.example
+
+# Claude 작업 내역
+.claude/
+CLAUDE*.md
+.mcp.json
+
+# RFP 원문 (비공개)
+*RFP*.md
+
+# Python
+venv/
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Airflow runtime
+logs/
+config/airflow.cfg
+
+# Data files written by DAGs (SQL used by DAGs is tracked)
+files/*
+!files/sqls/
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
