@@ -97,68 +97,72 @@ Task가 성공했다고 데이터가 준비된 건 아니다. 그래서 아래 �
 
 ### 4.1 `ev01_traffic_collect` — 도로소통정보 수집
 
-**파티션 키**는 `poll_batch_id`(논리적 수집 회차)이고, 집계 키는 `link_id × 날짜 × 시간대`다.
+파티션 키는 `poll_batch_id`(수집 회차), 집계 키는 `link_id × 날짜 × 시간대`.
 
 ```
-init_poll_batch ─▶ check_run_freshness (@task.branch)
-      ├─▶ skip_stale_run ────────────────────────────────────────────────┐
-      └─▶ get_target_links ─▶ plan_link_chunks                          │
-            ─▶ extract_chunk.expand(chunk)     ◀ pool=seoul_openapi_pool│
-            ─▶ validate_responses   [all_done_min_one_success]          │
-            ─▶ quarantine_invalid ─▶ load_obs ─▶ aggregate_timeband     │
-            ─▶ record_coverage                 ◀ outlet: ev_traffic_obs │
-                                                                        ▼
+init_poll_batch ─▶ check_run_freshness (branch)
+      ├─▶ skip_stale_run ───────────────────────────────────────────┐
+      └─▶ get_target_links ─▶ plan_link_chunks                     │
+            ─▶ extract_chunk.expand(chunk)     pool=seoul_openapi_pool
+            ─▶ validate_responses   [all_done_min_one_success]     │
+            ─▶ quarantine_invalid ─▶ load_obs ─▶ aggregate_timeband│
+            ─▶ record_coverage                 outlet: ev_traffic_obs
+                                                                   ▼
                                           finalize_run_status  [all_done]
 ```
 
-| Task | 역할 | 입력 → 출력 | trigger_rule | 실패 시 |
-|---|---|---|---|---|
-| `init_poll_batch` | `run_id`에서 결정적으로 파생한 `poll_batch_id` 생성 | — → XCom | all_success | 재시도 |
-| `check_run_freshness` | 실행 지연 확인: `now - run_after > 허용 지연`이면 stale 분기 | — → 분기 | all_success | — |
-| `skip_stale_run` | 지연 회차를 수집하지 않음 | — | all_success | — |
-| `get_target_links` | 대상 링크 목록과 활성 링크 마스터 버전 조회 (사전 제외 링크는 사유와 함께 제외) | core → XCom | all_success | 재시도 |
-| `plan_link_chunks` | 링크를 N개 묶음으로 분할하고 **계획된 묶음 목록을 `ops`에 기록** `[미확정: N]` | → ops 묶음 계획 + chunk 리스트 | all_success | 재시도 |
-| `extract_chunk` (mapped) | 묶음 순회 호출, 원천 응답과 링크별 호출 상태를 staging에 저장, 묶음 완료 시 `ops` 묶음 상태를 `done`으로 갱신 | API → staging | all_success | 묶음 단위 재시도(지수 백오프). 링크 단위 오류는 **행으로 기록하고 Task는 실패시키지 않음**. 인증·쿼터·묶음 전체 실패만 Task 실패 |
-| `validate_responses` | **staging과 `ops` 묶음 상태만 기준으로** 검증한다. mapped Task의 XCom 존재를 가정하지 않는다 | staging → 판정 | **all_done_min_one_success** | 재시도 |
-| `quarantine_invalid` | 스키마 불일치·오염 레코드 격리 | staging → quarantine | all_success | 재시도 |
-| `load_obs` | 유효 관측 멱등 적재 | staging → core 관측 이력 | all_success | 재시도 → 핵심 실패 |
-| `aggregate_timeband` | 이번 회차가 영향을 준 시간대만 링크 시간대 대표값 재계산 | core → core 집계 (UPSERT) | all_success | 재시도 → 핵심 실패 |
-| `record_coverage` | 계획 묶음 대비 완료 묶음, 링크별 상태(성공/API 장애/유효 무관측/대상 제외) 기록 | → ops | all_success | 재시도 → 핵심 실패 |
-| `finalize_run_status` | 아래 표에 따라 `ops` 실행 상태를 확정하고, 핵심 실패면 예외를 발생시켜 DAG 실행을 실패로 만든다 | ops + upstream 상태 → ops | **all_done** | — |
-
-#### 4.1.1 실행 제어 — 동시 실행 방지와 실행 누적 방지는 별개 정책이다
-
-| 정책 | 수단 | 막는 것 | 막지 못하는 것 |
+| Task | 하는 일 | trigger_rule | 실패 시 |
 |---|---|---|---|
-| **동시 실행 방지** | `max_active_runs=1` | 같은 DAG의 두 회차가 동시에 같은 링크를 호출·적재하는 것 | 아래의 실행 지연 |
-| **예약 회차 누적 방지** | `catchup=False` + `max_active_runs=1` (스케줄러 동작) | 밀린 예약 회차가 줄줄이 생성되는 것 | 수동 트리거 회차의 대기, 실행 시작 후의 pool 대기 |
-| **지연 회차 폐기** | `check_run_freshness` (`now - run_after` > 허용 지연이면 `skipped_stale`) `[미확정: 허용 지연]` | 큐에서 오래 대기한 회차가 뒤늦게 수집해 관측 시점의 의미가 흐려지는 것 | — |
-| **실행 시간 상한** | `dagrun_timeout` ≈ 폴링 주기 × k `[미확정]` | 한 회차가 장시간 점유하는 것 | — |
+| `init_poll_batch` | `run_id`로 `poll_batch_id` 생성 | all_success | 재시도 |
+| `check_run_freshness` | 시작이 너무 늦은 회차면 stale 분기 | all_success | — |
+| `skip_stale_run` | 수집 안 함 | all_success | — |
+| `get_target_links` | 대상 링크와 활성 링크 마스터 버전 조회. 사전 제외 링크는 사유 기록 | all_success | 재시도 |
+| `plan_link_chunks` | N개 묶음으로 분할, 묶음 계획을 `ops`에 기록 `[미확정: N]` | all_success | 재시도 |
+| `extract_chunk` | 묶음 호출, 원천 응답·링크별 상태를 staging에 저장, 끝나면 묶음 상태 `done` | all_success | 묶음 단위 백오프 재시도. 링크 단위 오류는 행으로만 기록. 인증·쿼터·묶음 전체 실패만 Task 실패 |
+| `validate_responses` | staging과 `ops` 묶음 상태로 검증. mapped Task XCom에 의존하지 않음 | all_done_min_one_success | 재시도 |
+| `quarantine_invalid` | 스키마 불일치·오염 레코드 격리 | all_success | 재시도 |
+| `load_obs` | 유효 관측 멱등 적재 | all_success | 재시도 후 핵심 실패 |
+| `aggregate_timeband` | 이번 회차가 건드린 시간대만 재계산 (UPSERT) | all_success | 재시도 후 핵심 실패 |
+| `record_coverage` | 계획 대비 완료 묶음, 링크별 상태(성공/API 장애/무관측/대상 제외) 기록 | all_success | 재시도 후 핵심 실패 |
+| `finalize_run_status` | 최종 상태 기록. 핵심 실패면 예외로 DAG 실패 처리 | all_done | — |
 
-- **Airflow 3.3.2의 실제 동작** `[소스 확인]`
-  - 활성 실행이 `max_active_runs`에 도달하면 스케줄러는 새 예약 실행을 **생성하지 않는다** (`DagModel.exceeds_max_non_backfill`).
-  - 활성 실행이 끝난 뒤 `catchup=False`이면 다음 실행은 놓친 틱이 아니라 **현재 시각 직전 틱**으로 잡힌다 (`CronTriggerTimetable.next_dagrun_info`가 `_align_to_prev(now)`를 후보로 사용).
-  - 따라서 정기 실행에서 오래된 회차가 순차적으로 처리되지는 않는다. 대신 **틱이 건너뛰어진다**.
-- **건너뛴 틱이 커버리지에 미치는 영향**
-  - 커버리지 분모는 폴링 회차가 아니라 사전에 고정한 **링크 × 시간대(1시간)** 조합이다. 따라서 한 시간대 안에서 일부 회차가 빠지는 것은 대표 관측 허용 범위 안에서 흡수된다.
-  - 반대로, 한 시간대의 모든 회차가 빠지면 그 링크-시간대는 분자에서 제외된다. 이 경우 회차 단위의 `skipped_stale`·`failed`와 연결해 사유를 남긴다.
-- **폴링 주기 확정 기준**: 실측한 회차 실행 시간(p95)이 주기보다 충분히 짧아야 한다. 즉 `링크 수 / 묶음 크기 × 묶음 응답 시간 / pool slots < 주기 × 안전계수`를 만족하도록 주기·묶음 크기·slots를 함께 정한다. `[미확정]`
+#### 4.1.1 실행 제어
+
+동시 실행 방지와 실행 누적 방지는 다른 문제라서 따로 다룬다.
+
+| 정책 | 수단 | 막는 것 | 못 막는 것 |
+|---|---|---|---|
+| 동시 실행 방지 | `max_active_runs=1` | 두 회차가 같은 링크를 동시에 호출·적재 | 실행 지연 |
+| 예약 누적 방지 | `catchup=False` + `max_active_runs=1` | 밀린 예약 회차가 줄줄이 생성 | 수동 트리거 대기, 실행 중 pool 대기 |
+| 지연 회차 폐기 | `check_run_freshness` → `skipped_stale` `[미확정: 허용 지연]` | 오래 기다린 회차의 뒤늦은 수집 | — |
+| 실행 시간 상한 | `dagrun_timeout` ≈ 주기 × k `[미확정]` | 한 회차의 장시간 점유 | — |
+
+Airflow 3.3.2 실제 동작 `[소스 확인]`
+- 활성 실행이 `max_active_runs`에 닿으면 스케줄러는 새 예약 실행을 만들지 않는다 (`exceeds_max_non_backfill`).
+- 활성 실행이 끝나면 `catchup=False`에서는 놓친 틱이 아니라 현재 시각 직전 틱으로 다음 실행을 잡는다 (`_align_to_prev(now)`).
+- 그래서 정기 실행은 쌓이지 않고 틱을 건너뛴다.
+
+건너뛴 틱과 커버리지
+- 커버리지 분모는 회차가 아니라 링크 × 1시간 시간대로 고정돼 있다. 한 시간 안에서 몇 회차가 빠져도 대표 관측 허용 범위 안이면 영향이 없다.
+- 한 시간대가 통째로 빠지면 그 링크-시간대는 분자에서 빠지고, `skipped_stale`·`failed` 회차와 연결해 사유를 남긴다.
+
+폴링 주기는 실측한 회차 실행 시간(p95)이 주기보다 충분히 짧도록 묶음 크기, pool slots와 같이 정한다. `[미확정]`
 
 #### 4.1.2 실패 유형과 최종 상태
 
 | 상황 | 분류 | `ops` 상태 | DAG 실행 |
 |---|---|---|---|
 | 지연 회차 | — | `skipped_stale` | 성공 |
-| 모든 묶음 성공, 핵심 단계 성공 | 정상 | `success` | 성공 |
-| 일부 묶음 실패, 핵심 단계 성공 | **허용된 부분 실패** | `partial` (실패 묶음·링크는 분모 포함·분자 제외) | 성공 (실패 묶음 Task의 콜백으로 알림) |
-| 완료 묶음 비율 < 최소 기준 `[미확정]` | 허용된 부분 실패 + 경보 | `partial` + 경보 플래그 | 성공 + 경보 |
-| 모든 묶음 실패 (`validate_responses`가 upstream_failed) | **핵심 처리 실패** | `failed` | **실패** |
-| `load_obs`·`aggregate_timeband`·`record_coverage` 재시도 소진 | **핵심 처리 실패** | `failed` | **실패** |
+| 전부 성공 | 정상 | `success` | 성공 |
+| 일부 묶음 실패, 핵심 단계 성공 | 허용된 부분 실패 | `partial` (실패분은 분모 포함·분자 제외) | 성공, 묶음 Task 콜백으로 알림 |
+| 완료 묶음 비율이 최소 기준 미만 `[미확정]` | 허용된 부분 실패 | `partial` + 경보 | 성공 + 경보 |
+| 모든 묶음 실패 | 핵심 실패 | `failed` | 실패 |
+| 적재·집계·커버리지 기록 실패 | 핵심 실패 | `failed` | 실패 |
 
-- `finalize_run_status`는 `ops` 상태를 **먼저 기록한 뒤** 예외를 발생시킨다. 기록은 `run_id` 키 UPSERT로 하므로 재시도해도 안전하다.
-- **실시간 데이터의 재시도 한계**: 지난 시점을 재호출해도 그 시점 값은 돌아오지 않는다. 재시도는 대표 관측 허용 시간 범위 안에서만 의미가 있고, 범위 밖의 실패는 "재처리 대상"이 아니라 "결측"으로 확정한다.
-- **멱등성**: `poll_batch_id = f(run_id)`이므로 Task 재시도나 Clear 후에도 같은 ID가 유지된다. 적재는 `ON CONFLICT (link_id, poll_batch_id) DO NOTHING`이다.
-- **집계 시점**: 진행 중인 시간대는 매 회차 UPSERT로 갱신하고 시간대가 끝나면 확정한다. 대표 관측은 목표 시각과 가장 가까운 유효 관측으로 정하고, 동률이면 사전 타이브레이커를 적용한다. `[미확정: 목표 시각·허용 범위]`
+- `finalize_run_status`는 상태를 먼저 기록하고 예외를 던진다. `run_id` 키 UPSERT라 재시도해도 안전하다.
+- 실시간 API는 지난 시점 값을 다시 주지 않는다. 대표 관측 허용 범위를 넘긴 실패는 재처리 대상이 아니라 결측으로 확정한다.
+- `poll_batch_id`는 `run_id`에서 나오므로 재시도·Clear해도 같다. 적재는 `ON CONFLICT (link_id, poll_batch_id) DO NOTHING`.
+- 진행 중인 시간대는 매 회차 UPSERT하고 시간대가 끝나면 확정한다. 대표 관측은 목표 시각에 가장 가까운 유효 관측, 동률은 사전 타이브레이커. `[미확정: 목표 시각·허용 범위]`
 
 ---
 
