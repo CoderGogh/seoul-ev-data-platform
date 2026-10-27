@@ -1,0 +1,283 @@
+# 서울 전동화 입지 인사이트 플랫폼 실행 환경
+# 구성: Airflow 3.3.2 (CeleryExecutor) · 워커 3대 · Flower · PostGIS · Rshiny
+# 실행: cp .env.example .env → 값 입력 → docker compose up -d --build
+
+x-airflow-common:
+  &airflow-common
+  build: ./custom_image/airflow
+  image: ${AIRFLOW_IMAGE_NAME:-ev_airflow:3.3.2}
+  env_file:
+    - .env
+  environment:
+    &airflow-common-env
+    AIRFLOW__CORE__EXECUTOR: CeleryExecutor
+    AIRFLOW__CORE__AUTH_MANAGER: airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_USER:?set in .env}:${POSTGRES_PASSWORD:?set in .env}@postgres/${POSTGRES_DB:?set in .env}
+    AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres/${POSTGRES_DB}
+    AIRFLOW__CELERY__BROKER_URL: redis://:@redis:6379/0
+    AIRFLOW__CELERY__WORKER_CONCURRENCY: ${WORKER_CONCURRENCY:-4}
+    AIRFLOW__OPERATORS__DEFAULT_QUEUE: default
+    AIRFLOW__CORE__FERNET_KEY: ${FERNET_KEY:?set in .env}
+    AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'true'
+    AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+    AIRFLOW__CORE__DEFAULT_TIMEZONE: Asia/Seoul
+    AIRFLOW__DAG_PROCESSOR__REFRESH_INTERVAL: 30
+    AIRFLOW__CORE__EXECUTION_API_SERVER_URL: 'http://airflow-apiserver:8080/execution/'
+    AIRFLOW__API_AUTH__JWT_SECRET: ${AIRFLOW_JWT_SECRET:?set in .env}
+    AIRFLOW__API_AUTH__JWT_ISSUER: airflow
+    AIRFLOW__SCHEDULER__ENABLE_HEALTH_CHECK: 'true'
+    AIRFLOW_CONFIG: /opt/airflow/config/airflow.cfg
+    # Connection (환경변수 등록, UI 미노출)
+    AIRFLOW_CONN_CONN_POSTGIS_EV: postgresql://${EV_DB_USER:?set in .env}:${EV_DB_PASSWORD:?set in .env}@postgis:5432/${EV_DB_NAME:?set in .env}
+    AIRFLOW_CONN_CONN_DB_POSTGRES_AIRFLOW: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+    AIRFLOW_CONN_CONN_SEOUL_OPENAPI: http://openapi.seoul.go.kr:8088
+    # Variable (API 키)
+    AIRFLOW_VAR_APIKEY_SEOUL_TRAFFIC: ${SEOUL_TRAFFIC_API_KEY:?set in .env}
+    AIRFLOW_VAR_APIKEY_SEOUL_REGISTRATION: ${SEOUL_REGISTRATION_API_KEY:?set in .env}
+    AIRFLOW_VAR_EV_REG_SOURCE_MODE: ${EV_REG_SOURCE_MODE:-api}
+  volumes:
+    - ./dags:/opt/airflow/dags
+    - ./plugins:/opt/airflow/plugins
+    - ./files:/opt/airflow/files
+    - ./templates:/opt/airflow/templates
+    - ./config:/opt/airflow/config
+    - ./logs:/opt/airflow/logs
+  user: "${AIRFLOW_UID:-50000}:0"
+  depends_on:
+    &airflow-common-depends-on
+    redis:
+      condition: service_healthy
+    postgres:
+      condition: service_healthy
+    postgis:
+      condition: service_healthy
+
+x-airflow-worker:
+  &airflow-worker
+  <<: *airflow-common
+  healthcheck:
+    test: ["CMD-SHELL", 'celery --app airflow.providers.celery.executors.celery_executor.app inspect ping -d "celery@$${HOSTNAME}"']
+    interval: 30s
+    timeout: 10s
+    retries: 5
+    start_period: 30s
+  environment:
+    <<: *airflow-common-env
+    DUMB_INIT_SETSID: "0"
+  restart: always
+  depends_on:
+    <<: *airflow-common-depends-on
+    airflow-apiserver:
+      condition: service_healthy
+    airflow-init:
+      condition: service_completed_successfully
+
+services:
+  # Airflow 메타데이터 DB (DBeaver: 5431)
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - airflow-meta-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER}"]
+      interval: 10s
+      retries: 5
+      start_period: 5s
+    restart: always
+    ports:
+      - "${BIND_IP:-127.0.0.1}:${META_DB_PORT:-5431}:5432"
+
+  # 분석 DB: staging·core·mart·ops·quarantine (DBeaver: 5432)
+  postgis:
+    build: ./custom_image/postgis
+    image: ev_postgis:16-3
+    environment:
+      POSTGRES_USER: ${EV_DB_USER}
+      POSTGRES_PASSWORD: ${EV_DB_PASSWORD}
+      POSTGRES_DB: ${EV_DB_NAME}
+      RSHINY_DB_PASSWORD: ${RSHINY_DB_PASSWORD:?set in .env}
+      TZ: Asia/Seoul
+    volumes:
+      - ev-db:/var/lib/postgresql/data
+      - ./custom_image/postgis/initdb:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      retries: 5
+      start_period: 10s
+    restart: always
+    ports:
+      - "${BIND_IP:-127.0.0.1}:${EV_DB_PORT:-5432}:5432"
+
+  redis:
+    image: redis:7.2-bookworm
+    expose:
+      - 6379
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 30s
+      retries: 50
+      start_period: 30s
+    restart: always
+
+  airflow-apiserver:
+    <<: *airflow-common
+    command: api-server
+    ports:
+      - "${BIND_IP:-127.0.0.1}:${AIRFLOW_PORT:-8080}:8080"
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/api/v2/monitor/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    restart: always
+    depends_on:
+      <<: *airflow-common-depends-on
+      airflow-init:
+        condition: service_completed_successfully
+
+  airflow-scheduler:
+    <<: *airflow-common
+    command: scheduler
+    healthcheck:
+      test: ["CMD-SHELL", 'airflow jobs check --job-type SchedulerJob --hostname "$${HOSTNAME}"']
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    restart: always
+    depends_on:
+      <<: *airflow-common-depends-on
+      airflow-init:
+        condition: service_completed_successfully
+
+  airflow-dag-processor:
+    <<: *airflow-common
+    command: dag-processor
+    healthcheck:
+      test: ["CMD-SHELL", 'airflow jobs check --job-type DagProcessorJob --hostname "$${HOSTNAME}"']
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    restart: always
+    depends_on:
+      <<: *airflow-common-depends-on
+      airflow-init:
+        condition: service_completed_successfully
+
+  airflow-triggerer:
+    <<: *airflow-common
+    command: triggerer
+    healthcheck:
+      test: ["CMD-SHELL", 'airflow jobs check --job-type TriggererJob --hostname "$${HOSTNAME}"']
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    restart: always
+    depends_on:
+      <<: *airflow-common-depends-on
+      airflow-init:
+        condition: service_completed_successfully
+
+  # 일반 처리 워커 2대 (default 큐)
+  airflow-worker-default-1:
+    <<: *airflow-worker
+    hostname: worker-default-1
+    command: celery worker --queues default
+
+  airflow-worker-default-2:
+    <<: *airflow-worker
+    hostname: worker-default-2
+    command: celery worker --queues default
+
+  # 외부 API 호출 전용 워커 (api 큐)
+  airflow-worker-api:
+    <<: *airflow-worker
+    hostname: worker-api
+    command: celery worker --queues api
+
+  airflow-init:
+    <<: *airflow-common
+    entrypoint: /bin/bash
+    command:
+      - -c
+      - |
+        set -e
+        # 공유 디렉터리 준비
+        mkdir -p /opt/airflow/{logs,dags,plugins,config}
+        # DB 마이그레이션·관리자 계정 생성 후 설정 파일·Pool 생성 (entrypoint 위임, root에서 airflow 직접 호출 불가)
+        /entrypoint bash -c '
+          airflow version
+          airflow config list > /dev/null
+          airflow pools set seoul_traffic_api_pool ${TRAFFIC_POOL_SLOTS:-4} "실시간 도로소통정보 API 동시 호출 제한"
+          airflow pools set seoul_registration_api_pool ${REGISTRATION_POOL_SLOTS:-2} "등록현황 API 동시 호출 제한"
+        '
+        # 공유 디렉터리 소유권 정리
+        chown -R "${AIRFLOW_UID:-50000}:0" /opt/airflow/{logs,dags,plugins,config}
+    environment:
+      <<: *airflow-common-env
+      _AIRFLOW_DB_MIGRATE: 'true'
+      _AIRFLOW_WWW_USER_CREATE: 'true'
+      _AIRFLOW_WWW_USER_USERNAME: ${AIRFLOW_ADMIN_USER:-airflow}
+      _AIRFLOW_WWW_USER_PASSWORD: ${AIRFLOW_ADMIN_PASSWORD:?set in .env}
+    user: "0:0"
+
+  airflow-cli:
+    <<: *airflow-common
+    profiles:
+      - debug
+    environment:
+      <<: *airflow-common-env
+      CONNECTION_CHECK_MAX_COUNT: "0"
+    command:
+      - bash
+      - -c
+      - airflow
+
+  # 워커 모니터링
+  flower:
+    <<: *airflow-common
+    command: celery flower
+    ports:
+      - "${BIND_IP:-127.0.0.1}:${FLOWER_PORT:-5555}:5555"
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:5555/"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    restart: always
+    depends_on:
+      <<: *airflow-common-depends-on
+      airflow-init:
+        condition: service_completed_successfully
+
+  # 분류 결과 시각화 (읽기 전용 계정)
+  rshiny:
+    build: ./custom_image/rshiny
+    image: ev_rshiny:latest
+    platform: linux/amd64 # rocker 이미지 amd64 전용, Apple Silicon 에뮬레이션
+    environment:
+      EV_DB_HOST: postgis
+      EV_DB_PORT: 5432
+      EV_DB_NAME: ${EV_DB_NAME}
+      EV_DB_USER: rshiny_reader
+      EV_DB_PASSWORD: ${RSHINY_DB_PASSWORD}
+    ports:
+      - "${BIND_IP:-127.0.0.1}:${RSHINY_PORT:-3838}:3838"
+    restart: always
+    depends_on:
+      postgis:
+        condition: service_healthy
+
+volumes:
+  airflow-meta-db:
+  ev-db:
