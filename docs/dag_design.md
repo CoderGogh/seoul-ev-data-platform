@@ -351,24 +351,24 @@ validate_request ─▶ register_request (request_id 발급) ─▶ route_scope 
 - 여러 월은 mapped `TriggerDagRunOperator`로 요청하고, ev03의 `max_active_runs=1`이 순서대로 처리한다.
 - 재처리와 정기 cron이 겹쳐 중복 실행이 나도 두 번째는 fingerprint가 같아 `skipped_unchanged`로 끝난다.
 
-### 4.6 `ev12_quality_monitor` / `ev13_retention_cleanup` (확장)
+### 4.6 `ev12_quality_monitor` / `ev13_retention_cleanup`
 
-**ev12**는 두 원천을 교차 확인한다.
+ev12는 두 곳을 같이 본다.
 
-| 확인 대상 | 출처 |
+| 확인 | 출처 |
 |---|---|
 | 실행 상태 (성공/실패/미수행/수행 중) | Airflow 메타DB (강의 `dags_daily_dag_monitoring` 패턴) |
-| 데이터 상태 (`partial`, `held`, `stale`, `publication_delayed`, `no_eligible_period` 장기 지속, 기준월 누락, 커버리지 추이, 수집 최신성) | `ops` |
-| **불일치** (DAG는 성공인데 데이터는 `partial`·`held`) | 두 원천의 조인 — 리포트의 핵심 섹션 |
+| 데이터 상태 (`partial`, `held`, `stale`, `publication_delayed`, 오래 계속되는 `no_eligible_period`, 기준월 누락, 커버리지 추이, 수집 최신성) | `ops` |
+| 불일치 (DAG 성공인데 데이터는 `partial`·`held`) | 두 출처 조인. 리포트 핵심 |
 
-**ev13**은 보존 기간이 지났다는 이유만으로 삭제하지 않는다. 아래 조건을 **모두** 만족하는 데이터만 정리한다.
+ev13은 보존 기간이 지났다고 바로 지우지 않는다. 아래 조건을 다 만족해야 정리한다.
 
 | 대상 | 삭제 조건 |
 |---|---|
-| 원천 관측 이력 | 보존 기간 경과 `[미확정]` **그리고** 해당 시간대 집계가 확정됨 **그리고** 해당 월이 게시(`current`)됨 **그리고** 그 기간을 대상으로 열린 ev11 요청이 없음 |
-| staging | 해당 run의 `ops` 상태가 최종 확정됨 **그리고** 보존 기간 경과 |
-| quarantine | 보존 기간 경과 **그리고** 사유 집계가 `ops`에 기록됨 |
-| 집계, 스냅샷, 게시 로그, 마스터 버전 | **삭제하지 않음** (계보·재현의 근거) |
+| 원천 관측 이력 | 보존 기간 경과 `[미확정]`, 시간대 집계 확정, 해당 월 `current` 게시, 그 기간에 열린 ev11 요청 없음 |
+| staging | run 상태 확정, 보존 기간 경과 |
+| quarantine | 보존 기간 경과, 사유 집계가 `ops`에 기록됨 |
+| 집계, 스냅샷, 게시 로그, 마스터 버전 | 삭제 안 함 (계보·재현 근거) |
 
 ---
 
