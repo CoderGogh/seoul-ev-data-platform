@@ -106,6 +106,7 @@ services:
     volumes:
       - ev-db:/var/lib/postgresql/data
       - ./custom_image/postgis/initdb:/docker-entrypoint-initdb.d:ro
+      - ./files/master:/data/master:ro  # 마스터 원천 파일 (SHP, 경계, 매핑)
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 10s
