@@ -31,6 +31,8 @@ x-airflow-common:
     AIRFLOW_CONN_CONN_POSTGIS_EV: postgresql://${EV_DB_USER:?set in .env}:${EV_DB_PASSWORD:?set in .env}@postgis:5432/${EV_DB_NAME:?set in .env}
     AIRFLOW_CONN_CONN_DB_POSTGRES_AIRFLOW: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
     AIRFLOW_CONN_CONN_SEOUL_OPENAPI: http://openapi.seoul.go.kr:8088
+    # 실패 알림 Slack webhook (URL 내 / 때문에 JSON 형식)
+    AIRFLOW_CONN_CONN_SLACK_AIRFLOW_BOT: '{"conn_type": "slackwebhook", "password": "${SLACK_WEBHOOK_URL:?set in .env}"}'
     # Variable (API 키)
     AIRFLOW_VAR_APIKEY_SEOUL_TRAFFIC: ${SEOUL_TRAFFIC_API_KEY:?set in .env}
     AIRFLOW_VAR_APIKEY_SEOUL_REGISTRATION: ${SEOUL_REGISTRATION_API_KEY:?set in .env}
