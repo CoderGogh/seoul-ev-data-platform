@@ -652,13 +652,36 @@ DDL은 `files/sqls/ddl/`(스키마별 파일), 적용은 `scripts/apply_ddl.sh`.
 | Asset 이벤트는 Task 성공 시에만 | `[소스 확인]` | `task_runner._handle_current_task_success` |
 | 같은 Asset 이벤트 여러 개가 실행 하나로 합쳐짐 | `[소스 확인]` | `AssetDagRunQueue` PK = (asset_id, target_dag_id) |
 | `all_done_min_one_success` 존재, upstream 전부 실패면 upstream_failed | `[소스 확인]` | `ti_deps/deps/trigger_rule_dep.py` |
-| `triggering_asset_events`로 `extra` 읽기 | `[파싱 검증 예정]` | 컨텍스트 키는 확인. 실제 접근은 `dag.test()`로 |
-| mapped `TriggerDagRunOperator` + `wait_for_completion` + deferrable | `[파싱 검증 예정]` | ev11 구현 때 |
-| 분기 후 `all_done` 합류와 DAG 최종 상태 | `[파싱 검증 예정]` | §12 통합 테스트 |
+| `triggering_asset_events`로 `extra` 읽기 | `[실행 확인]` | ev10 Asset → ev03 `asset_triggered` 실행 (이벤트 1초 후). 마스터 이벤트라 `base_month` 힌트는 없음 |
+| mapped `TriggerDagRunOperator` + `wait_for_completion` + deferrable | `[실행 확인]` | ev11 mart 요청 → ev03 완료 대기 |
+| 분기 후 `all_done` 합류와 DAG 최종 상태 | `[실행 확인]` | 핵심 실패 시 상태 기록 후 예외 → DAG 실패, 데이터 판정(held 등)은 DAG 성공 |
+| `ti.get_task_states()` 로 같은 실행 Task 상태 조회 | `[실행 확인]` | 최종 상태 Task 공통 (`common/ops.py`). 워커는 메타DB 에 직접 접근하지 않음 |
+
+실행 중 발견한 Airflow 3.3.2 동작
+
+| 동작 | 대응 |
+|---|---|
+| Task SDK `dag_run.run_after` 는 pendulum 이 아닌 datetime | `pendulum.instance()` 변환 (DAG·Slack 콜백) |
+| `PostgresHook.get_conn()` 이 psycopg 3 연결 반환 | `execute_values` 대신 `executemany`, SQL 파일 문장 단위 실행 |
+| 새 DAG 파일 파싱 전 `unpause`·`trigger` 는 반영 안 됨 | 파싱 확인 후 실행 |
+| `catchup=False` 에서 unpause 시 직전 틱 실행 1회 생성 | ev02·ev03·ev12 정기 경로 검증에 활용 |
 
 ---
 
 ## 15. 변경 이력
+
+### v0.3 (2026-10-27) 구현·실행 검증
+
+| 구분 | 내용 | PR |
+|---|---|---|
+| 구현 | 공통 모듈, ev02, ev01, ev10, ev03, ev12, ev11, ev13, Rshiny 대시보드 | #4~#7, #9, #11~#14 |
+| 리팩터링 | `SeoulOpenApiHook`·`SeoulApiBaseMonthSensor` 로 API 호출·공표 대기 공통화 | #10 |
+| 수정 | `run_after` datetime, psycopg 3 일괄 삽입·다중 문장, 줄 끝 주석 문장 분리, 계획 묶음 0 기록 | #5~#7 |
+| 수정 | 끝난 시간대가 확정되지 않아 ev03 커버리지 0% → 다음 회차에서 확정 | #8 |
+| 수정 | MVP 분석 기간 끝을 제출일 정오로 | #15 |
+| 설계 변경 | ev01 30분 주기, 미처리 회차 흡수(임시 수집기 회차 포함) | #6 |
+| 설계 변경 | ev10 원본 추출·재사용 분기, 귀속률 미달은 `held` | #7 |
+| 설계 변경 | 분류 임계값 `mvp_v1` (대상 67개 행정동 p60: 전기차 522대, 증가율 39.7%, provisional) | #9 |
 
 ### v0.2 (2026-10-27) 리뷰 반영
 
