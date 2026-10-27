@@ -30,3 +30,6 @@ files/*
 .vscode/
 .idea/
 .DS_Store
+
+# 개인 이해용 정리 문서 (커밋 제외)
+docs/project_overview.txt
