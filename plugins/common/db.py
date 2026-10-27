@@ -18,9 +18,9 @@ def read_sql(rel_path):
     return (SQL_DIR / rel_path).read_text(encoding="utf-8")
 
 
-# 문장 단위 분리 (psycopg 3 는 파라미터 사용 시 1회 1문장). 문장 끝 ';' + 줄바꿈 기준
+# 문장 단위 분리 (psycopg 3 는 파라미터 사용 시 1회 1문장). 문장 끝 ';' (+ 같은 줄 주석) + 줄바꿈 기준
 def split_statements(sql):
-    parts = re.split(r";\s*(?:\n|$)", sql)
+    parts = re.split(r";[ \t]*(?:--[^\n]*)?(?:\n|$)", sql)
     stmts = []
     for p in parts:
         body = "\n".join(line for line in p.splitlines() if not line.strip().startswith("--")).strip()

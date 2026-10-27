@@ -7,6 +7,11 @@ def test_split_delete_insert():
     assert split_statements(sql) == ["-- 설명\nDELETE FROM t WHERE a = %(run_id)s", "INSERT INTO t SELECT 1"]
 
 
+def test_split_trailing_line_comment():
+    sql = "INSERT INTO t VALUES (1)\nON CONFLICT DO NOTHING;  -- 설명\n\nDELETE FROM t;\n"
+    assert split_statements(sql) == ["INSERT INTO t VALUES (1)\nON CONFLICT DO NOTHING", "DELETE FROM t"]
+
+
 def test_split_ignores_comment_only_tail():
     assert split_statements("SELECT 1;\n-- 끝\n") == ["SELECT 1"]
 
