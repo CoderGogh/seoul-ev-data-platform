@@ -19,7 +19,6 @@ from common import db, ops
 from common.assets import EV_REG_SNAPSHOT
 from common.xlsx_report import parse_report
 from config.default_args import DEFAULT_ARGS
-from psycopg2.extras import execute_values
 
 KST = "Asia/Seoul"
 SERVICE = "TbDongFuelCar"
@@ -67,12 +66,17 @@ def _find_file(name):
 
 
 def _load_staging(run_id, base_month, source, source_ref, rows):
-    sql = """INSERT INTO staging.registration_raw (run_id, row_no, source, source_ref, base_month, stats_ym, sgg_cd,
+    sql = (
+        """INSERT INTO staging.registration_raw (run_id, row_no, source, source_ref, base_month, stats_ym, sgg_cd,
                  dong_cd, fuel_cd, sgg_nm, adstrd_nm, fuel_nm, sum11, sum12, sum13, sum14, sum21, sum22, sum23, sum24,
-                 sum31, sum32, sum33, sum34, sum_tot) VALUES %s"""
+                 sum31, sum32, sum33, sum34, sum_tot) VALUES ("""
+        + ", ".join(["%s"] * 25)
+        + ")"
+    )
+    # 드라이버 무관 일괄 삽입 (PostgresHook 이 psycopg 3 연결 반환)
     with closing(db.get_conn()) as conn, conn, conn.cursor() as cur:
         cur.execute("DELETE FROM staging.registration_raw WHERE run_id = %s", (run_id,))  # 재시도 멱등
-        execute_values(cur, sql, [(run_id, i, source, source_ref, base_month, *r) for i, r in enumerate(rows, 1)])
+        cur.executemany(sql, [(run_id, i, source, source_ref, base_month, *r) for i, r in enumerate(rows, 1)])
 
 
 with DAG(
@@ -96,7 +100,7 @@ with DAG(
     @task(pool=API_POOL, queue="api")
     def resolve_base_month(**context):
         p = context["params"]
-        run_after = context["dag_run"].run_after.in_timezone(KST)
+        run_after = pendulum.instance(context["dag_run"].run_after).in_timezone(KST)  # SDK 는 datetime 반환
         base_month = p["base_month"] or run_after.subtract(months=1).format("YYYYMM")
         info = {"base_month": base_month, "source": p["source"], "file_name": p["file_name"]}
         if info["source"] == "file" and not info["file_name"]:
