@@ -263,6 +263,20 @@ services:
       airflow-init:
         condition: service_completed_successfully
 
+  # 초기 관측 확보용 임시 수집기 (ev01 가동 전 한시 운영, profile 지정 시에만 기동)
+  bootstrap-collector:
+    <<: *airflow-common
+    profiles:
+      - bootstrap
+    entrypoint: python
+    command: /opt/airflow/scripts/bootstrap_collector.py
+    volumes:
+      - ./scripts:/opt/airflow/scripts:ro
+    restart: unless-stopped
+    depends_on:
+      postgis:
+        condition: service_healthy
+
   # 분류 결과 시각화 (읽기 전용 계정)
   rshiny:
     build: ./custom_image/rshiny
