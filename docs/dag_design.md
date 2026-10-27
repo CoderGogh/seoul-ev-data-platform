@@ -103,7 +103,7 @@ Task가 성공했다고 데이터가 준비된 건 아니다. 그래서 아래 �
 init_poll_batch ─▶ check_run_freshness (branch)
       ├─▶ skip_stale_run ───────────────────────────────────────────┐
       └─▶ get_target_links ─▶ plan_link_chunks                     │
-            ─▶ extract_chunk.expand(chunk)     pool=seoul_openapi_pool
+            ─▶ extract_chunk.expand(chunk)     pool=seoul_traffic_api_pool, queue=api
             ─▶ validate_responses   [all_done_min_one_success]     │
             ─▶ quarantine_invalid ─▶ load_obs ─▶ aggregate_timeband│
             ─▶ record_coverage                 outlet: ev_traffic_obs
@@ -464,9 +464,10 @@ ev13은 보존 기간이 지났다고 바로 지우지 않는다. 아래 조건�
 
 | 종류 | 이름 | 비고 |
 |---|---|---|
-| Pool | `seoul_openapi_pool` `[미확정: slots]` | ev01·ev02 공유. 인증키가 계정 단위라 호출 제한도 계정 단위. 겹치면 `priority_weight`로 ev01 우선 |
-| Connection | `conn_seoul_openapi`, `conn_postgis_ev`, `conn_slack_airflow_bot` | Slack은 강의 프로젝트 재사용 |
-| Variable | `apikey_openapi_seoul_go_kr`, `ev_reg_source_mode` | 임계값은 Variable 말고 DB 버전 테이블 (계보 연결) |
+| Pool | `seoul_traffic_api_pool`, `seoul_registration_api_pool` `[미확정: slots]` | API 키가 데이터셋별로 따로라 호출 제한도 따로 관리. slots는 `.env`로 조정 |
+| Celery 큐 | `default` (워커 2대), `api` (워커 1대) | 외부 API 호출 Task는 `queue=api`. API 지연이 적재·집계 Task를 막지 않게 분리 |
+| Connection | `conn_seoul_openapi`, `conn_postgis_ev`, `conn_db_postgres_airflow`, `conn_slack_airflow_bot` | 환경변수(`AIRFLOW_CONN_*`)로 등록. 메타DB 연결은 ev12용 |
+| Variable | `apikey_seoul_traffic`, `apikey_seoul_registration`, `ev_reg_source_mode` | 환경변수(`AIRFLOW_VAR_*`)로 주입. 임계값은 Variable 말고 DB 버전 테이블 (계보 연결) |
 | Asset | `ev_traffic_obs`, `ev_reg_snapshot`, `ev_master_version`, `ev_mart_published` | `plugins/common/assets.py`에서 한 번만 정의 |
 
 ---
@@ -492,7 +493,7 @@ ev13은 보존 기간이 지났다고 바로 지우지 않는다. 아래 조건�
 | 정적 | import 오류 | DagBag `import_errors` 없음 (RFP §08) |
 | 정적 | 공통 정책 | 모든 DAG `catchup=False`, `tags`, `retries ≥ 1` |
 | 정적 | `max_active_runs` | §2 표와 일치 |
-| 정적 | Pool | API 호출 Task(`extract_chunk`, `extract_reg_api`)에 `seoul_openapi_pool` |
+| 정적 | Pool·큐 | `extract_chunk`는 `seoul_traffic_api_pool`, `extract_reg_api`는 `seoul_registration_api_pool`, 둘 다 `queue=api` |
 | 정적 | Sensor 모드 | 전부 `reschedule` |
 | 정적 | trigger_rule | ev01 `validate_responses=all_done_min_one_success`, `finalize_run_status=all_done` / ev02 `validate_base_month=none_failed_min_one_success`, `record_run=all_done` / ev03 `record_run_result=all_done` / ev11 `record_request_result=all_done` |
 | 정적 | outlet 위치 | §2의 지정 Task에만 있고, upstream에 검증 Task(`verify_candidate`, `snapshot_gate`, `validate_mapping_quality`)가 있음 |
