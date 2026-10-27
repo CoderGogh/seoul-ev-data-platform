@@ -510,19 +510,19 @@ ev13은 보존 기간이 지났다고 바로 지우지 않는다. 아래 조건�
 
 ---
 
-## 13. 미확정 항목 (실증 후 확정)
+## 13. 미확정 항목
 
-| 항목 | 확정 방법 | 영향 범위 |
+| 항목 | 정하는 방법 | 영향 |
 |---|---|---|
-| 폴링 주기, 묶음 크기 N, pool slots | 링크 수 × 묶음 응답 시간 실측(p95), 호출 제한 | ev01 스케줄, 병렬도 |
-| 지연 회차 허용 지연, `dagrun_timeout` | 폴링 주기 확정 후 | `check_run_freshness` |
-| 완료 묶음 최소 비율 (경보 기준) | 응답 실패율 분포 | ev01 최종 상태 |
+| 폴링 주기, 묶음 크기, pool slots | 링크 수 × 묶음 응답 시간 실측(p95), 호출 제한 | ev01 스케줄·병렬도 |
+| 허용 지연, `dagrun_timeout` | 폴링 주기 확정 후 | `check_run_freshness` |
+| 완료 묶음 최소 비율 | 응답 실패율 분포 | ev01 최종 상태 |
 | `source_observed_at` 제공 여부 | `verify_apis.py` | B 판정 활성화 |
-| 등록현황 수집 경로 (API 전수 / CSV) | `list_total_count` vs CSV 합계 | ev02 분기 기본값 |
-| 등록현황 공표 지연 개월, 공표 일자 | 원천 확인과 수개월 관측 | `resolve_base_month`, 센서 timeout |
+| 등록현황 수집 경로 (API / CSV) | `list_total_count` vs CSV 합계 | ev02 분기 기본값 |
+| 공표 지연 개월, 공표 일자 | 원천 확인, 몇 달 관측 | `resolve_base_month`, 센서 timeout |
 | 대표 관측 목표 시각·허용 범위 | 폴링 주기 확정 후 | ev01 집계, 커버리지 |
 | 지각 허용 (워터마크) | 수집 지연 분포 | dirty 월 판정 |
-| 분류 임계값, 분포 급변 경보 기준 | 실제 분포(분위수) + 민감도 검토 | `classify_abc`, `verify_candidate` |
+| 분류 임계값, 분포 급변 기준 | 실제 분포(분위수) + 민감도 검토 | `classify_abc`, `verify_candidate` |
 | 보존 기간 | 실제 수집량 | ev13 |
 
 ---
