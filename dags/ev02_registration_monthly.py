@@ -11,17 +11,19 @@ from datetime import timedelta
 from pathlib import Path
 
 import pendulum
-import requests
 from airflow.providers.standard.operators.empty import EmptyOperator
-from airflow.sdk import DAG, BaseHook, CronTriggerTimetable, Param, PokeReturnValue, Variable, task
+from airflow.sdk import DAG, CronTriggerTimetable, Param, task
 from airflow.sdk.exceptions import AirflowFailException
 from common import db, ops
 from common.assets import EV_REG_SNAPSHOT
 from common.xlsx_report import parse_report
 from config.default_args import DEFAULT_ARGS
+from hooks.seoul_openapi_hook import SeoulOpenApiHook
+from sensors.seoul_api_base_month_sensor import SeoulApiBaseMonthSensor
 
 KST = "Asia/Seoul"
 SERVICE = "TbDongFuelCar"
+API_KEY_VAR = "apikey_seoul_registration"
 PAGE_SIZE = 1000
 MASTER_DIR = Path("/opt/airflow/files/master")
 API_POOL = "seoul_registration_api_pool"
@@ -35,25 +37,6 @@ FINAL_TASKS = [
     "validate_base_month", "reconcile_totals", "normalize_admdong_fuel", "quarantine_unmapped",
     "snapshot_gate", "compare_with_existing", "skip_identical", "load_snapshot",
 ]  # fmt: skip
-
-
-def _api_base():
-    c = BaseHook.get_connection("conn_seoul_openapi")
-    return f"http://{c.host}:{c.port}/{Variable.get('apikey_seoul_registration')}/xml/{SERVICE}"
-
-
-def _api_page(start, end):
-    import xml.etree.ElementTree as ET
-
-    res = requests.get(f"{_api_base()}/{start}/{end}/", timeout=30)
-    res.raise_for_status()
-    root = ET.fromstring(res.content)
-    code = root.findtext(".//CODE")
-    if code not in ("INFO-000", "INFO-200"):
-        raise RuntimeError(f"API 오류 {code}: {root.findtext('.//MESSAGE')}")
-    total = root.findtext("list_total_count")
-    rows = [{c.tag.upper(): c.text for c in row} for row in root.findall("row")]
-    return int(total) if total else 0, rows
 
 
 # 파일명 정규화 매칭 (macOS 한글 NFD 대응)
@@ -103,27 +86,30 @@ with DAG(
         run_after = pendulum.instance(context["dag_run"].run_after).in_timezone(KST)  # SDK 는 datetime 반환
         base_month = p["base_month"] or run_after.subtract(months=1).format("YYYYMM")
         info = {"base_month": base_month, "source": p["source"], "file_name": p["file_name"]}
-        if info["source"] == "file" and not info["file_name"]:
-            raise AirflowFailException("file 경로는 file_name 필요")
+        if info["source"] == "file" and (not info["file_name"] or _find_file(info["file_name"]) is None):
+            raise AirflowFailException(f"file 경로 파일 없음: {info['file_name']}")
         if info["source"] == "api":
             # API는 최신 월만 제공 → 지난 월 요청은 file 경로로 (센서 soft_fail 과 구분하려고 여기서 판정)
-            _, rows = _api_page(1, 1)
-            latest = rows[0]["STATS_YM"] if rows else None
+            r = SeoulOpenApiHook(api_key_var=API_KEY_VAR).call(SERVICE, 1, 1)
+            latest = r.rows[0]["STATS_YM"] if r.rows else None
             if latest and latest > base_month:
                 raise AirflowFailException(f"API 최신 월 {latest} > 대상 {base_month}: file 경로 사용")
         ops.record_run(context, "running", partition_key=base_month, detail=info)
         return info
 
-    # 공표 대기: 대상 월이 원천에 있을 때까지 (워커 슬롯 비점유)
-    @task.sensor(
-        poke_interval=3600, timeout=timedelta(days=20).total_seconds(), mode="reschedule", soft_fail=True,
-        pool=API_POOL, queue="api",
-    )  # fmt: skip
-    def wait_base_month_published(info):
-        if info["source"] == "file":
-            return PokeReturnValue(is_done=_find_file(info["file_name"]) is not None)
-        _, rows = _api_page(1, 1)
-        return PokeReturnValue(is_done=bool(rows) and rows[0]["STATS_YM"] == info["base_month"])
+    # 공표 대기 (커스텀 센서): 대상 월이 원천에 있을 때까지, reschedule 로 워커 슬롯 비점유
+    published = SeoulApiBaseMonthSensor(
+        task_id="wait_base_month_published",
+        service=SERVICE,
+        api_key_var=API_KEY_VAR,
+        base_month="{{ ti.xcom_pull(task_ids='resolve_base_month')['base_month'] }}",
+        source="{{ ti.xcom_pull(task_ids='resolve_base_month')['source'] }}",
+        poke_interval=3600,
+        timeout=timedelta(days=20).total_seconds(),
+        soft_fail=True,  # 공표 지연은 실패가 아니라 publication_delayed
+        pool=API_POOL,
+        queue="api",
+    )
 
     @task.branch
     def choose_source(info):
@@ -131,11 +117,7 @@ with DAG(
 
     @task(pool=API_POOL, queue="api")
     def extract_reg_api(info, **context):
-        total, _ = _api_page(1, 1)
-        rows = []
-        for start in range(1, total + 1, PAGE_SIZE):
-            _, page = _api_page(start, min(start + PAGE_SIZE - 1, total))
-            rows += page
+        total, rows = SeoulOpenApiHook(api_key_var=API_KEY_VAR).fetch_all(SERVICE, PAGE_SIZE)
         cols = ["STATS_YM", "SGG_CD", "DONG_CD", "FUEL_CD", "SGG_NM", "ADSTRD_NM", "FUEL_NM"]
         sums = [f"SUM{g}{i}" for g in (1, 2, 3) for i in (1, 2, 3, 4)] + ["SUM_TOT"]
         _load_staging(
@@ -261,7 +243,6 @@ with DAG(
         ops.record_run(context, status, base_month, reason=reason)
 
     info = resolve_base_month()
-    published = wait_base_month_published(info)
     branch = choose_source(info)
     api = extract_reg_api(info)
     file = extract_reg_file(info)
@@ -274,6 +255,17 @@ with DAG(
     loaded = load_snapshot(info, grade)
     done = record_run()
 
-    published >> branch >> [api, file] >> validated >> reconciled >> normalized >> quarantined >> grade >> compare
+    (
+        info
+        >> published
+        >> branch
+        >> [api, file]
+        >> validated
+        >> reconciled
+        >> normalized
+        >> quarantined
+        >> grade
+        >> compare
+    )
     compare >> [skip_identical, loaded]
     [skip_identical, loaded] >> done
