@@ -168,48 +168,45 @@ Airflow 3.3.2 실제 동작 `[소스 확인]`
 
 ### 4.2 `ev02_registration_monthly` — 등록현황 월 배치
 
-**파티션 키**는 `base_month`(등록 기준월)다. 기준월은 실행 시각에서 암묵적으로 유도하지 않고 **명시적으로 결정**한다.
+파티션 키는 `base_month`. 실행 시각에서 대충 유도하지 않고 명시적으로 정한다.
 
 ```
 resolve_base_month
-  ─▶ wait_base_month_published  (sensor · mode=reschedule · soft_fail=True)
-  ─▶ choose_source (@task.branch: Variable ev_reg_source_mode = api | csv)
+  ─▶ wait_base_month_published  (sensor, reschedule, soft_fail=True)
+  ─▶ choose_source (branch: Variable ev_reg_source_mode = api | csv)
         ├─▶ extract_reg_api
         └─▶ extract_reg_csv
   ─▶ validate_base_month   [none_failed_min_one_success]
   ─▶ reconcile_totals ─▶ normalize_admdong_fuel ─▶ quarantine_unmapped ─▶ snapshot_gate
-  ─▶ compare_with_existing (@task.branch)
+  ─▶ compare_with_existing (branch)
         ├─▶ skip_identical
-        └─▶ load_snapshot           ◀ outlet: ev_reg_snapshot (extra={base_month, load_id, request_id})
+        └─▶ load_snapshot           outlet: ev_reg_snapshot (extra={base_month, load_id, request_id})
   ─▶ record_run  [all_done]
 ```
 
-#### 4.2.1 기준월 결정과 센서 조건
+#### 4.2.1 기준월과 센서
 
-| 실행 유형 | `base_month` 결정 | 센서 조건 | 센서 미충족 시 |
+| 실행 유형 | `base_month` | 센서 조건 | 센서 미충족 시 |
 |---|---|---|---|
-| **정기 실행** (cron) | `logical_date`(KST)의 월 − `공표 지연 개월` `[미확정: 1개월로 가정]` | 원천에 **이 `base_month`가 공표됐는가** | 대기(reschedule) → `timeout` `[미확정]` 초과 시 soft_fail(skip) → `record_run`이 `publication_delayed`로 기록하고 알림 |
-| **특정 월 재처리** (`params.base_month`) | `params.base_month` 우선 | 같은 조건. 이미 공표된 월이면 즉시 통과 | 원천에 해당 월이 없으면 즉시 실패(요청 오류) |
-| **이미 적재한 월의 재공표** | 정기 또는 재처리와 같음 | 같은 조건 | — |
+| 정기 (cron) | `logical_date`(KST) 월 − 공표 지연 개월 `[미확정: 1개월 가정]` | 이 월이 원천에 공표됐나 | reschedule 대기 → timeout `[미확정]` → soft_fail → `publication_delayed` 기록·알림 |
+| 특정 월 재처리 (`params.base_month`) | `params` 우선 | 같음. 이미 공표된 월이면 바로 통과 | 원천에 없으면 요청 오류로 실패 |
+| 적재한 월의 재공표 | 위와 같음 | 같음 | — |
 
-- v0.1의 "원천 최신 기준월 > 마지막 적재 기준월" 조건은 폐기했다.
-  - 그 조건으로는 같은 월을 재적재할 때 센서가 영원히 대기한다.
-  - 또 센서가 감지한 월과 실행이 기대하는 월이 어긋날 수 있다.
-  - 새 조건은 **"대상 월이 공표됐는가"** 하나로 정기 실행과 재처리를 함께 처리한다.
-- `CronDataIntervalTimetable`의 `data_interval_start`에 의존하던 방식도 폐기했다. 대신 `resolve_base_month`가 위 규칙으로 계산해 XCom과 `ops`에 남긴다. 규칙이 코드 한 곳에 있으므로 단위 테스트가 가능하다.
-- 기준월 누락 감지(예: 직전 월이 적재되지 않은 채 다음 월이 적재됨)는 ev12가 보고하고, 보완은 ev11로 한다.
+- v0.1의 "원천 최신 월 > 마지막 적재 월" 조건은 버렸다. 같은 월을 다시 받을 때 센서가 끝없이 기다리고, 감지한 월과 실행이 기대한 월이 어긋날 수 있어서다.
+- `CronDataIntervalTimetable`의 `data_interval_start`에 기대는 방식도 버렸다. `resolve_base_month` 한 곳에서 계산하니 테스트도 쉽다.
+- 중간 월 누락은 ev12가 잡고, 보완은 ev11로 한다.
 
-#### 4.2.2 재공표 처리 (`compare_with_existing`)
+#### 4.2.2 재공표 처리
 
-| 비교 결과 | 처리 | `ops` 상태 | Asset 이벤트 |
+| 비교 결과 | 처리 | `ops` 상태 | Asset |
 |---|---|---|---|
 | 해당 월 스냅샷 없음 | 신규 적재, `load_id` 발급 | `success` | 발생 |
-| 있음, 내용 해시 동일 | 적재 생략 | `unchanged` | **발생하지 않음** → ev03 불필요 실행 방지 |
-| 있음, 내용 상이 | 기존 `load_id`와 새 `load_id`의 차이(행 수·합계·변경 행정동)를 기록한 뒤 파티션 교체 | `republished` | 발생 |
+| 있음, 내용 같음 | 적재 생략 | `unchanged` | 없음 (ev03 불필요 실행 방지) |
+| 있음, 내용 다름 | 차이(행 수·합계·바뀐 행정동) 기록 후 파티션 교체 | `republished` | 발생 |
 
-- `load_snapshot`은 `base_month` 파티션을 **단일 트랜잭션 안에서 delete + insert**로 교체한다.
-- `record_run`(`all_done`)은 upstream 상태를 조회해 상태를 확정한다. 가능한 상태는 `success`·`republished`·`unchanged`·`publication_delayed`·`failed`이며, `failed`일 때는 예외를 발생시킨다.
-- **백필**: `catchup=False`로 자동 소급을 막는다. 소급이 필요하면 ev11(`scope=registration`, 월 목록)을 사용한다. `airflow backfill create`는 `logical_date` 기반이라 기준월 규칙을 거치므로 쓸 수는 있지만, 사유가 기록되도록 ev11 경로를 표준으로 한다.
+- `load_snapshot`은 `base_month` 파티션을 한 트랜잭션에서 delete + insert.
+- `record_run`(`all_done`)이 `success`·`republished`·`unchanged`·`publication_delayed`·`failed` 중 하나로 확정. `failed`면 예외.
+- 자동 소급은 `catchup=False`로 막는다. 소급은 ev11(`registration`)이 표준 경로다. `airflow backfill create`도 되지만 사유가 남지 않는다.
 
 ---
 
