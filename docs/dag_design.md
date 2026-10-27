@@ -483,30 +483,30 @@ ev13은 보존 기간이 지났다고 바로 지우지 않는다. 아래 조건�
 
 ---
 
-## 12. 테스트 계획 — 정책을 문서가 아닌 테스트로 강제
+## 12. 테스트 계획
 
-> 현재 상태: **테스트 미구현.** 아래는 구현할 테스트 목록이다. 구현하기 전까지 이 표의 정책은 "설계"이며, CI에서 "강제"된다고 표현하지 않는다.
+아직 구현 전이다. 테스트가 생기기 전까지 아래 정책은 설계일 뿐 CI가 강제하지 않는다.
 
-| 층위 | 테스트 | 검사 내용 |
+| 층위 | 테스트 | 내용 |
 |---|---|---|
-| 정적 (DagBag) | import 오류 | DagBag `import_errors` 없음 (RFP §08 validate_dag) |
+| 정적 | import 오류 | DagBag `import_errors` 없음 (RFP §08) |
 | 정적 | 공통 정책 | 모든 DAG `catchup=False`, `tags`, `retries ≥ 1` |
-| 정적 | `max_active_runs` | DAG별 기대값 표(§2)와 일치 |
-| 정적 | Pool | 외부 API 호출 Task(ev01 `extract_chunk`, ev02 `extract_reg_api`)에 `seoul_openapi_pool` 지정 |
-| 정적 | Sensor 모드 | 모든 Sensor `mode='reschedule'` |
-| 정적 | trigger_rule 명세 | 기대값 표와 일치. 예: ev01 `validate_responses=all_done_min_one_success`, `finalize_run_status=all_done`; ev02 `validate_base_month=none_failed_min_one_success`, `record_run=all_done`; ev03 `record_run_result=all_done`; ev11 `record_request_result=all_done` |
-| 정적 | outlet 위치 | outlet은 지정된 Task(§2)에만 있고, 그 Task의 upstream에 검증·게이트 Task(ev03 `verify_candidate`, ev02 `snapshot_gate`, ev10 `validate_mapping_quality`)가 있다 |
-| 정적 | 최종 상태 Task | 각 핵심 DAG의 유일한 leaf가 `all_done` 상태 확정 Task다 |
-| 단위 | 기준월 결정 | `resolve_base_month`: 정기 실행, `params` 우선, KST 월 경계 |
-| 단위 | 지연 회차 판정 | `check_run_freshness`의 경계값 |
-| 단위 | 대상 월 선택 | `resolve_target_period`: conf > 이벤트 힌트(dirty 검증) > dirty 최신, 후보 없음 → `no_eligible_period` |
-| 단위 | 최종 상태 매핑 | §4.1.2, §4.3.4 표의 각 행 |
-| 통합 (DB) | 게시 원자성 | `verify_candidate` 실패 또는 게시 트랜잭션 중 예외 → 운영 마트와 게시 로그 **변경 없음** |
-| 통합 (DB) | 파티션 교체 | 이전 게시에 있던 지역이 후보에서 `WITHHELD`가 되면 운영 마트도 `WITHHELD`로 바뀐다 (이전 분류가 남지 않음) |
-| 통합 (DB) | 멱등 적재 | 같은 `poll_batch_id`·`base_month`를 재적재해도 행 수 불변 |
-| 통합 (Airflow) | 분기 합류 | `dag.test()`로 각 분기 경로에서 최종 Task가 실행되고 기대한 상태를 기록하는지 |
+| 정적 | `max_active_runs` | §2 표와 일치 |
+| 정적 | Pool | API 호출 Task(`extract_chunk`, `extract_reg_api`)에 `seoul_openapi_pool` |
+| 정적 | Sensor 모드 | 전부 `reschedule` |
+| 정적 | trigger_rule | ev01 `validate_responses=all_done_min_one_success`, `finalize_run_status=all_done` / ev02 `validate_base_month=none_failed_min_one_success`, `record_run=all_done` / ev03 `record_run_result=all_done` / ev11 `record_request_result=all_done` |
+| 정적 | outlet 위치 | §2의 지정 Task에만 있고, upstream에 검증 Task(`verify_candidate`, `snapshot_gate`, `validate_mapping_quality`)가 있음 |
+| 정적 | 최종 상태 Task | 핵심 DAG의 leaf가 `all_done` 상태 확정 Task 하나 |
+| 단위 | 기준월 결정 | `resolve_base_month`: 정기, `params` 우선, KST 월 경계 |
+| 단위 | 지연 회차 | `check_run_freshness` 경계값 |
+| 단위 | 대상 월 선택 | conf > 이벤트 힌트(dirty 확인) > dirty 최신, 없으면 `no_eligible_period` |
+| 단위 | 최종 상태 | §4.1.2, §4.3.4 표 각 행 |
+| 통합 (DB) | 게시 원자성 | `verify_candidate` 실패나 트랜잭션 중 예외 시 운영 마트·게시 로그 변화 없음 |
+| 통합 (DB) | 파티션 교체 | 이전에 A였던 지역이 `WITHHELD`가 되면 운영 마트도 `WITHHELD` |
+| 통합 (DB) | 멱등 적재 | 같은 `poll_batch_id`·`base_month` 재적재 시 행 수 그대로 |
+| 통합 (Airflow) | 분기 합류 | `dag.test()`로 분기마다 최종 Task가 돌고 상태가 맞는지 |
 
-외부 API를 호출하지 않는 fixture 테스트와 실제 API 통합 테스트는 분리한다(RFP §08).
+외부 API를 부르지 않는 fixture 테스트와 실제 API 통합 테스트는 분리한다 (RFP §08).
 
 ---
 
