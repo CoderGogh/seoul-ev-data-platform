@@ -316,18 +316,18 @@ resolve_target_period (branch)
 
 ---
 
-### 4.4 `ev10_master_refresh` — 마스터 갱신 (확장)
+### 4.4 `ev10_master_refresh` — 마스터 갱신
 
 ```
-detect_source_files ─▶ load_master_staging ─▶ register_version (status=pending)
+detect_source_files ─▶ load_master_staging ─▶ register_version (pending)
   ─▶ validate_geometry ─▶ build_link_admdong_map ─▶ validate_mapping_quality
-  ─▶ activate_version (status=active)   ◀ outlet: ev_master_version
+  ─▶ activate_version (active)   outlet: ev_master_version
   ─▶ record_run [all_done]
 ```
 
-- **등록 시점과 활성 시점을 분리한다.** 새 버전은 `pending`으로 등록되고, 기하 검증(SRID, `ST_IsValid`, 경계 중복·틈, A↔C 링크ID 조인율)과 매핑 품질 검증(매핑 성공률, 미귀속 비율)을 통과해야만 `active`가 된다.
-- ev01·ev03는 `active` 버전만 사용한다. 검증에 실패한 버전은 `rejected`로 남고 Asset 이벤트도 발생하지 않는다.
-- 버전은 추가만 하고 덮어쓰지 않는다. 그래서 과거 마트를 재현할 수 있다.
+- 등록과 활성을 나눈다. `pending`으로 등록하고, 기하 검증(SRID, `ST_IsValid`, 경계 중복·틈, A↔C 링크ID 조인율)과 매핑 품질(성공률, 미귀속 비율)을 통과해야 `active`.
+- ev01·ev03는 `active`만 쓴다. 검증 실패 버전은 `rejected`로 남고 Asset도 안 나간다.
+- 버전은 추가만 한다. 과거 마트 재현용.
 
 ### 4.5 `ev11_reprocess` — 재처리 단일 진입점 (확장)
 
