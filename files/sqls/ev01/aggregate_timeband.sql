@@ -33,3 +33,9 @@ ON CONFLICT (link_id, obs_date, timeband) DO UPDATE
 SET rep_spd = EXCLUDED.rep_spd, rep_trv_time = EXCLUDED.rep_trv_time,
     rep_collected_at = EXCLUDED.rep_collected_at, obs_cnt = EXCLUDED.obs_cnt,
     is_final = EXCLUDED.is_final, updated_at = now();
+
+-- 지난 시간대 확정: 이번 회차가 건드리지 않은 시간대도 종료됐으면 확정 (다음 시간대 회차에서 갱신되지 않는 문제)
+UPDATE core.link_timeband
+SET is_final = true, updated_at = now()
+WHERE NOT is_final
+  AND now() >= ((obs_date + make_interval(hours => timeband + 1)) AT TIME ZONE 'Asia/Seoul');
