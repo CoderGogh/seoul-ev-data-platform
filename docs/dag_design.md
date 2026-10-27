@@ -329,27 +329,27 @@ detect_source_files ─▶ load_master_staging ─▶ register_version (pending)
 - ev01·ev03는 `active`만 쓴다. 검증 실패 버전은 `rejected`로 남고 Asset도 안 나간다.
 - 버전은 추가만 한다. 과거 마트 재현용.
 
-### 4.5 `ev11_reprocess` — 재처리 단일 진입점 (확장)
+### 4.5 `ev11_reprocess` — 재처리 진입점
 
-`params`는 JSON Schema로 검증한다. 필드는 `scope` ∈ {`registration`, `timeband`, `mart`}, `base_months`(목록), `date_from`/`date_to`(timeband), `force`(mart, 기본 False), `reason`(필수)이다.
+`params`(JSON Schema 검증): `scope` ∈ {`registration`, `timeband`, `mart`}, `base_months`, `date_from`/`date_to`, `force`(기본 False), `reason`(필수)
 
 ```
-validate_request ─▶ register_request (ops, request_id 발급) ─▶ route_scope (@task.branch)
-  ├─ registration ─▶ trigger_ev02.expand(base_month)   (conf={base_month, request_id}, wait_for_completion)
-  │                   └ ev03는 ev02의 Asset 이벤트로 실행된다 — 여기서 ev03를 직접 트리거하지 않는다
-  ├─ timeband ─────▶ reaggregate_timeband ─▶ trigger_ev03.expand(base_month)  (conf={base_month, request_id}, wait)
-  └─ mart ─────────▶ trigger_ev03_mart.expand(base_month) (conf={base_month, force, request_id}, wait)
+validate_request ─▶ register_request (request_id 발급) ─▶ route_scope (branch)
+  ├─ registration ─▶ trigger_ev02.expand(base_month)   conf={base_month, request_id}, wait
+  │                   ev03는 ev02의 Asset으로 실행. 여기서 직접 트리거하지 않음
+  ├─ timeband ─────▶ reaggregate_timeband ─▶ trigger_ev03.expand(base_month)  conf={base_month, request_id}, wait
+  └─ mart ─────────▶ trigger_ev03_mart.expand(base_month)  conf={base_month, force, request_id}, wait
 ─▶ record_request_result  [all_done]
 ```
 
 | 범위 | 재처리 작업 | 통합 DAG 실행 | 결과 기록 |
 |---|---|---|---|
-| `registration` | ev02 재실행 (월별) | **ev02의 Asset 이벤트 → ev03** (명시 트리거 없음). ev02가 `unchanged`이면 ev03도 실행되지 않는다 | ev02 결과를 기록. ev03 결과는 이벤트 `extra.request_id`를 통해 ev03 게시 로그에 연결된다 |
-| `timeband` | 지정 기간의 링크 시간대 재집계 | **ev03 명시 트리거** (`conf.base_month`). 집계 워터마크가 바뀌므로 `force`는 불필요하다 | ev03 실행 결과를 기록 |
-| `mart` | 없음 (임계값·마스터 버전 변경, 로직 수정) | **ev03 명시 트리거** (`conf.base_month`, 필요 시 `force`) | ev03 실행 결과를 기록 |
+| `registration` | ev02 월별 재실행 | ev02 Asset → ev03. 명시 트리거 없음. ev02가 `unchanged`면 ev03도 안 돈다 | ev02 결과. ev03 결과는 `extra.request_id`로 게시 로그에 연결 |
+| `timeband` | 기간 재집계 | ev03 명시 트리거. 워터마크가 바뀌니 `force` 불필요 | ev03 결과 |
+| `mart` | 없음 (임계값·마스터 변경, 로직 수정) | ev03 명시 트리거, 필요하면 `force` | ev03 결과 |
 
-- 여러 월은 mapped `TriggerDagRunOperator`로 요청하고, ev03의 `max_active_runs=1`이 실행을 직렬화한다. 수동 트리거 회차는 대기열에 들어가 순서대로 실행된다.
-- 경로를 위와 같이 하나로 정해도 예상하지 못한 중복 실행(예: 재처리와 정기 cron이 겹침)은 생길 수 있다. 이때 두 번째 실행은 fingerprint가 같으므로 `skipped_unchanged`로 끝난다. 이것이 **안전망**이다.
+- 여러 월은 mapped `TriggerDagRunOperator`로 요청하고, ev03의 `max_active_runs=1`이 순서대로 처리한다.
+- 재처리와 정기 cron이 겹쳐 중복 실행이 나도 두 번째는 fingerprint가 같아 `skipped_unchanged`로 끝난다.
 
 ### 4.6 `ev12_quality_monitor` / `ev13_retention_cleanup` (확장)
 
