@@ -26,6 +26,10 @@ docker compose up -d --build
 
 Airflow 로그인 계정은 `.env`의 `AIRFLOW_ADMIN_USER` / `AIRFLOW_ADMIN_PASSWORD`.
 
+계정·DB 비밀번호는 볼륨을 처음 만들 때만 반영된다. 이후 `.env`에서 바꾸면 `docker compose down -v`로 초기화하거나 DB에서 직접 변경해야 한다.
+
+커넥션·Variable은 UI가 아니라 `.env` → 환경변수(`AIRFLOW_CONN_*`, `AIRFLOW_VAR_*`)로 등록한다. 볼륨을 초기화해도 유지되고, UI 목록에는 보이지 않는다.
+
 ## DBeaver 연결
 
 | 연결 | Host | Port | Database | 계정 |
