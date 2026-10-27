@@ -390,6 +390,8 @@ validate_request ─▶ register_request (request_id 발급) ─▶ route_scope 
 | `mart` | 없음 (임계값·마스터 변경, 로직 수정) | ev03 명시 트리거, 필요하면 `force` | ev03 결과 |
 
 - 여러 월은 mapped `TriggerDagRunOperator`로 요청하고, ev03의 `max_active_runs=1`이 순서대로 처리한다.
+- 하위 DAG 대기는 `deferrable=True` → triggerer 가 기다리고 워커 슬롯은 비운다.
+- 실행 확인: mart·202609·force 요청 → ev03 트리거·완료 대기 → 요청 `done`. base_months 없는 요청은 `validate_request` 에서 차단, 하위 DAG 미실행.
 - 재처리와 정기 cron이 겹쳐 중복 실행이 나도 두 번째는 fingerprint가 같아 `skipped_unchanged`로 끝난다.
 
 ### 4.6 `ev12_quality_monitor` / `ev13_retention_cleanup`
@@ -402,14 +404,31 @@ ev12는 두 곳을 같이 본다.
 | 데이터 상태 (`partial`, `held`, `stale`, `publication_delayed`, 오래 계속되는 `no_eligible_period`, 기준월 누락, 커버리지 추이, 수집 최신성) | `ops` |
 | 불일치 (DAG 성공인데 데이터는 `partial`·`held`) | 두 출처 조인. 리포트 핵심 |
 
+```
+[collect_airflow_runs (메타DB, 조회 전용)] ∥ [collect_data_status (ops)]
+  ─▶ detect_mismatch ─▶ build_report ─▶ send_slack ─▶ record_run [all_done]
+```
+
+실행 확인: Slack 리포트 전송, 불일치 3건 탐지 (ev01 `partial` 2건 원천 ERROR-500, ev03 `held` 1건 — Airflow 상 모두 성공).
+
 ev13은 보존 기간이 지났다고 바로 지우지 않는다. 아래 조건을 다 만족해야 정리한다.
 
 | 대상 | 삭제 조건 |
 |---|---|
-| 원천 관측 이력 | 보존 기간 경과 `[미확정]`, 시간대 집계 확정, 해당 월 `current` 게시, 그 기간에 열린 ev11 요청 없음 |
-| staging | run 상태 확정, 보존 기간 경과 |
-| quarantine | 보존 기간 경과, 사유 집계가 `ops`에 기록됨 |
+| 원천 관측 이력 | 보존 기간 경과(기본 30일), 시간대 집계 확정, 해당 기간 게시, 그 기간에 열린 ev11 요청 없음 |
+| staging 도로 원천 | 회차 처리 완료(커버리지 기록), 보존 기간 경과 |
+| staging 등록 원천 | run 상태 확정, 보존 기간 경과 |
+| quarantine | 보존 기간 경과 (사유 집계는 `ops` 품질 결과·커버리지에 이미 기록) |
 | 집계, 스냅샷, 게시 로그, 마스터 버전 | 삭제 안 함 (계보·재현 근거) |
+
+```
+find_candidates ─▶ decide_delete (branch: dry_run)
+      ├─▶ skip_delete      (기본: 후보·보호 사유만 ops.quality_result 에 기록)
+      └─▶ delete_expired   (단일 트랜잭션)
+  ─▶ record_run [all_done]
+```
+
+실행 확인 (보존 0일, dry-run): 관측 이력 6,326행 전부 보호 (미확정 1,798 · 미게시 4,528), 처리 끝난 원천 응답 6,398행·등록 원천 20,661행·격리 754행은 삭제 가능. 실제 삭제 없음.
 
 ---
 
