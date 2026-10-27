@@ -2,7 +2,7 @@
 
 | 항목 | 내용 |
 |---|---|
-| 상태 | 초안 v0.2 (2026-10-27) |
+| 상태 | v0.3 (2026-10-27) — DAG 7개 구현·실행 검증 |
 | 근거 | 전동화 입지 인사이트 플랫폼 RFP (v18) |
 | 대상 | 현대오토에버 데이터 플랫폼 운영 직무 과제 1 (요구 1: Airflow·선후행) |
 | 환경 | Airflow 3.3.2 (CeleryExecutor), PostgreSQL 16 + PostGIS |
@@ -11,7 +11,7 @@
 표기
 - `[미확정]` API 실증이나 데이터 분포 확인 후 정할 값
 - `[소스 확인]` Airflow 3.3.2 소스로 확인한 동작
-- `[파싱 검증 예정]` 실제 DAG 실행으로 확인할 동작
+- `[실행 확인]` 실제 DAG 실행으로 확인한 동작
 - 테이블·컬럼명은 DB 확정 전까지 잠정
 
 ---
@@ -22,13 +22,14 @@ API 실증 결과, RFP 원안대로면 첫 마트 게시가 2027년 1월 이후�
 
 | 항목 | RFP 원안 | MVP |
 |---|---|---|
-| 도로 분석 기간 | 등록 기준월과 같은 월 | 수집 가능 기간 전체 (2026-10-27 17:30 ~ 10-29 00:00), ev03 `params`로 명시. 결과 행에 `period_mismatch=true` |
+| 도로 분석 기간 | 등록 기준월과 같은 월 | 수집 가능 기간 (2026-10-27 17:30 ~ 10-28 12:00, 제출일 정오), ev03 `params`로 명시. 결과 행에 `period_mismatch=true` |
 | 대상 지역 | 서울 전체 | 강남·서초·송파 (행정동 67개, 중점 귀속 서비스링크 914개) |
 | 폴링 주기 | 수 분 (설계값) | 30분 (:00, :30). 시간대당 관측 2회로 대표 관측 선택이 의미를 가짐. 하루 약 4.4만 회 |
 | 초기 관측 | — | ev01 완성 전 임시 수집기(`bootstrap_collector`)가 같은 staging 스키마로 적재 → ev01 이 미처리 회차로 흡수 |
 | 등록 이력 | API 전수 | 최신 월은 API, 증가율용 전년 동월은 파일 경로(ev02 `source=file`) |
 | 유형 B | 원천 갱신 검증 후 활성 | 비활성 (원천 관측시각 없음). A·C·참고군만 제공 |
-| DAG | 7개 | ev01·ev02·ev03·ev10 구현, ev11·ev12·ev13은 설계 |
+| DAG | 7개 | 7개 모두 구현. ev13은 기본 dry-run (삭제 대신 후보·보호 사유 보고) |
+| 외부 API 연동 | — | 커스텀 `SeoulOpenApiHook`·`SeoulApiBaseMonthSensor` 로 ev01·ev02 공통화 (§10) |
 
 대상 3구 선정 근거 (2026-09 등록현황, 실제 행정동 427개 기준)
 
@@ -73,7 +74,7 @@ Task가 성공했다고 데이터가 준비된 건 아니다. 그래서 아래 �
 
 | dag_id | 책임 | 스케줄 | 트리거 | catchup | max_active_runs | Asset (발생 Task) |
 |---|---|---|---|---|---|---|
-| `ev01_traffic_collect` | 도로소통 폴링, 관측 이력, 시간대 집계 | `CronTriggerTimetable("0 * * * *")` (MVP 1시간) | cron | False | 1 | `ev_traffic_obs` (`record_coverage`) |
+| `ev01_traffic_collect` | 도로소통 폴링, 관측 이력, 시간대 집계 | `CronTriggerTimetable("0,30 * * * *")` (MVP 30분) | cron | False | 1 | `ev_traffic_obs` (`record_coverage`) |
 | `ev02_registration_monthly` | 등록현황 월 스냅샷 | `CronTriggerTimetable("0 9 1 * *")` | cron, 수동(`params`) | False | 1 | `ev_reg_snapshot` (`load_snapshot`) |
 | `ev03_mart_integration` | 사용 가능 상태 확인 → 지표·분류 → 마트 게시 | `AssetOrTimeSchedule(CronTriggerTimetable("0 6 * * *"), ev_reg_snapshot \| ev_master_version)` | cron 또는 Asset, 수동 | False | 1 | `ev_mart_published` (`publish_mart`) |
 | `ev10_master_refresh` | 링크 매핑·행정동 경계 버전 갱신 | None | 수동 | False | 1 | `ev_master_version` (`activate_version`) |
@@ -203,11 +204,11 @@ Airflow 3.3.2 실제 동작 `[소스 확인]`
 파티션 키는 `base_month`. 실행 시각에서 대충 유도하지 않고 명시적으로 정한다.
 
 ```
-resolve_base_month
-  ─▶ wait_base_month_published  (sensor, reschedule, soft_fail=True)
-  ─▶ choose_source (branch: Variable ev_reg_source_mode = api | csv)
-        ├─▶ extract_reg_api
-        └─▶ extract_reg_csv
+resolve_base_month            (file 경로면 파일 존재, api 면 최신 월 > 대상 월 즉시 판정)
+  ─▶ wait_base_month_published  (SeoulApiBaseMonthSensor, reschedule, soft_fail=True)
+  ─▶ choose_source (branch: params.source = api | file)
+        ├─▶ extract_reg_api    (SeoulOpenApiHook.fetch_all)
+        └─▶ extract_reg_file   (보고서 양식 xlsx 파서)
   ─▶ validate_base_month   [none_failed_min_one_success]
   ─▶ reconcile_totals ─▶ normalize_admdong_fuel ─▶ quarantine_unmapped ─▶ snapshot_gate
   ─▶ compare_with_existing (branch)
@@ -351,11 +352,19 @@ resolve_target_period (branch)
 ### 4.4 `ev10_master_refresh` — 마스터 갱신
 
 ```
-detect_source_files ─▶ load_master_staging ─▶ register_version (pending)
-  ─▶ validate_geometry ─▶ build_link_admdong_map ─▶ validate_mapping_quality
-  ─▶ activate_version (active)   outlet: ev_master_version
+register_boundary ─▶ load_link_mapping ─▶ check_std_source (branch)
+      ├─▶ extract_std_link     (staging.moct_link_raw 있음)
+      └─▶ reuse_std_link       (같은 SHP 버전 이미 적재)
+  ─▶ build_service_link [none_failed_min_one_success] ─▶ assign_admdong ─▶ link_quality
+  ─▶ quality_gate (branch: 귀속률 ≥ 95%)
+      ├─▶ activate_version   outlet: ev_master_version ─▶ build_target_link ─▶ cleanup_raw_shp
+      └─▶ reject_version     (기존 활성 유지, 실행 결과 held)
   ─▶ record_run [all_done]
 ```
+
+- 전국 SHP 원본은 `scripts/load_master.sh` 가 staging 에 적재하고 ev10 을 트리거한다.
+- 재실행 시 이미 등록된 버전 상태는 바꾸지 않는다 (활성 버전 재빌드 중 차원 view 가 비는 공백 방지).
+- 실행 확인: 재사용 경로, 귀속률 98.42% → 활성, Asset 이벤트 1초 뒤 ev03 `asset_triggered` 실행.
 
 - 등록과 활성을 나눈다. `pending`으로 등록하고, 기하 검증(SRID, `ST_IsValid`, 경계 중복·틈, A↔C 링크ID 조인율)과 매핑 품질(성공률, 미귀속 비율)을 통과해야 `active`.
 - ev01·ev03는 `active`만 쓴다. 검증 실패 버전은 `rejected`로 남고 Asset도 안 나간다.
@@ -381,6 +390,8 @@ validate_request ─▶ register_request (request_id 발급) ─▶ route_scope 
 | `mart` | 없음 (임계값·마스터 변경, 로직 수정) | ev03 명시 트리거, 필요하면 `force` | ev03 결과 |
 
 - 여러 월은 mapped `TriggerDagRunOperator`로 요청하고, ev03의 `max_active_runs=1`이 순서대로 처리한다.
+- 하위 DAG 대기는 `deferrable=True` → triggerer 가 기다리고 워커 슬롯은 비운다.
+- 실행 확인: mart·202609·force 요청 → ev03 트리거·완료 대기 → 요청 `done`. base_months 없는 요청은 `validate_request` 에서 차단, 하위 DAG 미실행.
 - 재처리와 정기 cron이 겹쳐 중복 실행이 나도 두 번째는 fingerprint가 같아 `skipped_unchanged`로 끝난다.
 
 ### 4.6 `ev12_quality_monitor` / `ev13_retention_cleanup`
@@ -393,14 +404,31 @@ ev12는 두 곳을 같이 본다.
 | 데이터 상태 (`partial`, `held`, `stale`, `publication_delayed`, 오래 계속되는 `no_eligible_period`, 기준월 누락, 커버리지 추이, 수집 최신성) | `ops` |
 | 불일치 (DAG 성공인데 데이터는 `partial`·`held`) | 두 출처 조인. 리포트 핵심 |
 
+```
+[collect_airflow_runs (메타DB, 조회 전용)] ∥ [collect_data_status (ops)]
+  ─▶ detect_mismatch ─▶ build_report ─▶ send_slack ─▶ record_run [all_done]
+```
+
+실행 확인: Slack 리포트 전송, 불일치 3건 탐지 (ev01 `partial` 2건 원천 ERROR-500, ev03 `held` 1건 — Airflow 상 모두 성공).
+
 ev13은 보존 기간이 지났다고 바로 지우지 않는다. 아래 조건을 다 만족해야 정리한다.
 
 | 대상 | 삭제 조건 |
 |---|---|
-| 원천 관측 이력 | 보존 기간 경과 `[미확정]`, 시간대 집계 확정, 해당 월 `current` 게시, 그 기간에 열린 ev11 요청 없음 |
-| staging | run 상태 확정, 보존 기간 경과 |
-| quarantine | 보존 기간 경과, 사유 집계가 `ops`에 기록됨 |
+| 원천 관측 이력 | 보존 기간 경과(기본 30일), 시간대 집계 확정, 해당 기간 게시, 그 기간에 열린 ev11 요청 없음 |
+| staging 도로 원천 | 회차 처리 완료(커버리지 기록), 보존 기간 경과 |
+| staging 등록 원천 | run 상태 확정, 보존 기간 경과 |
+| quarantine | 보존 기간 경과 (사유 집계는 `ops` 품질 결과·커버리지에 이미 기록) |
 | 집계, 스냅샷, 게시 로그, 마스터 버전 | 삭제 안 함 (계보·재현 근거) |
+
+```
+find_candidates ─▶ decide_delete (branch: dry_run)
+      ├─▶ skip_delete      (기본: 후보·보호 사유만 ops.quality_result 에 기록)
+      └─▶ delete_expired   (단일 트랜잭션)
+  ─▶ record_run [all_done]
+```
+
+실행 확인 (보존 0일, dry-run): 관측 이력 6,326행 전부 보호 (미확정 1,798 · 미게시 4,528), 처리 끝난 원천 응답 6,398행·등록 원천 20,661행·격리 754행은 삭제 가능. 실제 삭제 없음.
 
 ---
 
@@ -501,6 +529,9 @@ ev13은 보존 기간이 지났다고 바로 지우지 않는다. 아래 조건�
 | Connection | `conn_seoul_openapi`, `conn_postgis_ev`, `conn_db_postgres_airflow`, `conn_slack_airflow_bot` | 환경변수(`AIRFLOW_CONN_*`)로 등록. 메타DB 연결은 ev12용 |
 | Variable | `apikey_seoul_traffic`, `apikey_seoul_registration`, `ev_reg_source_mode` | 환경변수(`AIRFLOW_VAR_*`)로 주입. 임계값은 Variable 말고 DB 버전 테이블 (계보 연결) |
 | Asset | `ev_traffic_obs`, `ev_reg_snapshot`, `ev_master_version`, `ev_mart_published` | `plugins/common/assets.py`에서 한 번만 정의 |
+| 커스텀 Hook | `SeoulOpenApiHook` (`plugins/hooks/`) | Connection(호스트)+Variable(데이터셋별 키) 조합, 세션 재사용, XML 파싱·필드 대문자 통일, 결과 코드 → ok/no_data/api_error, 전수 페이지. `raise_on_error=False` 로 링크 단위 부분 실패 허용 |
+| 커스텀 Sensor | `SeoulApiBaseMonthSensor` (`plugins/sensors/`) | 원천 최신 기준월 = 대상일 때 통과. `reschedule` 기본, 기준월·원천 템플릿 필드, 파일 경로 즉시 통과. 강의 `SeoulApiDateSensor` 의 월 단위 확장 |
+| 워커 분포 (실측) | worker-api 38 / default-1 42 / default-2 35 Task | API Task 는 api 큐 워커에서만 실행 |
 
 ---
 
@@ -544,26 +575,29 @@ DDL은 `files/sqls/ddl/`(스키마별 파일), 적용은 `scripts/apply_ddl.sh`.
 
 ## 12. 테스트 계획
 
-아직 구현 전이다. 테스트가 생기기 전까지 아래 정책은 설계일 뿐 CI가 강제하지 않는다.
+구현 현황: `tests/` 16개, GitHub Actions(PR 필수 검사) + `.gitlab-ci.yml`(제출용 동일 단계). ✅ 구현 · ▶ 실행으로 확인 · ☐ 미구현.
 
 | 층위 | 테스트 | 내용 |
 |---|---|---|
-| 정적 | import 오류 | DagBag `import_errors` 없음 (RFP §08) |
-| 정적 | 공통 정책 | 모든 DAG `catchup=False`, `tags`, `retries ≥ 1` |
-| 정적 | `max_active_runs` | §2 표와 일치 |
-| 정적 | Pool·큐 | `extract_chunk`는 `seoul_traffic_api_pool`, `extract_reg_api`는 `seoul_registration_api_pool`, 둘 다 `queue=api` |
-| 정적 | Sensor 모드 | 전부 `reschedule` |
+| 정적 ✅ | import 오류 | DagBag `import_errors` 없음 (RFP §08) |
+| 정적 ✅ | 공통 정책 | 모든 DAG `catchup=False`, `tags`, `retries ≥ 1` |
+| 정적 ✅ | `max_active_runs` | §2 표와 일치 |
+| 정적 ✅ | Pool·큐 | `extract_chunk`는 `seoul_traffic_api_pool`, `extract_reg_api`는 `seoul_registration_api_pool`, 둘 다 `queue=api` |
+| 정적 ✅ | Sensor 모드 | 전부 `reschedule` |
+| 단위 ✅ | 커스텀 Hook·Sensor | 응답 파싱·상태 판정, 센서 통과 조건·파일 경로 (외부 API 호출 없음) |
+| 단위 ✅ | SQL 문장 분리 | psycopg 3 1회 1문장 제약 대응, 줄 끝 주석 포함 |
 | 정적 | trigger_rule | ev01 `validate_responses=all_done_min_one_success`, `finalize_run_status=all_done` / ev02 `validate_base_month=none_failed_min_one_success`, `record_run=all_done` / ev03 `record_run_result=all_done` / ev11 `record_request_result=all_done` |
 | 정적 | outlet 위치 | §2의 지정 Task에만 있고, upstream에 검증 Task(`verify_candidate`, `snapshot_gate`, `validate_mapping_quality`)가 있음 |
-| 정적 | 최종 상태 Task | 핵심 DAG의 leaf가 `all_done` 상태 확정 Task 하나 |
+| 정적 ✅ | 최종 상태 Task | 핵심 DAG의 leaf가 `all_done` 상태 확정 Task 하나 |
 | 단위 | 기준월 결정 | `resolve_base_month`: 정기, `params` 우선, KST 월 경계 |
 | 단위 | 지연 회차 | `check_run_freshness` 경계값 |
 | 단위 | 대상 월 선택 | conf > 이벤트 힌트(dirty 확인) > dirty 최신, 없으면 `no_eligible_period` |
 | 단위 | 최종 상태 | §4.1.2, §4.3.4 표 각 행 |
-| 통합 (DB) | 게시 원자성 | `verify_candidate` 실패나 트랜잭션 중 예외 시 운영 마트·게시 로그 변화 없음 |
-| 통합 (DB) | 파티션 교체 | 이전에 A였던 지역이 `WITHHELD`가 되면 운영 마트도 `WITHHELD` |
-| 통합 (DB) | 멱등 적재 | 같은 `poll_batch_id`·`base_month` 재적재 시 행 수 그대로 |
-| 통합 (Airflow) | 분기 합류 | `dag.test()`로 분기마다 최종 Task가 돌고 상태가 맞는지 |
+| 통합 (DB) ▶ | 게시 경로 | 후보 67행 → 게시 시 마트 67행 교체·`current` 확인 후 롤백 (자동 테스트는 ☐) |
+| 통합 (DB) ☐ | 파티션 교체 | 이전에 A였던 지역이 `WITHHELD`가 되면 운영 마트도 `WITHHELD` |
+| 통합 (DB) ▶ | 멱등 적재 | 같은 `base_month` 재실행 → `unchanged`, 회차 재처리 시 중복 없음 |
+| 통합 (Airflow) ▶ | 분기 합류 | ev02 3경로·ev03 보류·ev10 재사용·ev11 차단 경로에서 최종 Task 실행·상태 기록 |
+| 정적 ✅ | DDL | 빈 PostGIS 에 DDL 2회 적용 (`validate_ddl`) |
 
 외부 API를 부르지 않는 fixture 테스트와 실제 API 통합 테스트는 분리한다 (RFP §08).
 
@@ -618,13 +652,36 @@ DDL은 `files/sqls/ddl/`(스키마별 파일), 적용은 `scripts/apply_ddl.sh`.
 | Asset 이벤트는 Task 성공 시에만 | `[소스 확인]` | `task_runner._handle_current_task_success` |
 | 같은 Asset 이벤트 여러 개가 실행 하나로 합쳐짐 | `[소스 확인]` | `AssetDagRunQueue` PK = (asset_id, target_dag_id) |
 | `all_done_min_one_success` 존재, upstream 전부 실패면 upstream_failed | `[소스 확인]` | `ti_deps/deps/trigger_rule_dep.py` |
-| `triggering_asset_events`로 `extra` 읽기 | `[파싱 검증 예정]` | 컨텍스트 키는 확인. 실제 접근은 `dag.test()`로 |
-| mapped `TriggerDagRunOperator` + `wait_for_completion` + deferrable | `[파싱 검증 예정]` | ev11 구현 때 |
-| 분기 후 `all_done` 합류와 DAG 최종 상태 | `[파싱 검증 예정]` | §12 통합 테스트 |
+| `triggering_asset_events`로 `extra` 읽기 | `[실행 확인]` | ev10 Asset → ev03 `asset_triggered` 실행 (이벤트 1초 후). 마스터 이벤트라 `base_month` 힌트는 없음 |
+| mapped `TriggerDagRunOperator` + `wait_for_completion` + deferrable | `[실행 확인]` | ev11 mart 요청 → ev03 완료 대기 |
+| 분기 후 `all_done` 합류와 DAG 최종 상태 | `[실행 확인]` | 핵심 실패 시 상태 기록 후 예외 → DAG 실패, 데이터 판정(held 등)은 DAG 성공 |
+| `ti.get_task_states()` 로 같은 실행 Task 상태 조회 | `[실행 확인]` | 최종 상태 Task 공통 (`common/ops.py`). 워커는 메타DB 에 직접 접근하지 않음 |
+
+실행 중 발견한 Airflow 3.3.2 동작
+
+| 동작 | 대응 |
+|---|---|
+| Task SDK `dag_run.run_after` 는 pendulum 이 아닌 datetime | `pendulum.instance()` 변환 (DAG·Slack 콜백) |
+| `PostgresHook.get_conn()` 이 psycopg 3 연결 반환 | `execute_values` 대신 `executemany`, SQL 파일 문장 단위 실행 |
+| 새 DAG 파일 파싱 전 `unpause`·`trigger` 는 반영 안 됨 | 파싱 확인 후 실행 |
+| `catchup=False` 에서 unpause 시 직전 틱 실행 1회 생성 | ev02·ev03·ev12 정기 경로 검증에 활용 |
 
 ---
 
 ## 15. 변경 이력
+
+### v0.3 (2026-10-27) 구현·실행 검증
+
+| 구분 | 내용 | PR |
+|---|---|---|
+| 구현 | 공통 모듈, ev02, ev01, ev10, ev03, ev12, ev11, ev13, Rshiny 대시보드 | #4~#7, #9, #11~#14 |
+| 리팩터링 | `SeoulOpenApiHook`·`SeoulApiBaseMonthSensor` 로 API 호출·공표 대기 공통화 | #10 |
+| 수정 | `run_after` datetime, psycopg 3 일괄 삽입·다중 문장, 줄 끝 주석 문장 분리, 계획 묶음 0 기록 | #5~#7 |
+| 수정 | 끝난 시간대가 확정되지 않아 ev03 커버리지 0% → 다음 회차에서 확정 | #8 |
+| 수정 | MVP 분석 기간 끝을 제출일 정오로 | #15 |
+| 설계 변경 | ev01 30분 주기, 미처리 회차 흡수(임시 수집기 회차 포함) | #6 |
+| 설계 변경 | ev10 원본 추출·재사용 분기, 귀속률 미달은 `held` | #7 |
+| 설계 변경 | 분류 임계값 `mvp_v1` (대상 67개 행정동 p60: 전기차 522대, 증가율 39.7%, provisional) | #9 |
 
 ### v0.2 (2026-10-27) 리뷰 반영
 

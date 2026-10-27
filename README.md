@@ -15,7 +15,7 @@
 | flower | 워커 모니터링 | http://localhost:5555 |
 | postgis | 분석 DB (staging·core·mart·ops·quarantine) | localhost:5432 |
 | postgres | Airflow 메타데이터 DB | localhost:5431 |
-| rshiny | 분류 결과 시각화 | http://localhost:3838 |
+| rshiny | 운영 현황·규모×추세·시간대 속도·분류 결과 대시보드 | http://localhost:3838 |
 
 ## 실행
 
@@ -29,6 +29,18 @@ Airflow 로그인 계정은 `.env`의 `AIRFLOW_ADMIN_USER` / `AIRFLOW_ADMIN_PASS
 계정·DB 비밀번호는 볼륨을 처음 만들 때만 반영된다. 이후 `.env`에서 바꾸면 `docker compose down -v`로 초기화하거나 DB에서 직접 변경해야 한다.
 
 커넥션·Variable은 UI가 아니라 `.env` → 환경변수(`AIRFLOW_CONN_*`, `AIRFLOW_VAR_*`)로 등록한다. 볼륨을 초기화해도 유지되고, UI 목록에는 보이지 않는다.
+
+## DAG
+
+| DAG | 주기 | 역할 |
+|---|---|---|
+| ev01_traffic_collect | 30분 | 도로소통 수집·시간대 집계 |
+| ev02_registration_monthly | 매월 1일 | 등록현황 스냅샷 (api / file) |
+| ev03_mart_integration | 매일 06:00 또는 Asset | 지표·분류·마트 게시 |
+| ev10_master_refresh | 수동 | 링크·경계 마스터 버전 |
+| ev11_reprocess | 수동 | 재처리 요청 |
+| ev12_quality_monitor | 매일 08:00 | 실행 상태 × 데이터 상태 리포트 |
+| ev13_retention_cleanup | 매주 일 03:00 | 조건부 보존 정리 (기본 dry-run) |
 
 ## DBeaver 연결
 
