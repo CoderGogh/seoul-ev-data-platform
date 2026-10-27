@@ -408,20 +408,20 @@ ev13은 보존 기간이 지났다고 바로 지우지 않는다. 아래 조건�
 
 ---
 
-## 7. 재처리 설계
+## 7. 재처리
 
-| 상황 | 재처리 단위 | 경로 |
+| 상황 | 단위 | 경로 |
 |---|---|---|
-| ev01 묶음 API 일시 실패 | 해당 mapped index | 자동 재시도(백오프). 재시도를 소진하면 `partial`로 기록하고 진행 |
-| ev01 적재·집계 실패 | 실패 Task부터 | UI에서 Clear(downstream 포함). staging이 run_id로 보존되므로 API 재호출이 필요 없다 |
-| ev02 공표 지연 | `base_month` | 센서 soft_fail → `publication_delayed` 알림 → 공표 후 ev11 `registration` |
-| ev02 원천 재공표·정정 | `base_month` | ev11 `registration` → ev02 → (내용 변경 시) Asset → ev03 |
+| ev01 묶음 API 일시 실패 | mapped index | 자동 백오프 재시도. 소진되면 `partial`로 진행 |
+| ev01 적재·집계 실패 | 실패 Task부터 | UI Clear (downstream 포함). staging이 남아 있어 API 재호출 불필요 |
+| ev02 공표 지연 | `base_month` | soft_fail → `publication_delayed` 알림 → 공표 후 ev11 `registration` |
+| ev02 재공표·정정 | `base_month` | ev11 `registration` → ev02 → 내용 바뀌면 Asset → ev03 |
 | 지각 도로 데이터 | 날짜 범위 | ev11 `timeband` → 재집계 → ev03 명시 트리거 |
-| 마스터 버전 변경 | 최신 월은 자동, 과거 월은 요청 | ev10 활성화 → Asset → ev03(최신 월). 과거 월은 ev11 `mart` |
-| 분류 임계값 변경 | 지정 기준월 | 임계값 신규 버전 등록 → ev11 `mart` |
-| ev03 처리·검증 실패 | 해당 run | 운영 마트는 변경되지 않음 → 실패 Task부터 Clear |
-| ev03 게시 후 결과 기록만 실패 | `record_run_result` | 그 Task만 재시도. 게시 로그가 이미 있으므로 계보 손실은 없다 |
-| ev03 Gate 1 보류 | 해당 기준월 | 원인이 해소되면 입력 fingerprint가 바뀌어 dirty가 되고, 다음 정기 실행이 자동으로 재평가한다 |
+| 마스터 버전 변경 | 최신 월 자동, 과거 월 요청 | ev10 활성화 → Asset → ev03(최신 월). 과거 월은 ev11 `mart` |
+| 임계값 변경 | 지정 기준월 | 새 임계값 버전 등록 → ev11 `mart` |
+| ev03 처리·검증 실패 | 해당 run | 운영 마트는 그대로. 실패 Task부터 Clear |
+| ev03 게시 후 결과 기록만 실패 | `record_run_result` | 그 Task만 재시도. 게시 로그는 이미 있음 |
+| ev03 Gate 1 보류 | 해당 기준월 | 원인이 풀리면 입력이 바뀌어 dirty가 되고 다음 정기 실행이 재평가 |
 
 ---
 
