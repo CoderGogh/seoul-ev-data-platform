@@ -9,7 +9,7 @@
 import pendulum
 from airflow.providers.slack.hooks.slack_webhook import SlackWebhookHook
 from airflow.providers.standard.operators.empty import EmptyOperator
-from airflow.sdk import DAG, AssetOrTimeSchedule, CronTriggerTimetable, Param, TaskGroup, task
+from airflow.sdk import DAG, AssetOrTimeSchedule, CronTriggerTimetable, Label, Param, TaskGroup, task
 from airflow.sdk.exceptions import AirflowFailException
 from common import db, ops
 from common.assets import EV_MART_PUBLISHED, EV_MASTER_VERSION, EV_REG_SNAPSHOT
@@ -256,8 +256,13 @@ with DAG(
     published = publish_mart()
     final = record_run_result()
 
-    resolved >> [no_eligible_period, gate1]
-    gate1 >> evaluated >> [hold_publish, skip_unchanged, joined]
-    hold_publish >> stale
-    joined >> tb >> ind >> g2 >> cls >> verified >> published
-    [no_eligible_period, stale, skip_unchanged, published] >> final
+    # 분기 사유 라벨 (Graph 화면 표시)
+    resolved >> Label("입력 없음") >> no_eligible_period
+    resolved >> Label("대상 기준월 확정") >> gate1
+    gate1 >> evaluated
+    evaluated >> Label("Gate 1 미달") >> hold_publish
+    evaluated >> Label("입력 지문 동일") >> skip_unchanged
+    evaluated >> Label("통과") >> joined
+    hold_publish >> Label("이전 결과 유지") >> stale
+    joined >> tb >> ind >> g2 >> Label("지역별 품질 등급") >> cls >> verified >> Label("검증 통과") >> published
+    [no_eligible_period, stale, skip_unchanged, published] >> Label("all_done") >> final

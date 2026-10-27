@@ -10,7 +10,7 @@ from contextlib import closing
 from datetime import datetime, timedelta, timezone
 
 import pendulum
-from airflow.sdk import DAG, CronTriggerTimetable, task
+from airflow.sdk import DAG, CronTriggerTimetable, Label, task
 from airflow.sdk.exceptions import AirflowFailException
 from common import db, ops
 from common.assets import EV_TRAFFIC_OBS
@@ -178,6 +178,10 @@ with DAG(
     covered = record_coverage(batch_ids)
     final = finalize_run_status()
 
-    poll_batch_id >> fresh >> [stale, links]
-    extracted >> batch_ids >> quarantined >> loaded >> aggregated >> covered >> final
-    stale >> final
+    # 분기 사유 라벨 (Graph 화면 표시)
+    poll_batch_id >> fresh
+    fresh >> Label("20분 초과 지연") >> stale
+    fresh >> Label("정상 회차") >> links
+    extracted >> Label("1묶음 이상 성공") >> batch_ids
+    batch_ids >> quarantined >> loaded >> aggregated >> covered >> Label("all_done") >> final
+    stale >> Label("all_done") >> final
