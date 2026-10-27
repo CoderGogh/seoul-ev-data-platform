@@ -464,10 +464,10 @@ ev13은 보존 기간이 지났다고 바로 지우지 않는다. 아래 조건�
 
 | 종류 | 이름 | 비고 |
 |---|---|---|
-| Pool | `seoul_openapi_pool` `[미확정: slots]` | ev01과 ev02가 **공유**한다. 인증키가 계정 단위라 호출 제한도 계정 단위이기 때문이다. 경합하면 `priority_weight`로 ev01을 우선한다 |
-| Connection | `conn_seoul_openapi` (HTTP), `conn_postgis_ev` (Postgres), `conn_slack_airflow_bot` | Slack 연결은 강의 프로젝트를 재사용 |
-| Variable | `apikey_openapi_seoul_go_kr`, `ev_reg_source_mode` | 임계값은 Variable이 아니라 **DB 버전 테이블**에 둔다 (계보 연결) |
-| Asset | `ev_traffic_obs`, `ev_reg_snapshot`, `ev_master_version`, `ev_mart_published` | `plugins/common/assets.py`에 한 번만 정의 |
+| Pool | `seoul_openapi_pool` `[미확정: slots]` | ev01·ev02 공유. 인증키가 계정 단위라 호출 제한도 계정 단위. 겹치면 `priority_weight`로 ev01 우선 |
+| Connection | `conn_seoul_openapi`, `conn_postgis_ev`, `conn_slack_airflow_bot` | Slack은 강의 프로젝트 재사용 |
+| Variable | `apikey_openapi_seoul_go_kr`, `ev_reg_source_mode` | 임계값은 Variable 말고 DB 버전 테이블 (계보 연결) |
+| Asset | `ev_traffic_obs`, `ev_reg_snapshot`, `ev_master_version`, `ev_mart_published` | `plugins/common/assets.py`에서 한 번만 정의 |
 
 ---
 
