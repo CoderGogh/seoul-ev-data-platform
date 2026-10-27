@@ -71,7 +71,7 @@ Task가 성공했다고 데이터가 준비된 건 아니다. 그래서 아래 �
 
 | dag_id | 책임 | 스케줄 | 트리거 | catchup | max_active_runs | Asset (발생 Task) |
 |---|---|---|---|---|---|---|
-| `ev01_traffic_collect` | 도로소통 폴링, 관측 이력, 시간대 집계 | `CronTriggerTimetable("*/10 * * * *")` `[미확정]` | cron | False | 1 | `ev_traffic_obs` (`record_coverage`) |
+| `ev01_traffic_collect` | 도로소통 폴링, 관측 이력, 시간대 집계 | `CronTriggerTimetable("0 * * * *")` (MVP 1시간) | cron | False | 1 | `ev_traffic_obs` (`record_coverage`) |
 | `ev02_registration_monthly` | 등록현황 월 스냅샷 | `CronTriggerTimetable("0 9 1 * *")` | cron, 수동(`params`) | False | 1 | `ev_reg_snapshot` (`load_snapshot`) |
 | `ev03_mart_integration` | 사용 가능 상태 확인 → 지표·분류 → 마트 게시 | `AssetOrTimeSchedule(CronTriggerTimetable("0 6 * * *"), ev_reg_snapshot \| ev_master_version)` | cron 또는 Asset, 수동 | False | 1 | `ev_mart_published` (`publish_mart`) |
 | `ev10_master_refresh` | 링크 매핑·행정동 경계 버전 갱신 | None | 수동 | False | 1 | `ev_master_version` (`activate_version`) |
@@ -483,7 +483,7 @@ ev13은 보존 기간이 지났다고 바로 지우지 않는다. 아래 조건�
 | `collected_at` | 실제 수집 시각 | ev01 관측 이력, 수집 최신성 |
 | `source_observed_at` | 원천 관측 시각, 없으면 NULL `[미확정]` | 원천 최신성, B 판정 활성 조건 |
 | `base_month` | 등록 기준월. `resolve_base_month`가 결정 | ev02·ev03 파티션 |
-| 도로 분석 기간 | `base_month`와 같은 월 (예: 2026-09 → 09-01~09-30) | ev03 지표 |
+| 도로 분석 기간 | 원안: `base_month`와 같은 월. MVP: 최근 완료 7일 (§0) | ev03 지표 |
 | 워터마크 | 분석 기간 종료 + 지각 허용 `[미확정]` | dirty 월 판정 |
 
 ---
