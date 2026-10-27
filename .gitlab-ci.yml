@@ -1,0 +1,93 @@
+# GitLab CI (과제 제출용 설계, GitHub Actions 와 같은 단계)
+# lint → test → validate_dag → validate_ddl 은 MR·main 자동 실행 (CI)
+# build → deploy 는 main 에서만, deploy 는 수동 승인 (CD)
+
+stages: [lint, test, validate_dag, validate_ddl, build, deploy]
+
+variables:
+  PYTHON_VERSION: "3.13"
+  AIRFLOW_VERSION: "3.3.2"
+  AIRFLOW__CORE__LOAD_EXAMPLES: "False"
+  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+
+default:
+  image: python:3.13-slim
+  cache:
+    paths: [.cache/pip]
+
+workflow:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+.airflow_env: &airflow_env
+  before_script:
+    - pip install "apache-airflow==${AIRFLOW_VERSION}" -r custom_image/airflow/requirements.txt
+      --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-${AIRFLOW_VERSION}/constraints-${PYTHON_VERSION}.txt"
+    - pip install -r requirements-dev.txt
+
+lint:
+  stage: lint
+  script:
+    - pip install -r requirements-dev.txt
+    - black --check .
+    - flake8 dags plugins scripts tests
+
+test:
+  stage: test
+  <<: *airflow_env
+  script:
+    - pytest -q tests/test_scripts.py
+
+validate_dag:
+  stage: validate_dag
+  <<: *airflow_env
+  script:
+    # dags list 만으로는 import 오류를 보장하지 못해 DagBag 로 직접 검사 + 운영 정책
+    - pytest -q tests/test_dag_integrity.py
+
+validate_ddl:
+  stage: validate_ddl
+  image: postgis/postgis:16-3.4
+  services:
+    - name: postgis/postgis:16-3.4
+      alias: db
+  variables:
+    POSTGRES_USER: ci
+    POSTGRES_PASSWORD: ci
+    POSTGRES_DB: ev_platform
+    PGHOST: db
+    PGUSER: ci
+    PGPASSWORD: ci
+    PGDATABASE: ev_platform
+  script:
+    - until pg_isready; do sleep 2; done
+    - psql -v ON_ERROR_STOP=1 -q -f custom_image/postgis/initdb/00_extensions_schemas.sql
+    - for f in files/sqls/ddl/*.sql; do psql -v ON_ERROR_STOP=1 -q -f "$f"; done
+    - for f in files/sqls/ddl/*.sql; do psql -v ON_ERROR_STOP=1 -q -f "$f"; done   # 재실행 안전성
+
+build:
+  stage: build
+  image: docker:27
+  services: [docker:27-dind]
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+  script:
+    - docker build -t "$CI_REGISTRY_IMAGE/airflow:$CI_COMMIT_SHORT_SHA" custom_image/airflow
+    - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$CI_REGISTRY"
+    - docker push "$CI_REGISTRY_IMAGE/airflow:$CI_COMMIT_SHORT_SHA"
+
+# CD: 실행 환경 전제라 절차로 설계 (설계서 §CD)
+deploy:
+  stage: deploy
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      when: manual            # 수동 승인
+  environment: production
+  script:
+    # 1) 비밀값: GitLab CI Variables(masked, protected) → 서버 .env
+    # 2) dags/ plugins/ files/sqls/ 를 Airflow 서버에 동기화, 이미지 태그 교체
+    # 3) DDL 신규 파일 적용 (scripts/apply_ddl.sh, 재실행 안전)
+    # 4) 배포 후 확인: airflow dags list-import-errors 비어 있음
+    # 5) 실패 시 직전 릴리즈 태그로 재배포
+    - echo "deploy procedure (see docs/dag_design.md)"
