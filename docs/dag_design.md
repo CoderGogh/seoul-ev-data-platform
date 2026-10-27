@@ -22,12 +22,13 @@ API 실증 결과, RFP 원안대로면 첫 마트 게시가 2027년 1월 이후�
 
 | 항목 | RFP 원안 | MVP |
 |---|---|---|
-| 도로 분석 기간 | 등록 기준월과 같은 월 | 최신 등록 스냅샷 × 최근 완료 7일 관측. 결과 행에 `period_mismatch=true` 표시 |
-| 대상 지역 | 서울 전체 | 강남·서초·송파 (행정동 67개, 중점 귀속 서비스링크 916개) |
-| 폴링 주기 | 수 분 (설계값) | 1시간. 커버리지 단위(1시간)와 맞추고 호출량을 하루 약 2.2만 회로 제한 |
-| 등록 이력 | API 전수 | 최신 월은 API, 증가율용 전년 동월은 파일 1개 수동 적재 |
+| 도로 분석 기간 | 등록 기준월과 같은 월 | 수집 가능 기간 전체 (2026-10-27 17:30 ~ 10-29 00:00), ev03 `params`로 명시. 결과 행에 `period_mismatch=true` |
+| 대상 지역 | 서울 전체 | 강남·서초·송파 (행정동 67개, 중점 귀속 서비스링크 914개) |
+| 폴링 주기 | 수 분 (설계값) | 30분 (:00, :30). 시간대당 관측 2회로 대표 관측 선택이 의미를 가짐. 하루 약 4.4만 회 |
+| 초기 관측 | — | ev01 완성 전 임시 수집기(`bootstrap_collector`)가 같은 staging 스키마로 적재 → ev01 이 미처리 회차로 흡수 |
+| 등록 이력 | API 전수 | 최신 월은 API, 증가율용 전년 동월은 파일 경로(ev02 `source=file`) |
 | 유형 B | 원천 갱신 검증 후 활성 | 비활성 (원천 관측시각 없음). A·C·참고군만 제공 |
-| DAG | 7개 | ev01·ev02·ev03 구현, ev11 최소 구현, ev10은 일회성 적재, ev12·ev13은 설계만 |
+| DAG | 7개 | ev01·ev02·ev03·ev10 구현, ev11·ev12·ev13은 설계 |
 
 대상 3구 선정 근거 (2026-09 등록현황, 실제 행정동 427개 기준)
 
@@ -146,14 +147,16 @@ init_poll_batch ─▶ check_run_freshness (branch)
 | `check_run_freshness` | 시작이 너무 늦은 회차면 stale 분기 | all_success | — |
 | `skip_stale_run` | 수집 안 함 | all_success | — |
 | `get_target_links` | 대상 링크와 활성 링크 마스터 버전 조회. 사전 제외 링크는 사유 기록 | all_success | 재시도 |
-| `plan_link_chunks` | N개 묶음으로 분할, 묶음 계획을 `ops`에 기록 `[미확정: N]` | all_success | 재시도 |
+| `plan_link_chunks` | 100개씩 묶음 분할(914개 → 10개), 묶음 계획을 `ops`에 기록 | all_success | 재시도 |
 | `extract_chunk` | 묶음 호출, 원천 응답·링크별 상태를 staging에 저장, 끝나면 묶음 상태 `done` | all_success | 묶음 단위 백오프 재시도. 링크 단위 오류는 행으로만 기록. 인증·쿼터·묶음 전체 실패만 Task 실패 |
-| `validate_responses` | staging과 `ops` 묶음 상태로 검증. mapped Task XCom에 의존하지 않음 | all_done_min_one_success | 재시도 |
+| `validate_responses` | **미처리 회차 전체**(staging에 있고 커버리지 기록이 없는 회차)를 처리 대상으로 확정. mapped Task XCom에 의존하지 않음 | all_done_min_one_success | 재시도 |
 | `quarantine_invalid` | 스키마 불일치·오염 레코드 격리 | all_success | 재시도 |
 | `load_obs` | 유효 관측 멱등 적재 | all_success | 재시도 후 핵심 실패 |
 | `aggregate_timeband` | 이번 회차가 건드린 시간대만 재계산 (UPSERT) | all_success | 재시도 후 핵심 실패 |
 | `record_coverage` | 계획 대비 완료 묶음, 링크별 상태(성공/API 장애/무관측/대상 제외) 기록 | all_success | 재시도 후 핵심 실패 |
 | `finalize_run_status` | 최종 상태 기록. 핵심 실패면 예외로 DAG 실패 처리 | all_done | — |
+
+미처리 회차 흡수: `record_coverage`가 기록돼야 회차가 처리 완료다. 그래서 한 실행이 적재 단계에서 실패하면 그 회차는 다음 실행의 검증 이후 단계가 자동으로 다시 처리한다. ev01 가동 전 임시 수집기가 쌓은 회차도 같은 방식으로 흡수한다. 수동 Clear 없이 복구되는 재처리 경로다.
 
 #### 4.1.1 실행 제어
 
