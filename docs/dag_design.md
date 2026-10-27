@@ -427,23 +427,23 @@ ev13은 보존 기간이 지났다고 바로 지우지 않는다. 아래 조건�
 
 ## 8. 상태 모델 (`ops`)
 
-**실행 상태** (`dag_id`, `run_id` 단위)
+실행 상태 (`dag_id`, `run_id` 단위)
 
-| 상태 | 의미 | 발생 DAG |
+| 상태 | 의미 | DAG |
 |---|---|---|
-| `success` | 실행·완결성·적격성 모두 통과 | ev01, ev02, ev10 |
-| `partial` | 허용된 부분 수집 실패 (성공분은 적재) | ev01 |
-| `skipped_stale` | 지연 회차로 수집하지 않음 | ev01 |
-| `unchanged` | 재공표 내용이 동일해 적재 생략 | ev02 |
+| `success` | 다 통과 | ev01, ev02, ev10 |
+| `partial` | 일부 수집 실패, 성공분 적재 | ev01 |
+| `skipped_stale` | 지연 회차라 수집 안 함 | ev01 |
+| `unchanged` | 재공표 내용이 같아 적재 생략 | ev02 |
 | `republished` | 같은 월을 다른 내용으로 재적재 | ev02 |
 | `publication_delayed` | 공표 대기 시간 초과 | ev02 |
 | `no_eligible_period` | 처리할 기준월 없음 (입력 대기) | ev03 |
-| `skipped_unchanged` | fingerprint 비교 결과 변경 없음 | ev03 |
+| `skipped_unchanged` | fingerprint 같음 | ev03 |
 | `held` | Gate 1 미달로 게시 보류 | ev03 |
 | `published` | 게시 완료 | ev03 |
-| `failed` | 핵심 처리 실패 | 전체 |
+| `failed` | 핵심 단계 실패 | 전체 |
 
-이와 별도로 **게시 상태**(`base_month` 단위: `current`, `stale`, `never_published`)와 **재처리 요청 상태**(`request_id` 단위)를 둔다.
+이 밖에 게시 상태(`base_month` 단위: `current`, `stale`, `never_published`)와 재처리 요청 상태(`request_id` 단위)를 따로 둔다.
 
 ---
 
