@@ -529,17 +529,17 @@ ev13은 보존 기간이 지났다고 바로 지우지 않는다. 아래 조건�
 
 ## 14. Airflow 3.3.2 동작 검증
 
-| 항목 | 상태 | 근거 / 방법 |
+| 항목 | 상태 | 근거 |
 |---|---|---|
-| `max_active_runs` 도달 시 새 예약 실행 미생성 | `[소스 확인]` | `scheduler_job_runner`: `exceeds_max_non_backfill`이면 생성 생략 |
-| `catchup=False`에서 놓친 틱은 건너뛰고 직전 틱으로 실행 | `[소스 확인]` | `timetables/trigger.py`: `_align_to_prev(utcnow())` 후보 |
-| `AssetOrTimeSchedule`, `CronTriggerTimetable`, `CronDataIntervalTimetable`의 `airflow.sdk` 제공 | `[소스 확인]` | `airflow/sdk/__init__.py` |
-| Asset 이벤트는 Task 성공 시에만 발생 | `[소스 확인]` | `task_runner._handle_current_task_success` |
-| 같은 Asset의 여러 이벤트가 한 실행으로 병합 | `[소스 확인]` | `AssetDagRunQueue` PK = (asset_id, target_dag_id) |
-| `all_done_min_one_success` 제공, 모든 upstream 실패 시 upstream_failed | `[소스 확인]` | `ti_deps/deps/trigger_rule_dep.py` |
-| `triggering_asset_events` 컨텍스트에서 `extra` 조회 | `[파싱 검증 예정]` | 컨텍스트 키 존재는 확인. 실제 `extra` 접근은 `dag.test()`로 확인 |
-| `TriggerDagRunOperator` mapped + `wait_for_completion` + deferrable | `[파싱 검증 예정]` | ev11 구현 시 |
-| 분기 후 `all_done` 합류 Task의 실행과 DAG 최종 상태 | `[파싱 검증 예정]` | §12 통합 (Airflow) 테스트 |
+| `max_active_runs` 도달 시 새 예약 실행 안 만듦 | `[소스 확인]` | `scheduler_job_runner`의 `exceeds_max_non_backfill` |
+| `catchup=False`면 놓친 틱 건너뛰고 직전 틱 실행 | `[소스 확인]` | `timetables/trigger.py`의 `_align_to_prev(utcnow())` |
+| `AssetOrTimeSchedule`, `CronTriggerTimetable`, `CronDataIntervalTimetable`을 `airflow.sdk`에서 제공 | `[소스 확인]` | `airflow/sdk/__init__.py` |
+| Asset 이벤트는 Task 성공 시에만 | `[소스 확인]` | `task_runner._handle_current_task_success` |
+| 같은 Asset 이벤트 여러 개가 실행 하나로 합쳐짐 | `[소스 확인]` | `AssetDagRunQueue` PK = (asset_id, target_dag_id) |
+| `all_done_min_one_success` 존재, upstream 전부 실패면 upstream_failed | `[소스 확인]` | `ti_deps/deps/trigger_rule_dep.py` |
+| `triggering_asset_events`로 `extra` 읽기 | `[파싱 검증 예정]` | 컨텍스트 키는 확인. 실제 접근은 `dag.test()`로 |
+| mapped `TriggerDagRunOperator` + `wait_for_completion` + deferrable | `[파싱 검증 예정]` | ev11 구현 때 |
+| 분기 후 `all_done` 합류와 DAG 최종 상태 | `[파싱 검증 예정]` | §12 통합 테스트 |
 
 ---
 
