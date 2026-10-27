@@ -529,6 +529,9 @@ find_candidates ─▶ decide_delete (branch: dry_run)
 | Connection | `conn_seoul_openapi`, `conn_postgis_ev`, `conn_db_postgres_airflow`, `conn_slack_airflow_bot` | 환경변수(`AIRFLOW_CONN_*`)로 등록. 메타DB 연결은 ev12용 |
 | Variable | `apikey_seoul_traffic`, `apikey_seoul_registration`, `ev_reg_source_mode` | 환경변수(`AIRFLOW_VAR_*`)로 주입. 임계값은 Variable 말고 DB 버전 테이블 (계보 연결) |
 | Asset | `ev_traffic_obs`, `ev_reg_snapshot`, `ev_master_version`, `ev_mart_published` | `plugins/common/assets.py`에서 한 번만 정의 |
+| 커스텀 Hook | `SeoulOpenApiHook` (`plugins/hooks/`) | Connection(호스트)+Variable(데이터셋별 키) 조합, 세션 재사용, XML 파싱·필드 대문자 통일, 결과 코드 → ok/no_data/api_error, 전수 페이지. `raise_on_error=False` 로 링크 단위 부분 실패 허용 |
+| 커스텀 Sensor | `SeoulApiBaseMonthSensor` (`plugins/sensors/`) | 원천 최신 기준월 = 대상일 때 통과. `reschedule` 기본, 기준월·원천 템플릿 필드, 파일 경로 즉시 통과. 강의 `SeoulApiDateSensor` 의 월 단위 확장 |
+| 워커 분포 (실측) | worker-api 38 / default-1 42 / default-2 35 Task | API Task 는 api 큐 워커에서만 실행 |
 
 ---
 
@@ -572,26 +575,29 @@ DDL은 `files/sqls/ddl/`(스키마별 파일), 적용은 `scripts/apply_ddl.sh`.
 
 ## 12. 테스트 계획
 
-아직 구현 전이다. 테스트가 생기기 전까지 아래 정책은 설계일 뿐 CI가 강제하지 않는다.
+구현 현황: `tests/` 16개, GitHub Actions(PR 필수 검사) + `.gitlab-ci.yml`(제출용 동일 단계). ✅ 구현 · ▶ 실행으로 확인 · ☐ 미구현.
 
 | 층위 | 테스트 | 내용 |
 |---|---|---|
-| 정적 | import 오류 | DagBag `import_errors` 없음 (RFP §08) |
-| 정적 | 공통 정책 | 모든 DAG `catchup=False`, `tags`, `retries ≥ 1` |
-| 정적 | `max_active_runs` | §2 표와 일치 |
-| 정적 | Pool·큐 | `extract_chunk`는 `seoul_traffic_api_pool`, `extract_reg_api`는 `seoul_registration_api_pool`, 둘 다 `queue=api` |
-| 정적 | Sensor 모드 | 전부 `reschedule` |
+| 정적 ✅ | import 오류 | DagBag `import_errors` 없음 (RFP §08) |
+| 정적 ✅ | 공통 정책 | 모든 DAG `catchup=False`, `tags`, `retries ≥ 1` |
+| 정적 ✅ | `max_active_runs` | §2 표와 일치 |
+| 정적 ✅ | Pool·큐 | `extract_chunk`는 `seoul_traffic_api_pool`, `extract_reg_api`는 `seoul_registration_api_pool`, 둘 다 `queue=api` |
+| 정적 ✅ | Sensor 모드 | 전부 `reschedule` |
+| 단위 ✅ | 커스텀 Hook·Sensor | 응답 파싱·상태 판정, 센서 통과 조건·파일 경로 (외부 API 호출 없음) |
+| 단위 ✅ | SQL 문장 분리 | psycopg 3 1회 1문장 제약 대응, 줄 끝 주석 포함 |
 | 정적 | trigger_rule | ev01 `validate_responses=all_done_min_one_success`, `finalize_run_status=all_done` / ev02 `validate_base_month=none_failed_min_one_success`, `record_run=all_done` / ev03 `record_run_result=all_done` / ev11 `record_request_result=all_done` |
 | 정적 | outlet 위치 | §2의 지정 Task에만 있고, upstream에 검증 Task(`verify_candidate`, `snapshot_gate`, `validate_mapping_quality`)가 있음 |
-| 정적 | 최종 상태 Task | 핵심 DAG의 leaf가 `all_done` 상태 확정 Task 하나 |
+| 정적 ✅ | 최종 상태 Task | 핵심 DAG의 leaf가 `all_done` 상태 확정 Task 하나 |
 | 단위 | 기준월 결정 | `resolve_base_month`: 정기, `params` 우선, KST 월 경계 |
 | 단위 | 지연 회차 | `check_run_freshness` 경계값 |
 | 단위 | 대상 월 선택 | conf > 이벤트 힌트(dirty 확인) > dirty 최신, 없으면 `no_eligible_period` |
 | 단위 | 최종 상태 | §4.1.2, §4.3.4 표 각 행 |
-| 통합 (DB) | 게시 원자성 | `verify_candidate` 실패나 트랜잭션 중 예외 시 운영 마트·게시 로그 변화 없음 |
-| 통합 (DB) | 파티션 교체 | 이전에 A였던 지역이 `WITHHELD`가 되면 운영 마트도 `WITHHELD` |
-| 통합 (DB) | 멱등 적재 | 같은 `poll_batch_id`·`base_month` 재적재 시 행 수 그대로 |
-| 통합 (Airflow) | 분기 합류 | `dag.test()`로 분기마다 최종 Task가 돌고 상태가 맞는지 |
+| 통합 (DB) ▶ | 게시 경로 | 후보 67행 → 게시 시 마트 67행 교체·`current` 확인 후 롤백 (자동 테스트는 ☐) |
+| 통합 (DB) ☐ | 파티션 교체 | 이전에 A였던 지역이 `WITHHELD`가 되면 운영 마트도 `WITHHELD` |
+| 통합 (DB) ▶ | 멱등 적재 | 같은 `base_month` 재실행 → `unchanged`, 회차 재처리 시 중복 없음 |
+| 통합 (Airflow) ▶ | 분기 합류 | ev02 3경로·ev03 보류·ev10 재사용·ev11 차단 경로에서 최종 Task 실행·상태 기록 |
+| 정적 ✅ | DDL | 빈 PostGIS 에 DDL 2회 적용 (`validate_ddl`) |
 
 외부 API를 부르지 않는 fixture 테스트와 실제 API 통합 테스트는 분리한다 (RFP §08).
 
