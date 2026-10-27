@@ -204,11 +204,11 @@ Airflow 3.3.2 실제 동작 `[소스 확인]`
 파티션 키는 `base_month`. 실행 시각에서 대충 유도하지 않고 명시적으로 정한다.
 
 ```
-resolve_base_month
-  ─▶ wait_base_month_published  (sensor, reschedule, soft_fail=True)
-  ─▶ choose_source (branch: Variable ev_reg_source_mode = api | csv)
-        ├─▶ extract_reg_api
-        └─▶ extract_reg_csv
+resolve_base_month            (file 경로면 파일 존재, api 면 최신 월 > 대상 월 즉시 판정)
+  ─▶ wait_base_month_published  (SeoulApiBaseMonthSensor, reschedule, soft_fail=True)
+  ─▶ choose_source (branch: params.source = api | file)
+        ├─▶ extract_reg_api    (SeoulOpenApiHook.fetch_all)
+        └─▶ extract_reg_file   (보고서 양식 xlsx 파서)
   ─▶ validate_base_month   [none_failed_min_one_success]
   ─▶ reconcile_totals ─▶ normalize_admdong_fuel ─▶ quarantine_unmapped ─▶ snapshot_gate
   ─▶ compare_with_existing (branch)
@@ -352,11 +352,19 @@ resolve_target_period (branch)
 ### 4.4 `ev10_master_refresh` — 마스터 갱신
 
 ```
-detect_source_files ─▶ load_master_staging ─▶ register_version (pending)
-  ─▶ validate_geometry ─▶ build_link_admdong_map ─▶ validate_mapping_quality
-  ─▶ activate_version (active)   outlet: ev_master_version
+register_boundary ─▶ load_link_mapping ─▶ check_std_source (branch)
+      ├─▶ extract_std_link     (staging.moct_link_raw 있음)
+      └─▶ reuse_std_link       (같은 SHP 버전 이미 적재)
+  ─▶ build_service_link [none_failed_min_one_success] ─▶ assign_admdong ─▶ link_quality
+  ─▶ quality_gate (branch: 귀속률 ≥ 95%)
+      ├─▶ activate_version   outlet: ev_master_version ─▶ build_target_link ─▶ cleanup_raw_shp
+      └─▶ reject_version     (기존 활성 유지, 실행 결과 held)
   ─▶ record_run [all_done]
 ```
+
+- 전국 SHP 원본은 `scripts/load_master.sh` 가 staging 에 적재하고 ev10 을 트리거한다.
+- 재실행 시 이미 등록된 버전 상태는 바꾸지 않는다 (활성 버전 재빌드 중 차원 view 가 비는 공백 방지).
+- 실행 확인: 재사용 경로, 귀속률 98.42% → 활성, Asset 이벤트 1초 뒤 ev03 `asset_triggered` 실행.
 
 - 등록과 활성을 나눈다. `pending`으로 등록하고, 기하 검증(SRID, `ST_IsValid`, 경계 중복·틈, A↔C 링크ID 조인율)과 매핑 품질(성공률, 미귀속 비율)을 통과해야 `active`.
 - ev01·ev03는 `active`만 쓴다. 검증 실패 버전은 `rejected`로 남고 Asset도 안 나간다.
