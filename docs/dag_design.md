@@ -2,7 +2,7 @@
 
 | 항목 | 내용 |
 |---|---|
-| 상태 | 초안 v0.2 (2026-10-27) |
+| 상태 | v0.3 (2026-10-27) — DAG 7개 구현·실행 검증 |
 | 근거 | 전동화 입지 인사이트 플랫폼 RFP (v18) |
 | 대상 | 현대오토에버 데이터 플랫폼 운영 직무 과제 1 (요구 1: Airflow·선후행) |
 | 환경 | Airflow 3.3.2 (CeleryExecutor), PostgreSQL 16 + PostGIS |
@@ -11,7 +11,7 @@
 표기
 - `[미확정]` API 실증이나 데이터 분포 확인 후 정할 값
 - `[소스 확인]` Airflow 3.3.2 소스로 확인한 동작
-- `[파싱 검증 예정]` 실제 DAG 실행으로 확인할 동작
+- `[실행 확인]` 실제 DAG 실행으로 확인한 동작
 - 테이블·컬럼명은 DB 확정 전까지 잠정
 
 ---
@@ -22,13 +22,14 @@ API 실증 결과, RFP 원안대로면 첫 마트 게시가 2027년 1월 이후�
 
 | 항목 | RFP 원안 | MVP |
 |---|---|---|
-| 도로 분석 기간 | 등록 기준월과 같은 월 | 수집 가능 기간 전체 (2026-10-27 17:30 ~ 10-29 00:00), ev03 `params`로 명시. 결과 행에 `period_mismatch=true` |
+| 도로 분석 기간 | 등록 기준월과 같은 월 | 수집 가능 기간 (2026-10-27 17:30 ~ 10-28 12:00, 제출일 정오), ev03 `params`로 명시. 결과 행에 `period_mismatch=true` |
 | 대상 지역 | 서울 전체 | 강남·서초·송파 (행정동 67개, 중점 귀속 서비스링크 914개) |
 | 폴링 주기 | 수 분 (설계값) | 30분 (:00, :30). 시간대당 관측 2회로 대표 관측 선택이 의미를 가짐. 하루 약 4.4만 회 |
 | 초기 관측 | — | ev01 완성 전 임시 수집기(`bootstrap_collector`)가 같은 staging 스키마로 적재 → ev01 이 미처리 회차로 흡수 |
 | 등록 이력 | API 전수 | 최신 월은 API, 증가율용 전년 동월은 파일 경로(ev02 `source=file`) |
 | 유형 B | 원천 갱신 검증 후 활성 | 비활성 (원천 관측시각 없음). A·C·참고군만 제공 |
-| DAG | 7개 | ev01·ev02·ev03·ev10 구현, ev11·ev12·ev13은 설계 |
+| DAG | 7개 | 7개 모두 구현. ev13은 기본 dry-run (삭제 대신 후보·보호 사유 보고) |
+| 외부 API 연동 | — | 커스텀 `SeoulOpenApiHook`·`SeoulApiBaseMonthSensor` 로 ev01·ev02 공통화 (§10) |
 
 대상 3구 선정 근거 (2026-09 등록현황, 실제 행정동 427개 기준)
 
@@ -73,7 +74,7 @@ Task가 성공했다고 데이터가 준비된 건 아니다. 그래서 아래 �
 
 | dag_id | 책임 | 스케줄 | 트리거 | catchup | max_active_runs | Asset (발생 Task) |
 |---|---|---|---|---|---|---|
-| `ev01_traffic_collect` | 도로소통 폴링, 관측 이력, 시간대 집계 | `CronTriggerTimetable("0 * * * *")` (MVP 1시간) | cron | False | 1 | `ev_traffic_obs` (`record_coverage`) |
+| `ev01_traffic_collect` | 도로소통 폴링, 관측 이력, 시간대 집계 | `CronTriggerTimetable("0,30 * * * *")` (MVP 30분) | cron | False | 1 | `ev_traffic_obs` (`record_coverage`) |
 | `ev02_registration_monthly` | 등록현황 월 스냅샷 | `CronTriggerTimetable("0 9 1 * *")` | cron, 수동(`params`) | False | 1 | `ev_reg_snapshot` (`load_snapshot`) |
 | `ev03_mart_integration` | 사용 가능 상태 확인 → 지표·분류 → 마트 게시 | `AssetOrTimeSchedule(CronTriggerTimetable("0 6 * * *"), ev_reg_snapshot \| ev_master_version)` | cron 또는 Asset, 수동 | False | 1 | `ev_mart_published` (`publish_mart`) |
 | `ev10_master_refresh` | 링크 매핑·행정동 경계 버전 갱신 | None | 수동 | False | 1 | `ev_master_version` (`activate_version`) |
