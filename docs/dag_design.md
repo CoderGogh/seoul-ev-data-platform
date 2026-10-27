@@ -61,38 +61,35 @@ Task가 성공했다고 데이터가 준비된 건 아니다. 그래서 아래 �
 ## 3. DAG 간 관계
 
 ```
-                     ┌──────────── PostgreSQL + PostGIS ────────────┐
- ev01_traffic_collect ──write──▶ core 관측 이력·링크 시간대 집계   ◀──read── ev03_mart_integration
-   (Asset은 모니터링용,          ops 실행 상태·커버리지·게시 로그        ▲
-    ev03 트리거 아님)            └──────────────────────────────┘       │
- ev02_registration_monthly ──Asset: ev_reg_snapshot (extra: base_month, load_id) ──┤ AssetOrTimeSchedule
- ev10_master_refresh       ──Asset: ev_master_version (활성화 후에만) ─────────────┤ + daily cron
-                                                                                   │
- ev11_reprocess ─┬─ registration: TriggerDagRun ▶ ev02 ──(Asset)──────────────────┤
-                 ├─ timeband:     재집계 ▶ TriggerDagRun ▶ ev03 (conf) ─────────────┤
-                 └─ mart:         TriggerDagRun ▶ ev03 (conf) ───────────────────────┘
- ev12_quality_monitor ──read──▶ Airflow 메타DB(실행 상태) + ops.*(데이터 상태) ──▶ Slack
+ ev01_traffic_collect ──write──▶ [ DB: core 관측·집계 / ops 상태·커버리지·게시 로그 ] ◀──read── ev03
+   (Asset은 모니터링용)                                                                  ▲
+ ev02_registration_monthly ──Asset: ev_reg_snapshot (extra: base_month, load_id) ──────┤ Asset OR
+ ev10_master_refresh       ──Asset: ev_master_version (활성화 후) ────────────────────┤ daily cron
+ ev11_reprocess ─┬─ registration: ev02 트리거 ──(Asset)────────────────────────────────┤
+                 ├─ timeband: 재집계 → ev03 트리거(conf) ─────────────────────────────┤
+                 └─ mart: ev03 트리거(conf) ───────────────────────────────────────────┘
+ ev12_quality_monitor ──read──▶ Airflow 메타DB + ops ──▶ Slack
 ```
 
-### 3.1 결합 방식 결정
+### 3.1 결합 방식
 
-| 관계 | 채택 | 근거 |
+| 관계 | 방식 | 이유 |
 |---|---|---|
-| ev01 → ev03 | **DB 상태 조회** | 10분마다 마트를 재계산하면 안 된다. ev03는 마지막 정상 수집 시각과 커버리지를 조회한다 |
-| ev02 → ev03 | **Asset 트리거** | 월 1회 신규 스냅샷을 지체 없이 반영한다. 이벤트 `extra`는 대상 월의 힌트로만 쓴다(§4.3) |
-| ev10 → ev03 | **Asset 트리거** | 검증이 끝난 마스터 버전의 활성화는 재계산 사유다 |
-| ev03 자체 | **daily cron** (Asset과 OR) | 지각 데이터, 워터마크 도달, 보류 해소를 주기적으로 재평가한다 |
-| ev11 → ev02/ev03 | **범위별 단일 경로** | 같은 기준월에 Asset 트리거와 명시 트리거가 겹치지 않게 한다(§4.5) |
+| ev01 → ev03 | DB 상태 조회 | 10분마다 마트를 다시 계산할 이유가 없다 |
+| ev02 → ev03 | Asset | 새 스냅샷을 바로 반영. `extra`는 대상 월 힌트로만 쓴다 |
+| ev10 → ev03 | Asset | 검증된 마스터 버전 활성화는 재계산 사유 |
+| ev03 자체 | daily cron (Asset과 OR) | 지각 데이터, 워터마크 도달, 보류 해소를 주기적으로 재평가 |
+| ev11 → ev02/ev03 | 범위별 경로 하나 | 같은 월에 Asset 트리거와 명시 트리거가 겹치지 않게 (§4.5) |
 
-### 3.2 검토 후 기각한 대안
+### 3.2 쓰지 않은 대안
 
-| 대안 | 기각 사유 |
+| 대안 | 이유 |
 |---|---|
-| `ExternalTaskSensor`로 ev03가 ev01·ev02 완료를 대기 | 10분 주기와 월 주기 사이의 `execution_delta` 정렬이 사실상 불가능하다. RFP의 "신규 실행을 기다리지 않는다" 원칙과도 충돌한다 |
-| 단일 DAG에서 수집부터 마트까지 일괄 처리 | 월 1회 소스의 실패가 10분 수집을 막고, 재처리 범위가 DAG 전체로 커진다 |
-| ev01 Asset으로 ev03 트리거 | 하루 144회 마트 재계산을 시도하게 되고, 실행 이력이 무의미한 skip으로 오염된다 |
-| 링크마다 Task 생성 | 링크 수만큼 Task가 폭증한다. Dynamic Task Mapping으로 **묶음 단위**를 가변 생성한다 |
-| Asset 이벤트 `extra`를 ev03 `params`처럼 사용 | `extra`는 `params`나 `dag_run.conf`로 자동 전달되지 않는다. 여러 이벤트가 한 실행으로 병합될 수도 있다 `[소스 확인: AssetDagRunQueue PK=(asset_id, target_dag_id)]` |
+| `ExternalTaskSensor`로 ev01·ev02 완료 대기 | 10분 주기와 월 주기는 `execution_delta`로 맞출 수 없다. RFP의 "신규 실행을 기다리지 않는다"와도 충돌 |
+| 수집부터 마트까지 단일 DAG | 월 배치 실패가 10분 수집을 막고, 재처리 범위가 DAG 전체가 된다 |
+| ev01 Asset으로 ev03 트리거 | 하루 144번 마트 재계산 시도. 실행 이력이 skip으로 채워진다 |
+| 링크마다 Task 생성 | Task 수 폭증. Dynamic Task Mapping으로 묶음 단위 생성 |
+| Asset `extra`를 `params`처럼 사용 | `extra`는 `params`·`conf`로 넘어가지 않고, 이벤트 여러 개가 한 실행으로 합쳐질 수 있다 `[소스 확인]` |
 
 ---
 
