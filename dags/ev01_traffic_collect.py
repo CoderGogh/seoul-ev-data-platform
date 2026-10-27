@@ -6,17 +6,16 @@
 - 부분 실패(일부 묶음)는 partial, 적재·집계·커버리지 실패는 DAG 실패
 """
 
-import xml.etree.ElementTree as ET
 from contextlib import closing
 from datetime import datetime, timedelta, timezone
 
 import pendulum
-import requests
-from airflow.sdk import DAG, BaseHook, CronTriggerTimetable, Variable, task
+from airflow.sdk import DAG, CronTriggerTimetable, task
 from airflow.sdk.exceptions import AirflowFailException
 from common import db, ops
 from common.assets import EV_TRAFFIC_OBS
 from config.default_args import DEFAULT_ARGS
+from hooks.seoul_openapi_hook import SeoulOpenApiHook
 
 KST = "Asia/Seoul"
 TARGET_SET = "mvp_3gu_v1"
@@ -28,30 +27,6 @@ API_POOL = "seoul_traffic_api_pool"
 CORE_TASKS = ["load_obs", "aggregate_timeband", "record_coverage"]
 FINAL_TASKS = ["init_poll_batch", "check_run_freshness", "skip_stale_run", "get_target_links", "plan_link_chunks",
                "extract_chunk", "validate_responses", "quarantine_invalid", *CORE_TASKS]  # fmt: skip
-
-
-def _api_base():
-    c = BaseHook.get_connection("conn_seoul_openapi")
-    return f"http://{c.host}:{c.port}/{Variable.get('apikey_seoul_traffic')}/xml/TrafficInfo/1/5"
-
-
-# 링크 1건 호출 → (결과 코드, 호출 상태, 속도, 여행시간, 응답 ms)
-def _call(base, link_id):
-    t0 = datetime.now()
-    try:
-        res = requests.get(f"{base}/{link_id}", timeout=10)
-        root = ET.fromstring(res.content)
-        code = root.findtext(".//CODE")
-        row = root.find("row")
-        if code == "INFO-000" and row is not None:
-            status = "ok"
-        else:
-            status = "no_data" if code == "INFO-200" else "api_error"
-        spd = row.findtext("prcs_spd") if row is not None else None
-        trv = row.findtext("prcs_trv_time") if row is not None else None
-    except Exception as e:  # 네트워크·파싱 오류는 행으로 기록
-        code, status, spd, trv = f"EXC:{type(e).__name__}", "api_error", None, None
-    return code, status, spd, trv, int((datetime.now() - t0).total_seconds() * 1000)
 
 
 with DAG(
@@ -110,12 +85,14 @@ with DAG(
     # 묶음 수집: 링크 오류는 행으로 기록, 묶음 전체 실패만 Task 실패 (묶음 단위 재시도)
     @task(pool=API_POOL, queue="api", retries=3)
     def extract_chunk(chunk, **context):
-        base = _api_base()
+        hook = SeoulOpenApiHook(api_key_var="apikey_seoul_traffic", timeout=10)
         rows = []
         for link_id in chunk["links"]:
-            code, status, spd, trv, ms = _call(base, link_id)
+            r = hook.call("TrafficInfo", 1, 5, link_id, raise_on_error=False)  # 링크 오류는 행으로 기록
+            row = r.rows[0] if r.rows else {}
             rows.append((chunk["poll_batch_id"], link_id, context["dag_run"].run_id, chunk["chunk_no"],
-                         datetime.now(timezone.utc), code, status, spd, trv, ms))  # fmt: skip
+                         datetime.now(timezone.utc), r.code, r.status, row.get("PRCS_SPD"), row.get("PRCS_TRV_TIME"),
+                         r.resp_ms))  # fmt: skip
         if all(r[6] == "api_error" for r in rows):
             raise RuntimeError(f"묶음 {chunk['chunk_no']} 전체 실패: {rows[0][5]}")
         with closing(db.get_conn()) as conn, conn, conn.cursor() as cur:
