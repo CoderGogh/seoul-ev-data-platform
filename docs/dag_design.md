@@ -391,20 +391,20 @@ ev13은 보존 기간이 지났다고 바로 지우지 않는다. 아래 조건�
 
 ---
 
-## 6. 멱등성과 재실행 일관성
+## 6. 멱등성
 
 | 데이터 | 멱등 키 | 적재 방식 |
 |---|---|---|
 | staging 원천 | `run_id` (+ 묶음 번호) | run 단위 delete + insert |
 | ops 묶음 계획·상태 | `(poll_batch_id, chunk_no)` | UPSERT |
 | 도로 관측 이력 | `(link_id, poll_batch_id)` | `ON CONFLICT DO NOTHING` |
-| 링크 시간대 집계 | `(link_id, 날짜, 시간대)` | UPSERT (영향 시간대만 재계산) |
-| 등록 스냅샷 | `base_month` 파티션 | 내용 해시 비교 후 트랜잭션 안에서 delete + insert, `load_id` 발급 |
-| 링크-행정동 매핑 | `(link_master_ver, boundary_ver)` | 버전별 추가 전용 |
-| 분석 마트 | `base_month` 파티션 | 후보 검증 후 **파티션 전체 교체** + 게시 로그를 단일 트랜잭션으로 |
+| 링크 시간대 집계 | `(link_id, 날짜, 시간대)` | UPSERT (영향 시간대만) |
+| 등록 스냅샷 | `base_month` | 내용 해시 비교 후 트랜잭션 delete + insert, `load_id` 발급 |
+| 링크-행정동 매핑 | `(link_master_ver, boundary_ver)` | 버전별 추가만 |
+| 분석 마트 | `base_month` | 후보 검증 후 파티션 교체 + 게시 로그, 한 트랜잭션 |
 | ops 실행 상태 | `(dag_id, run_id)` | UPSERT |
 
-`ON CONFLICT DO NOTHING`은 같은 배치 안에서 나중에 도착한 수정값을 무시한다. 따라서 원천이 배치 안에서 불변이라는 전제를 실증으로 확인한다. 정정이 필요하면 ev11 재처리로 처리한다(RFP §07).
+`ON CONFLICT DO NOTHING`은 같은 배치에서 나중에 온 수정값을 버린다. 원천이 배치 안에서 안 바뀌는지 실증으로 확인하고, 정정이 필요하면 ev11로 처리한다 (RFP §07).
 
 ---
 
