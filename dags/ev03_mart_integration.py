@@ -49,7 +49,9 @@ with DAG(
     params={
         "base_month": Param(None, type=["null", "string"], pattern=r"^\d{6}$", description="비우면 최신 스냅샷"),
         "window_start": Param("2026-10-27T17:30:00+09:00", type="string", description="도로 분석 기간 시작 (MVP)"),
-        "window_end": Param("2026-10-29T00:00:00+09:00", type="string", description="도로 분석 기간 끝 (MVP)"),
+        "window_end": Param(
+            "2026-10-28T12:00:00+09:00", type="string", description="도로 분석 기간 끝 (MVP, 제출일 정오)"
+        ),
         "target_set": Param("mvp_3gu_v1", type="string"),
         "force": Param(False, type="boolean", description="fingerprint 비교 생략"),
         "request_id": Param(None, type=["null", "integer"]),
