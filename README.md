@@ -2,7 +2,7 @@
 
 월 단위 전기차 등록현황과 실시간 도로소통정보를 각자 주기로 수집하고, 행정동 단위로 맞춰 검토 후보(A·B·C)를 분류하는 Airflow 파이프라인.
 
-설계는 [docs/dag_design.md](docs/dag_design.md) 참고.
+설계는 [docs/dag_design.md](docs/dag_design.md), 형상 관리 규칙은 [CONTRIBUTING.md](CONTRIBUTING.md) 참고.
 
 ## 구성
 
