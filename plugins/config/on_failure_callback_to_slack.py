@@ -1,6 +1,8 @@
 # Task 실패 시 Slack 알림 (default_args의 on_failure_callback)
 import logging
 
+import pendulum
+
 from airflow.providers.slack.hooks.slack_webhook import SlackWebhookHook
 
 import config.slack_block_builder as sb
@@ -16,7 +18,7 @@ def on_failure_callback_to_slack(context):
     dag_run = context.get("dag_run")
     err_msg = str(context.get("exception"))[:ERR_MSG_MAX_LEN]
     # 수동 실행은 data_interval이 없을 수 있어 run_after 기준
-    run_after = dag_run.run_after.in_timezone("Asia/Seoul").strftime("%Y-%m-%d %H:%M")
+    run_after = pendulum.instance(dag_run.run_after).in_timezone("Asia/Seoul").strftime("%Y-%m-%d %H:%M")
 
     blocks = [
         sb.section_text(f"*{ti.dag_id}.{ti.task_id} 실패*"),
