@@ -41,20 +41,20 @@ Task가 성공했다고 데이터가 준비된 건 아니다. 그래서 아래 �
 
 ## 2. DAG 목록
 
-| dag_id | 책임 | 스케줄 (timetable) | 트리거 | catchup | max_active_runs | 출력 Asset (발생 Task) |
+| dag_id | 책임 | 스케줄 | 트리거 | catchup | max_active_runs | Asset (발생 Task) |
 |---|---|---|---|---|---|---|
-| `ev01_traffic_collect` | 도로소통 폴링·관측 이력·시간대 집계 | `CronTriggerTimetable("*/10 * * * *")` `[미확정: 주기]` | cron | False | 1 | `ev_traffic_obs` (`record_coverage`) |
-| `ev02_registration_monthly` | 등록현황 월 스냅샷 | `CronTriggerTimetable("0 9 1 * *")` | cron / 수동(`params`) | False | 1 | `ev_reg_snapshot` (`load_snapshot`) |
-| `ev03_mart_integration` | 사용 가능 상태 확인 → 지표·분류 → 마트 게시 | `AssetOrTimeSchedule(CronTriggerTimetable("0 6 * * *"), ev_reg_snapshot \| ev_master_version)` | cron OR Asset / 수동 | False | 1 | `ev_mart_published` (`publish_mart`) |
-| `ev10_master_refresh` | 링크 매핑(C)·행정동 경계(D) 버전 갱신 | None | 수동 | False | 1 | `ev_master_version` (`activate_version`) |
-| `ev11_reprocess` | 재처리 요청의 단일 진입점 | None | 수동(`params`) | False | 1 | — |
-| `ev12_quality_monitor` | 실행 상태와 데이터 상태의 교차 리포트 | `0 8 * * *` | cron | False | 1 | — |
+| `ev01_traffic_collect` | 도로소통 폴링, 관측 이력, 시간대 집계 | `CronTriggerTimetable("*/10 * * * *")` `[미확정]` | cron | False | 1 | `ev_traffic_obs` (`record_coverage`) |
+| `ev02_registration_monthly` | 등록현황 월 스냅샷 | `CronTriggerTimetable("0 9 1 * *")` | cron, 수동(`params`) | False | 1 | `ev_reg_snapshot` (`load_snapshot`) |
+| `ev03_mart_integration` | 사용 가능 상태 확인 → 지표·분류 → 마트 게시 | `AssetOrTimeSchedule(CronTriggerTimetable("0 6 * * *"), ev_reg_snapshot \| ev_master_version)` | cron 또는 Asset, 수동 | False | 1 | `ev_mart_published` (`publish_mart`) |
+| `ev10_master_refresh` | 링크 매핑·행정동 경계 버전 갱신 | None | 수동 | False | 1 | `ev_master_version` (`activate_version`) |
+| `ev11_reprocess` | 재처리 요청 진입점 | None | 수동(`params`) | False | 1 | — |
+| `ev12_quality_monitor` | 실행 상태·데이터 상태 교차 리포트 | `0 8 * * *` | cron | False | 1 | — |
 | `ev13_retention_cleanup` | 조건부 보존 정리 | `0 3 * * 0` | cron | False | 1 | — |
 
-- 핵심 파이프라인은 ev01~03(RFP §07의 DAG 3개)이고, ev10~13은 RFP §07 "DAG 구성과 확장"에 따른 운영 확장이다.
-- 공통 `default_args`: `retries`, `retry_exponential_backoff=True`, `max_retry_delay`, `on_failure_callback=on_failure_callback_to_slack`, `execution_timeout`.
-- Asset 이벤트는 **해당 Task가 성공했을 때만** 발생한다. `[소스 확인: task_runner._handle_current_task_success]` 따라서 Asset을 발생시키는 Task는 검증·게이트를 모두 통과한 뒤의 Task로 한정한다.
-- 타임존은 `Asia/Seoul`로 고정한다. `logical_date`는 UTC로 저장되므로 월 경계 계산은 반드시 KST로 변환한 뒤 수행한다.
+- 핵심은 ev01~03(RFP §07의 DAG 3개). ev10~13은 운영 확장.
+- 공통 `default_args`: `retries`, `retry_exponential_backoff=True`, `max_retry_delay`, `on_failure_callback`(Slack), `execution_timeout`.
+- Asset 이벤트는 Task가 성공했을 때만 나간다 `[소스 확인]`. 그래서 Asset은 검증을 통과한 뒤의 Task에만 붙인다.
+- 타임존은 `Asia/Seoul`. `logical_date`는 UTC로 저장되니 월 경계는 KST로 바꿔서 계산한다.
 
 ---
 
