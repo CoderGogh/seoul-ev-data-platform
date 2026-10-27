@@ -501,15 +501,41 @@ ev13은 보존 기간이 지났다고 바로 지우지 않는다. 아래 조건�
 
 ---
 
-## 11. 저장 계층 (잠정, API 실증 후 확정)
+## 11. 저장 계층
 
-| 스키마 | 역할 | 주요 데이터 |
-|---|---|---|
-| `staging` | 원천 + run_id·collected_at·base_month | 도로·등록 원천 |
-| `core` | 정제·이력·마스터 | 관측 이력, 링크 시간대 집계, 등록 스냅샷(load_id), 마스터 버전(pending/active/rejected), 링크-행정동 매핑 |
-| `mart` | 게시 결과 | `fact_admdong_indicator`(`WITHHELD` 포함), 행정동 시간대 집계, `dim_admdong`·`dim_base_month`·`dim_timeband`, 후보 테이블 |
-| `ops` | 운영·계보 | 실행 상태, 묶음 계획·상태, 커버리지, 품질 결과, 게시 로그·상태, 평가 fingerprint, 재처리 요청, 임계값 버전 |
-| `quarantine` | 오염·미매핑 레코드 | 사유 코드와 함께 보존 |
+DDL은 `files/sqls/ddl/`(스키마별 파일), 적용은 `scripts/apply_ddl.sh`. 모두 `IF NOT EXISTS`라 재실행해도 안전하다.
+
+| 스키마 | 테이블 | 단위·키 | 비고 |
+|---|---|---|---|
+| `staging` | `traffic_raw` | `(poll_batch_id, link_id)` | 원문 값 그대로, `call_status` = ok / no_data / api_error |
+| | `registration_raw` | `(run_id, row_no)` | API·파일 공통. 파일은 코드 없이 이름만 |
+| `core` | `master_version` | `(master_type, version)` | pending → active / rejected / retired. 유형별 활성 1개 |
+| | `admdong` | `(boundary_ver, adm_cd)` | 서울 427개, EPSG:5186 |
+| | `service_link_map` | `(mapping_ver, row_no)` | 원천 순번 중복·결측 때문에 행 번호가 키 |
+| | `std_link` | `(shp_ver, link_id)` | 전국 SHP 중 매핑에 쓰인 링크만 |
+| | `service_link` | `(link_ver, service_link_id)` | 순서 연결 선, 보간 길이, 중점 |
+| | `link_admdong` | `(link_ver, boundary_ver, service_link_id)` | assigned / multi_resolved / outside / no_geometry |
+| | `target_link` | `(target_set, service_link_id)` | 커버리지 분모. MVP는 `mvp_3gu_v1` 914개 |
+| | `fuel_code` | `fuel_cd` | `is_ev`로 전기차 범위 고정 (순수 전기만) |
+| | `traffic_obs` | `(link_id, poll_batch_id)` | `ON CONFLICT DO NOTHING` |
+| | `link_timeband` | `(link_id, obs_date, timeband)` | 대표 관측, 시간대 종료 후 `is_final` |
+| | `reg_snapshot` | `(base_month, adm_cd, fuel_cd)` | 관용·자가용·영업용 × 4차종, 합계 CHECK 제약 |
+| `ops` | `pipeline_run` | `(dag_id, run_id)` | §8 실행 상태 |
+| | `poll_chunk`, `poll_coverage` | 회차·묶음 | ev01 검증·커버리지 근거 |
+| | `reg_load` | `load_id` | 내용 해시, 이전 적재와 차이 |
+| | `quality_result` | `(dag_id, run_id, check_name, scope_key)` | 실행 단위(`*`)와 지역 단위 공통 |
+| | `threshold_version` | `threshold_ver` | provisional / data_confirmed 구분, 활성 1개 |
+| | `mart_eval` | `(base_month, run_id)` | 평가 fingerprint (dirty 월 판정) |
+| | `publish_log`, `publish_status` | 기준월 | 게시 트랜잭션 안에서 기록 |
+| | `reprocess_request` | `request_id` | ev11 요청 |
+| `mart` | `fact_admdong_indicator` | `(base_month, adm_cd)` | 분류 A / B / C / REF / WITHHELD, `period_mismatch` |
+| | `fact_admdong_timeband` | `(base_month, adm_cd, timeband)` | 길이 가중·단순 평균 |
+| | `candidate_*` | run 단위 | 검증 통과 후 파티션 교체 |
+| | `dim_timeband`, `dim_admdong`(view), `dim_base_month`(view) | | |
+| | `v_admdong_result` (view) | | 결과 + 게시 상태. Rshiny 조회용 |
+| `quarantine` | `traffic_record`, `registration_record` | | 사유 코드와 원문 보존 |
+
+마스터는 `scripts/load_master.sh` → `files/sqls/ev10/` 순서로 적재한다 (MVP의 ev10 대체).
 
 ---
 
@@ -572,6 +598,8 @@ ev13은 보존 기간이 지났다고 바로 지우지 않는다. 아래 조건�
 | 이름 → 코드 매칭 | 경계 427개 중 418개 바로 일치, 가운뎃점 정규화로 7개 추가. 나머지는 폐지 동 | 3구 67개 행정동은 전부 전년 이력 확보 |
 | 3구 전기차 증가율 (2025-09 → 2026-09) | 강남 18.1%, 서초 21.3%, 송파 45.0%. 행정동별 -25.7~124.7%, 중앙값 36.4% | A 판정 임계값 분위수 산정에 충분한 분포 |
 | 링크 매핑 (OA-15061) | 서비스링크 5,073개 → 표준링크 11,513개 (1:N). 형상 없음 | 형상은 국가 표준노드링크 SHP 별도 필요 |
+| 매핑 원천 이상 | 순번 결측 23행, 한 순번에 표준링크 여러 개(분기) 6개 키 | 키를 원천 행 번호로, 연결 순서는 순번 → 행 순서. 품질 지표로 기록 |
+| 마스터 활성화 결과 | 귀속률 98.42%(기준 95%), 형상 없음 51, 서울 밖 29, 보간 비율 25.08% | 경계 ver20260701, 링크 map20250306_shp20261014 active |
 | 표준링크 조인 (SHP 2026-10-14) | 조인율 95.57%. 서비스링크 4,619개 형상 완전, 395개 일부, 59개 없음 | 형상 없는 59개는 `no_geometry`로 미귀속 |
 | 서비스링크 형상 | 표준링크 사이 틈 중앙값 12m, 상위 10% 283m 이상. 매핑(2025-03)과 SHP(2026-10) 버전 차이 | 순서대로 이어 단일 선 구성, 틈은 직선 보간. 보간 길이를 품질 지표로 기록 (3구 22.4%) |
 | 행정동 귀속 | 형상 있는 5,014개 중 4,987개 단일 귀속, 경계 다중 후보 0, 서울 밖 27 | 3구 916개, 67개 행정동 모두 링크 3개 이상 (중앙값 10) |
