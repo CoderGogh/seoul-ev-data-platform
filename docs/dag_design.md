@@ -471,14 +471,14 @@ ev13은 보존 기간이 지났다고 바로 지우지 않는다. 아래 조건�
 
 ---
 
-## 11. 저장 계층 (잠정 — API 실증 후 확정)
+## 11. 저장 계층 (잠정, API 실증 후 확정)
 
 | 스키마 | 역할 | 주요 데이터 |
 |---|---|---|
-| `staging` | 원천 + run_id·collected_at·base_month | 도로 원천 응답, 등록 원천 |
+| `staging` | 원천 + run_id·collected_at·base_month | 도로·등록 원천 |
 | `core` | 정제·이력·마스터 | 관측 이력, 링크 시간대 집계, 등록 스냅샷(load_id), 마스터 버전(pending/active/rejected), 링크-행정동 매핑 |
-| `mart` | 게시 결과 | `fact_admdong_indicator`(classification에 `WITHHELD` 포함), 행정동 시간대 집계, `dim_admdong`·`dim_base_month`·`dim_timeband`, 마트 후보 테이블 |
-| `ops` | 운영·계보 | 실행 상태, 묶음 계획·상태, 커버리지, 품질 결과, 게시 로그·게시 상태, 평가 fingerprint, 재처리 요청, 임계값 버전 |
+| `mart` | 게시 결과 | `fact_admdong_indicator`(`WITHHELD` 포함), 행정동 시간대 집계, `dim_admdong`·`dim_base_month`·`dim_timeband`, 후보 테이블 |
+| `ops` | 운영·계보 | 실행 상태, 묶음 계획·상태, 커버리지, 품질 결과, 게시 로그·상태, 평가 fingerprint, 재처리 요청, 임계값 버전 |
 | `quarantine` | 오염·미매핑 레코드 | 사유 코드와 함께 보존 |
 
 ---
