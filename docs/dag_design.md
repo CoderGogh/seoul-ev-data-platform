@@ -212,107 +212,107 @@ resolve_base_month
 
 ### 4.3 `ev03_mart_integration` — 통합 마트
 
-**파티션 키**는 `base_month`이고, 도로 분석 기간은 같은 월의 완료 기간이다. **1회 실행에서 기준월 1개를 처리한다.**
+파티션 키는 `base_month`, 도로 분석 기간은 같은 월. 한 번 실행에 기준월 하나.
 
 ```
-resolve_target_period (@task.branch)
-  ├─▶ no_eligible_period ───────────────────────────────────────────────┐
-  └─▶ [TaskGroup gate1_run_eligibility]   ◀ 병렬                         │
-        check_reg_snapshot · check_traffic_freshness · check_coverage     │
-        · check_master_version · check_min_timebands                      │
-      ─▶ evaluate_gate1 (@task.branch)                                    │
-            ├─▶ hold_publish ─▶ mark_stale_and_alert ───────────────────┤
-            ├─▶ skip_unchanged ─────────────────────────────────────────┤
+resolve_target_period (branch)
+  ├─▶ no_eligible_period ──────────────────────────────────────────┐
+  └─▶ [gate1_run_eligibility]  병렬                                 │
+        check_reg_snapshot · check_traffic_freshness · check_coverage
+        · check_master_version · check_min_timebands               │
+      ─▶ evaluate_gate1 (branch)                                   │
+            ├─▶ hold_publish ─▶ mark_stale_and_alert ─────────────┤
+            ├─▶ skip_unchanged ───────────────────────────────────┤
             └─▶ spatial_join ─▶ admdong_timeband_agg ─▶ compute_indicators
-                 ─▶ region_quality_gate (Gate 2) ─▶ classify_abc         │
-                 ─▶ build_mart_candidate ─▶ verify_candidate              │
-                 ─▶ publish_mart        ◀ outlet: ev_mart_published      │
-                                                                         ▼
+                 ─▶ region_quality_gate (Gate 2) ─▶ classify_abc   │
+                 ─▶ build_mart_candidate ─▶ verify_candidate        │
+                 ─▶ publish_mart        outlet: ev_mart_published  │
+                                                                   ▼
                                               record_run_result  [all_done]
 ```
 
-#### 4.3.1 대상 기준월 결정 (`resolve_target_period`)
+#### 4.3.1 대상 기준월 결정
 
-후보는 **dirty 월**, 즉 "현재 입력 fingerprint ≠ 마지막으로 *평가한* fingerprint"인 기준월이다. 여기서 평가에는 게시와 보류가 모두 포함된다.
+후보는 dirty 월이다. 지금 입력 fingerprint가 마지막으로 평가(게시 또는 보류)한 fingerprint와 다른 월.
 
-| 우선순위 | 출처 | 처리 |
+| 순서 | 출처 | 처리 |
 |---|---|---|
-| 1 | `dag_run.conf.base_month` (ev11·수동) | 그 월을 대상으로 한다. `conf.force=True`이면 fingerprint 비교를 생략한다 |
-| 2 | `triggering_asset_events`의 `extra.base_month` | **힌트로만** 사용한다. DB에서 그 월이 여전히 dirty인지 확인한 뒤 채택한다. 이벤트가 여러 개면 dirty인 월 중 최신 월을 고른다 |
-| 3 | DB의 dirty 월 목록 | 최신 월을 우선한다. 나머지는 다음 실행에서 처리하고, 남은 건수를 `ops`에 기록한다 |
-| — | 후보 없음 | `no_eligible_period`로 기록한다 (대상 기간 미완료, 스냅샷 없음 등 **입력 대기 상태**) |
+| 1 | `dag_run.conf.base_month` (ev11, 수동) | 그 월. `force=True`면 fingerprint 비교 생략 |
+| 2 | `triggering_asset_events`의 `extra.base_month` | 힌트로만 사용. DB에서 아직 dirty인지 확인 후 채택. 여러 개면 최신 월 |
+| 3 | DB의 dirty 월 목록 | 최신 월 우선. 남은 건수는 `ops`에 기록하고 다음 실행에서 처리 |
+| — | 후보 없음 | `no_eligible_period` (기간 미완료, 스냅샷 없음 등 입력 대기) |
 
-- **fingerprint 구성**: `hash(스냅샷 load_id, 분석 기간 링크 시간대 집계의 최종 갱신 워터마크, 활성 링크 마스터 버전, 활성 경계 버전, 활성 임계값 버전)`
-- **자동 재계산 범위**
-  - 데이터 입력(스냅샷·도로 집계)이 바뀐 월은 모든 월이 대상이다.
-  - 버전(마스터·임계값)만 바뀐 경우에는 **최신 적격 월만** 자동으로 재계산한다.
-  - 과거 월의 버전 변경 재계산은 ev11 명시 요청으로만 한다. 이는 RFP §07의 "마스터 버전 변경 시에는 명시적으로 재실행" 원칙을 따른 것이다.
-- **보류된 월이 무한 재평가되지 않는 이유**: 보류도 평가된 fingerprint를 기록한다. 따라서 보류된 월은 지각 데이터 도착 등으로 입력이 바뀔 때만 다시 후보가 된다.
-- **`skip_unchanged`는 fingerprint 비교를 실제로 수행했을 때만** 선택된다. 입력이 준비되지 않은 상태(`no_eligible_period`)와 구분하기 위해서다.
+- fingerprint = `hash(스냅샷 load_id, 분석 기간 집계 워터마크, 활성 링크 마스터 버전, 활성 경계 버전, 활성 임계값 버전)`
+- 자동 재계산: 데이터 입력이 바뀐 월은 전부, 버전만 바뀐 경우는 최신 월만. 과거 월 버전 변경은 ev11로만 한다 (RFP §07 "마스터 변경 시 명시적 재실행").
+- 보류도 평가 fingerprint를 남긴다. 그래서 보류된 월은 입력이 바뀔 때만 다시 후보가 되고, 매일 같은 보류를 반복하지 않는다.
+- `skip_unchanged`는 실제로 fingerprint를 비교했을 때만 쓴다. 입력 대기(`no_eligible_period`)와 섞지 않기 위해서다.
 
 #### 4.3.2 Task
 
-| Task | 역할 | 실패·분기 처리 |
+| Task | 하는 일 | 실패·분기 |
 |---|---|---|
-| `check_reg_snapshot` | ⒜ 해당 월 스냅샷 존재 여부와 품질 등급 | 결과는 XCom으로 넘기고 Task는 실패시키지 않는다 |
-| `check_traffic_freshness` | ⒝ 마지막 정상 수집 시각. **수집 최신성**만 보장하고 원천 최신성은 별도 플래그로 둔다 | 〃 |
-| `check_coverage` | ⒞ 링크-시간 커버리지 (분모는 사전에 고정) | 〃 |
-| `check_master_version` | ⒟ 링크 마스터와 행정동 경계가 **활성(검증 완료) 버전**인지, 서로 정합하는지 | 〃 |
-| `check_min_timebands` | ⒠ 지표 산출에 필요한 최소 시간대 수 | 〃 |
-| `evaluate_gate1` | 다섯 결과와 fingerprint를 종합한다 | `hold` / `skip_unchanged` / `proceed` 3분기 |
-| `hold_publish` → `mark_stale_and_alert` | 이전 정상 결과를 유지하고, 게시 상태를 `stale`로 표시한 뒤 알린다 | — |
-| `spatial_join` | (링크 버전, 경계 버전)의 매핑이 있으면 재사용하고, 없으면 중점 귀속으로 계산한다 | Clear 재실행 |
-| `admdong_timeband_agg` | 행정동 × 시간대 평균 속도 (도로 길이 가중을 기본으로 하고 단순 평균을 병행) | 〃 |
-| `compute_indicators` | 판정 지표와 보조 지표 산출 | 〃 |
-| `region_quality_gate` | **Gate 2**: 대상 행정동 전체에 품질 등급을 부여한다 | 〃 |
-| `classify_abc` | 판정 순서 C → A → B → 참고군. 원천 갱신이 미검증이면 B를 비활성화하고 `b_suppressed` 플래그를 기록한다 | 〃 |
-| `build_mart_candidate` | 후보 테이블 생성. 운영 마트는 건드리지 않는다 | 〃 |
-| `verify_candidate` | §4.3.3의 완전성 조건 검사 | 실패 시 게시하지 않고 운영 마트를 그대로 유지한다 |
-| `publish_mart` | §4.3.3 게시 트랜잭션 | 롤백 시 운영 마트 유지 |
-| `record_run_result` | upstream 상태와 게시 로그를 조회해 실행 결과를 확정한다 (§4.3.4) | — |
+| `check_reg_snapshot` | ⒜ 해당 월 스냅샷과 품질 등급 | 결과만 XCom으로 넘기고 실패시키지 않음 |
+| `check_traffic_freshness` | ⒝ 마지막 정상 수집 시각. 수집 최신성만 보장, 원천 최신성은 별도 플래그 | 〃 |
+| `check_coverage` | ⒞ 링크-시간 커버리지 (분모 사전 고정) | 〃 |
+| `check_master_version` | ⒟ 링크 마스터·경계가 활성(검증 완료) 버전이고 서로 맞는지 | 〃 |
+| `check_min_timebands` | ⒠ 지표 산출 최소 시간대 수 | 〃 |
+| `evaluate_gate1` | 다섯 결과와 fingerprint 종합 | `hold` / `skip_unchanged` / `proceed` |
+| `hold_publish` → `mark_stale_and_alert` | 이전 결과 유지, 게시 상태 `stale`, 알림 | — |
+| `spatial_join` | (링크 버전, 경계 버전) 매핑이 있으면 재사용, 없으면 중점 귀속 계산 | Clear 재실행 |
+| `admdong_timeband_agg` | 행정동 × 시간대 평균 속도. 도로 길이 가중 기본, 단순 평균 병행 | 〃 |
+| `compute_indicators` | 판정 지표·보조 지표 | 〃 |
+| `region_quality_gate` | Gate 2. 대상 행정동 전체에 품질 등급 부여 | 〃 |
+| `classify_abc` | C → A → B → 참고군 순서. 원천 갱신 미검증이면 B 끄고 `b_suppressed` 기록 | 〃 |
+| `build_mart_candidate` | 후보 테이블 생성. 운영 마트는 안 건드림 | 〃 |
+| `verify_candidate` | §4.3.3 완전성 검사 | 실패면 게시 안 함, 운영 마트 유지 |
+| `publish_mart` | §4.3.3 게시 트랜잭션 | 롤백, 운영 마트 유지 |
+| `record_run_result` | upstream 상태와 게시 로그로 실행 결과 확정 (§4.3.4) | — |
 
-#### 4.3.3 지역별 결과 상태와 게시 범위
+#### 4.3.3 지역별 결과와 게시
 
-**후보 마트는 분석 대상 행정동 전체를 한 행씩 빠짐없이 포함한다.** 판정할 수 없는 지역도 행을 빼지 않고 상태로 표현한다.
+후보 마트에는 대상 행정동이 하나도 빠짐없이 들어간다. 판정 못 한 지역도 행을 빼지 않고 상태로 남긴다.
 
-| `classification` | 의미 | 근거 (RFP §03) |
+| `classification` | 의미 | 조건 (RFP §03) |
 |---|---|---|
-| `A` / `B` / `REF` | 정상 판정 (규모·추세 우위 / 환경 변동 큼 / 참고군) | 품질 등급 정상 또는 경고 |
-| `C` | 유효한 결과지만 기준 미달 → 데이터 보완 대상 | 품질 등급 기준 미달 |
-| `WITHHELD` | 결과를 신뢰할 수 없어 분류를 보류하고 결과를 제공하지 않음 | 품질 등급 치명 |
+| `A` / `B` / `REF` | 규모·추세 우위 / 환경 변동 큼 / 참고군 | 품질 정상 또는 경고 |
+| `C` | 결과는 유효하지만 기준 미달, 데이터 보완 대상 | 품질 기준 미달 |
+| `WITHHELD` | 결과를 믿을 수 없어 분류 보류 | 품질 치명 |
 
-- `verify_candidate`의 통과 조건:
-  - 후보 행 수 = 활성 경계 버전의 대상 행정동 수
-  - (행정동, `base_month`) 키 중복 없음
-  - `classification` null 없음
-  - 분류 분포의 급변이 경보 기준 이내 `[미확정]`
-- **게시 트랜잭션** (`publish_mart`, 단일 트랜잭션):
-  1. 운영 마트에서 해당 `base_month` 행을 **전부 삭제한 뒤 후보 전체를 삽입**한다(파티션 교체). UPSERT만 하면 후보에 없는 지역의 이전 결과가 남기 때문에 쓰지 않는다.
-  2. 같은 트랜잭션 안에서 `ops` 게시 로그(`base_month`, `run_id`, fingerprint, 입력 `load_id`, 마스터·경계·임계값 버전, `published_at`)와 게시 상태(`current`)를 기록한다.
-  - 그 결과 **게시와 계보가 원자적**이 된다. "게시는 됐는데 계보가 없는" 상태가 생기지 않는다.
-- **게시 상태** (`base_month` 단위):
+`verify_candidate` 통과 조건
+- 후보 행 수 = 활성 경계 버전의 대상 행정동 수
+- (행정동, `base_month`) 중복 없음
+- `classification` null 없음
+- 분류 분포 급변이 경보 기준 이내 `[미확정]`
+
+`publish_mart` (한 트랜잭션)
+1. 운영 마트의 해당 `base_month` 행을 지우고 후보 전체를 넣는다. UPSERT만 하면 후보에 없는 지역의 옛 결과가 남는다.
+2. 같은 트랜잭션에서 게시 로그(`base_month`, `run_id`, fingerprint, 입력 `load_id`, 마스터·경계·임계값 버전, `published_at`)와 게시 상태 `current`를 쓴다.
+
+게시와 계보가 같이 커밋되니 "게시는 됐는데 계보가 없는" 상태는 생기지 않는다.
+
+게시 상태 (`base_month` 단위)
 
 | 상태 | 의미 |
 |---|---|
-| `current` | 최신 입력으로 게시된 결과 |
-| `stale` | Gate 1 보류로 이전 결과를 유지 중. 최신 아님을 사유와 함께 표시 |
-| `never_published` | 아직 게시된 결과가 없음 |
+| `current` | 최신 입력으로 게시됨 |
+| `stale` | Gate 1 보류로 이전 결과 유지 중. 사유와 함께 최신 아님 표시 |
+| `never_published` | 아직 게시된 적 없음 |
 
-  사용자 조회 뷰는 마트와 게시 상태를 조인해 기준월, 도로 분석 기간, 마지막 정상 게시 시각, 현재 상태를 함께 노출한다(RFP §09).
+조회 뷰는 마트와 게시 상태를 조인해 기준월, 도로 분석 기간, 마지막 정상 게시 시각, 현재 상태를 같이 보여준다 (RFP §09).
 
-#### 4.3.4 실행 결과 확정 (`record_run_result`)
+#### 4.3.4 실행 결과 확정
 
-| 경로 | `ops` 실행 상태 | DAG 실행 |
+| 경로 | `ops` 상태 | DAG 실행 |
 |---|---|---|
-| `no_eligible_period` | `no_eligible_period` (입력 대기, 대기 사유 포함) | 성공 |
+| `no_eligible_period` | `no_eligible_period` (대기 사유 포함) | 성공 |
 | `skip_unchanged` | `skipped_unchanged` | 성공 |
-| `hold_publish` | `held` (보류 사유 = Gate 1 실패 항목) | 성공 |
+| `hold_publish` | `held` (실패한 Gate 1 항목) | 성공 |
 | `publish_mart` 성공 | `published` | 성공 |
-| 처리 Task 또는 `verify_candidate` 실패 | `failed` (실패 Task, 운영 마트 미변경) | **실패** |
+| 처리 Task 또는 `verify_candidate` 실패 | `failed` (운영 마트 변경 없음) | 실패 |
 
-- 트리거 규칙은 **`all_done`**이다. 보류·실패·무변경 경로에서도 반드시 실행된다.
-- 실행 상태 기록은 `run_id` 키 UPSERT로 하므로 이 Task만 재시도해도 안전하다.
-- 게시 여부의 진실 원천은 §4.3.3의 게시 로그다. 실행 상태 기록이 실패해도 게시 사실은 이미 남아 있으므로, DAG를 다시 실행해 `skipped_unchanged`가 선택되더라도 계보는 손실되지 않는다.
+- `record_run_result`는 `all_done`이라 보류·실패·무변경에서도 돈다.
+- `run_id` 키 UPSERT라 이 Task만 다시 돌려도 된다.
+- 게시 여부는 게시 로그가 기준이다. 상태 기록이 실패해도 게시 사실은 남아 있어서, DAG를 다시 돌려 `skipped_unchanged`가 나와도 계보는 잃지 않는다.
 
 ---
 
