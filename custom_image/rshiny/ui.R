@@ -1,13 +1,29 @@
-ui <- fluidPage(
-  titlePanel("서울 전동화 입지 인사이트"),
-  sidebarLayout(
-    sidebarPanel(
-      h4("DB 연결"),
-      verbatimTextOutput("db_status")
+ui <- navbarPage(
+  "서울 전동화 입지 인사이트",
+  tabPanel("운영 현황",
+    fluidRow(
+      column(6, h4("DAG별 데이터 상태 (ops.pipeline_run)"), tableOutput("runs")),
+      column(6, h4("게시 상태"), tableOutput("publish"))
     ),
-    mainPanel(
-      h4("조회 가능 테이블 (mart, ops)"),
-      tableOutput("table_list")
-    )
+    h4("수집 회차별 정상 응답률 (대상 914개 링크)"),
+    plotOutput("coverage_plot", height = 300)
+  ),
+  tabPanel("전동화 규모×추세",
+    p("행정동별 전기차 대수(2026-09)와 전년 동월 대비 증가율. 점선은 유형 A 임계값(두 값 모두 이상이면 A 후보)."),
+    plotOutput("trend_plot", height = 520),
+    tableOutput("threshold")
+  ),
+  tabPanel("시간대 도로 환경",
+    fluidRow(
+      column(3, selectInput("sgg", "자치구", choices = c("강남구", "서초구", "송파구"))),
+      column(5, uiOutput("dong_ui"))
+    ),
+    p("확정된 시간대만 표시. 링크별 대표 속도를 도로 길이로 가중 평균."),
+    plotOutput("profile_plot", height = 420)
+  ),
+  tabPanel("분류 결과",
+    uiOutput("result_notice"),
+    plotOutput("class_plot", height = 300),
+    tableOutput("result_table")
   )
 )
