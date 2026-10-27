@@ -3,3 +3,4 @@ apache-airflow-providers-postgres
 apache-airflow-providers-http
 apache-airflow-providers-slack
 apache-airflow-providers-fab
+openpyxl
