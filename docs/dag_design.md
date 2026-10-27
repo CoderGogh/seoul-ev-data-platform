@@ -447,15 +447,15 @@ ev13은 보존 기간이 지났다고 바로 지우지 않는다. 아래 조건�
 
 ---
 
-## 9. 시간 기준 정리
+## 9. 시간 기준
 
 | 개념 | 정의 | 사용처 |
 |---|---|---|
-| `logical_date` / `run_after` | Airflow 실행 기준 시각 | 실행 식별과 지연 판정(`check_run_freshness`). **데이터 기간으로 쓰지 않는다** |
+| `logical_date` / `run_after` | Airflow 실행 기준 시각 | 실행 식별, 지연 판정. 데이터 기간으로는 안 씀 |
 | `collected_at` | 실제 수집 시각 | ev01 관측 이력, 수집 최신성 |
-| `source_observed_at` | 원천 관측 시각 (없으면 NULL) `[미확정: 제공 여부]` | 원천 최신성, B 판정 활성 조건 |
-| `base_month` | 등록 기준월. ev02의 `resolve_base_month`가 명시적으로 결정 | ev02·ev03 파티션 |
-| 도로 분석 기간 | `base_month`와 같은 월의 완료 기간 (예: 2026-09 → 09-01~09-30) | ev03 지표 |
+| `source_observed_at` | 원천 관측 시각, 없으면 NULL `[미확정]` | 원천 최신성, B 판정 활성 조건 |
+| `base_month` | 등록 기준월. `resolve_base_month`가 결정 | ev02·ev03 파티션 |
+| 도로 분석 기간 | `base_month`와 같은 월 (예: 2026-09 → 09-01~09-30) | ev03 지표 |
 | 워터마크 | 분석 기간 종료 + 지각 허용 `[미확정]` | dirty 월 판정 |
 
 ---
