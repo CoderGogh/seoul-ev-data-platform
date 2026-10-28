@@ -69,6 +69,16 @@ server <- function(input, output, session) {
     ggplot(d, aes(sgg_nm, fill = classification)) + geom_bar() +
       scale_fill_manual(values = class_colors, name = "유형") + labs(x = NULL, y = "행정동 수")
   })
+  # 우선 검토 지역 + 충전소 유형 참고
+  output$a_table <- renderTable({
+    d <- result() %>% filter(classification == "A")
+    validate(need(nrow(d) > 0, "우선 검토 지역 없음"))
+    d %>% arrange(desc(ev_cnt)) %>%
+      transmute(자치구 = sgg_nm, 행정동 = sub("^서울특별시 \\S+ ", "", adm_nm), 전기차 = ev_cnt,
+                `증가율(%)` = ev_yoy_rate, `저속 비중(%)` = low_spd_ratio, `평균 속도` = avg_spd,
+                `충전소 유형 참고` = charger_hint_nm)
+  })
   output$result_table <- renderTable(result() %>% select(sgg_nm, adm_nm, classification, quality_grade, ev_cnt,
-                                                         ev_yoy_rate, coverage, speed_cv, reasons))
+                                                         ev_yoy_rate, coverage, low_spd_ratio, charger_hint_nm,
+                                                         reasons))
 }
