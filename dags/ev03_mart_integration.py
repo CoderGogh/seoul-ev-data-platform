@@ -197,12 +197,13 @@ with DAG(
         rows = db.execute_file("ev03/classify.sql", _run_args(context), fetch=True)
         return {c: sum(1 for r in rows if r["classification"] == c) for c in ("A", "B", "C", "REF", "WITHHELD")}
 
-    # 후보 완전성: 대상 행정동 전체·키 중복 없음·분류 null 없음
+    # 후보 완전성: 대상 행정동 전체·키 중복 없음·분류 null 없음·우선 검토 지역 유형 누락 없음
     @task
     def verify_candidate(**context):
         r = db.execute(
             """SELECT count(*) AS n, count(DISTINCT adm_cd) AS uniq,
                       count(*) FILTER (WHERE classification IS NULL) AS nulls,
+                      count(*) FILTER (WHERE classification = 'A' AND charger_hint IS NULL) AS a_no_hint,
                       (SELECT count(*) FROM mart.dim_admdong d WHERE d.sgg_nm IN (
                            SELECT DISTINCT a.sgg_nm FROM core.target_link t
                            JOIN core.admdong a ON a.boundary_ver = t.boundary_ver AND a.adm_cd = t.adm_cd
@@ -211,7 +212,7 @@ with DAG(
             _run_args(context),
             fetch=True,
         )[0]
-        ok = r["n"] == r["expected"] == r["uniq"] and r["nulls"] == 0
+        ok = r["n"] == r["expected"] == r["uniq"] and r["nulls"] == 0 and r["a_no_hint"] == 0
         ops.record_quality(context, "candidate_complete", "ok" if ok else "fatal", r["n"], r["expected"], detail=r)
         if not ok:
             raise AirflowFailException(f"후보 불완전: {r}")

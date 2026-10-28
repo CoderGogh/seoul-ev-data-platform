@@ -42,6 +42,7 @@ load_trend <- function() q("
 load_threshold <- function() q("SELECT * FROM mart.v_active_threshold")
 load_profile <- function() q("SELECT sgg_nm, adm_nm, obs_date, timeband, avg_spd, link_cnt FROM mart.v_timeband_profile")
 load_result <- function() q("
-  SELECT base_month, sgg_nm, adm_nm, classification, quality_grade, ev_cnt, ev_yoy_rate, coverage, speed_cv,
+  SELECT base_month, sgg_nm, adm_nm, classification, quality_grade, ev_cnt, ev_yoy_rate, coverage,
+         avg_spd, low_spd_ratio, charger_hint_nm,
          array_to_string(reason_codes, ', ') AS reasons, publish_status, last_published_at, threshold_ver
   FROM mart.v_admdong_result ORDER BY sgg_nm, adm_nm")
