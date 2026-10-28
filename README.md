@@ -15,7 +15,7 @@
 | flower | 워커 모니터링 | http://localhost:5555 |
 | postgis | 분석 DB (staging·core·mart·ops·quarantine) | localhost:5432 |
 | postgres | Airflow 메타데이터 DB | localhost:5431 |
-| rshiny | 운영 현황·규모×추세·시간대 속도·분류 결과 대시보드 | http://localhost:3838 |
+| rshiny | 운영 현황·규모×추세·월별 추세·시간대 속도·분류 결과 대시보드 | http://localhost:3838 |
 
 ## 실행
 
