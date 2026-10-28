@@ -32,6 +32,7 @@ CREATE TABLE IF NOT EXISTS mart.fact_admdong_indicator (
     threshold_ver        text        NOT NULL,
     run_id               text        NOT NULL,
     published_at         timestamptz NOT NULL,
+    charger_hint         text        CHECK (charger_hint IN ('fast', 'slow', 'mixed')),  -- 충전소 유형 참고 (도로 저속 비율)
     PRIMARY KEY (base_month, adm_cd)
 );
 
@@ -51,6 +52,11 @@ CREATE TABLE IF NOT EXISTS mart.fact_admdong_timeband (
 -- 게시 전 후보 (run 단위, 검증 통과 시 운영 마트로 교체)
 CREATE TABLE IF NOT EXISTS mart.candidate_admdong_indicator (LIKE mart.fact_admdong_indicator INCLUDING DEFAULTS INCLUDING CONSTRAINTS);
 CREATE TABLE IF NOT EXISTS mart.candidate_admdong_timeband (LIKE mart.fact_admdong_timeband INCLUDING DEFAULTS INCLUDING CONSTRAINTS);
+-- 기존 DB 보강: 충전소 유형 참고
+ALTER TABLE mart.fact_admdong_indicator ADD COLUMN IF NOT EXISTS charger_hint text
+    CHECK (charger_hint IN ('fast', 'slow', 'mixed'));
+ALTER TABLE mart.candidate_admdong_indicator ADD COLUMN IF NOT EXISTS charger_hint text
+    CHECK (charger_hint IN ('fast', 'slow', 'mixed'));
 CREATE INDEX IF NOT EXISTS candidate_indicator_run_idx ON mart.candidate_admdong_indicator (run_id);
 CREATE INDEX IF NOT EXISTS candidate_timeband_run_idx ON mart.candidate_admdong_timeband (run_id);
 
@@ -79,7 +85,10 @@ SELECT f.base_month, d.sgg_nm, d.adm_nm, f.adm_cd,
        f.ev_cnt, f.ev_share, f.ev_yoy_rate, f.speed_cv, f.coverage,
        f.traffic_window_start, f.traffic_window_end, f.period_mismatch, f.b_suppressed,
        s.status AS publish_status, s.last_published_at, s.reason AS status_reason,
-       f.threshold_ver, f.run_id
+       f.threshold_ver, f.run_id,
+       f.avg_spd, f.low_spd_ratio, f.charger_hint,
+       CASE f.charger_hint WHEN 'fast' THEN '도로변 급속 검토' WHEN 'slow' THEN '거점·완속 우선'
+                           WHEN 'mixed' THEN '혼합 검토' END AS charger_hint_nm
 FROM mart.fact_admdong_indicator f
 JOIN mart.dim_admdong d USING (adm_cd)
 LEFT JOIN ops.publish_status s USING (base_month);
