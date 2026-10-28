@@ -13,6 +13,13 @@ ui <- navbarPage(
     plotOutput("trend_plot", height = 520),
     tableOutput("threshold")
   ),
+  tabPanel("월별 추세",
+    p("최근 12개월 증가 양상 (보조 지표, 분류 판정에는 미사용). 한 달 몰림: 1년 증가분 절반 이상이 한 달에. 최근 가속: 최근 3개월이 직전 3개월의 1.5배 이상."),
+    plotOutput("total_plot", height = 300),
+    plotOutput("a_trend_plot", height = 420),
+    plotOutput("watch_plot", height = 240),
+    tableOutput("momentum_table")
+  ),
   tabPanel("시간대 도로 환경",
     fluidRow(
       column(3, selectInput("sgg", "자치구", choices = c("강남구", "서초구", "송파구"))),

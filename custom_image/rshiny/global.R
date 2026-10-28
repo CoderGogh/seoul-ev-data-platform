@@ -41,6 +41,12 @@ load_trend <- function() q("
   FROM mart.v_reg_trend")
 load_threshold <- function() q("SELECT * FROM mart.v_active_threshold")
 load_profile <- function() q("SELECT sgg_nm, adm_nm, obs_date, timeband, avg_spd, link_cnt FROM mart.v_timeband_profile")
+load_monthly <- function() q("SELECT sgg_nm, adm_nm, adm_cd, to_date(base_month, 'YYYYMM') AS month, ev_cnt FROM mart.v_reg_monthly")
+load_momentum <- function() q("
+  SELECT m.sgg_nm, m.adm_nm, m.adm_cd, m.ev_cnt, m.inc_12m, m.rate_3m, m.rate_prev_3m, m.up_months, m.max_month_share,
+         m.growth_pattern, r.classification
+  FROM mart.v_reg_momentum m LEFT JOIN mart.v_admdong_result r USING (adm_cd)")
+pattern_colors <- c("꾸준한 증가" = "#2b8a3e", "최근 가속" = "#1f77b4", "한 달 몰림" = "#d62728", "정체·변동" = "#7f7f7f")
 load_result <- function() q("
   SELECT base_month, sgg_nm, adm_nm, classification, quality_grade, ev_cnt, ev_yoy_rate, coverage,
          avg_spd, low_spd_ratio, charger_hint_nm,
