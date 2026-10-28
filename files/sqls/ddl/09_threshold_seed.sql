@@ -12,13 +12,13 @@ VALUES ('mvp_v1', jsonb_build_object(
         'provisional', '대상 67개 행정동 분위수(p60) 기반. 제출 전 민감도 검토 필요', true)
 ON CONFLICT (threshold_ver) DO NOTHING;
 
--- mvp_v2: 충전소 유형 참고 기준 추가 (A 판정 기준은 v1 과 동일)
+-- mvp_v2: 도로 여건 기준 추가 (A 판정 기준은 v1 과 동일)
 -- 근거: 67개 행정동 저속 관측 비중(15km/h 미만) p33 = 13.4%, p67 = 22.2%
 INSERT INTO ops.threshold_version (threshold_ver, params, basis, note, is_active)
 SELECT 'mvp_v2', params || jsonb_build_object(
-            'hint_fast_max_low', 13,      -- 저속 비중 % 미만 → 도로변 급속 검토 (통행 원활)
-            'hint_slow_min_low', 22),     -- 저속 비중 % 이상 → 거점·완속 우선 (정체 잦음)
-       'provisional', 'v1 + 충전소 유형 참고(저속 비중 p33·p67). 수요 지표 아님, 현장 조사 전 참고', false
+            'hint_fast_max_low', 13,      -- 저속 비중 % 미만 → 원활
+            'hint_slow_min_low', 22),     -- 저속 비중 % 이상 → 혼잡
+       'provisional', 'v1 + 도로 여건(저속 비중 p33·p67). 수요 지표 아님, 현장 조사 전 참고', false
 FROM ops.threshold_version WHERE threshold_ver = 'mvp_v1'
 ON CONFLICT (threshold_ver) DO NOTHING;
 

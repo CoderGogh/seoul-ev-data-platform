@@ -31,8 +31,8 @@ ui <- navbarPage(
   tabPanel("분류 결과",
     uiOutput("result_notice"),
     plotOutput("class_plot", height = 300),
-    h4("우선 검토 지역 · 충전소 유형 참고"),
-    p("유형은 도로 저속 비중(15km/h 미만)으로 나눈 참고값. 모든 차량 속도라 수요 지표가 아니며 현장 조사 전 참고용."),
+    h4("우선 검토 지역 · 도로 여건"),
+    p("도로 여건은 저속 비중(15km/h 미만 시간 비율)으로 원활(13% 미만)·보통·혼잡(22% 이상). 모든 차량 값이라 수요 지표가 아니며, 충전소 유형은 현장 조사에서 결정."),
     tableOutput("a_table"),
     h4("전체 행정동"),
     tableOutput("result_table")

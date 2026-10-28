@@ -1,5 +1,5 @@
 -- 판정 순서: 치명 → WITHHELD, 기준 미달 → C, 규모·추세 모두 기준 이상 → A, 그 외 참고군 (B 는 원천 관측시각 없어 비활성)
--- 충전소 유형 참고: 품질 통과 동만, 도로 저속 비중으로 급속·완속·혼합 (수요 지표 아님)
+-- 도로 여건: 품질 통과 동만, 저속 비중으로 원활·보통·혼잡 (수요 지표 아님, 유형 결정은 현장 조사)
 -- 파라미터: run_id, threshold_ver
 WITH p AS (SELECT params FROM ops.threshold_version WHERE threshold_ver = %(threshold_ver)s)
 UPDATE mart.candidate_admdong_indicator c
