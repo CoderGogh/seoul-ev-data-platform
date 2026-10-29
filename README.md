@@ -2,7 +2,7 @@
 
 월 단위 전기차 등록현황과 실시간 도로소통정보를 각자 주기로 수집하고, 행정동 단위로 맞춰 충전소 우선 검토 지역을 고르는 Airflow 파이프라인. 우선 검토는 전기차 대수·증가율로 판정하고, 도로 저속 비중으로 동네 도로 여건(원활·보통·혼잡)을 함께 보여준다.
 
-설계는 [docs/dag_design.md](docs/dag_design.md), 형상 관리 규칙은 [CONTRIBUTING.md](CONTRIBUTING.md) 참고.
+설계는 [docs/dag_design.md](docs/dag_design.md), 형상 관리 규칙은 [CONTRIBUTING.md](CONTRIBUTING.md), 실행 방법은 [RUNNING.md](RUNNING.md) 참고.
 
 ## 구성
 
