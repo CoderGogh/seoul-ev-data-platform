@@ -1,58 +1,90 @@
 # 서울 전동화 입지 인사이트 플랫폼
 
-월 단위 전기차 등록현황과 실시간 도로소통정보를 각자 주기로 수집하고, 행정동 단위로 맞춰 충전소 우선 검토 지역을 고르는 Airflow 파이프라인. 우선 검토는 전기차 대수·증가율로 판정하고, 도로 저속 비중으로 동네 도로 여건(원활·보통·혼잡)을 함께 보여준다.
+전기차 등록현황(월 1회)과 실시간 도로소통정보(30분)를 행정동 단위로 맞춰, 충전소를 먼저 늘릴 동네를 매일 자동으로 고르는 Airflow 파이프라인. 품질 기준을 통과한 결과만 공개한다.
 
 설계는 [docs/dag_design.md](docs/dag_design.md), 형상 관리 규칙은 [CONTRIBUTING.md](CONTRIBUTING.md), 실행 방법은 [RUNNING.md](RUNNING.md) 참고.
 
-## 구성
+| 67개 동 | 914곳 | 3단계 | 12곳 |
+|:---:|:---:|:---:|:---:|
+| 강남·서초·송파 행정동 | 30분마다 수집하는 도로 | 품질 관문 | 충전소 우선 검토 지역 |
 
-| 서비스 | 역할 | 주소 |
+## 결과
+
+### 우선 검토 12곳과 도로 여건
+
+등록 2026년 9월 · 도로 10/27~28 관측 기준. 전기차 대수·1년 증가율로 우선 검토 지역을 고르고, 도로 저속 비중으로 동네 도로 여건을 붙인다.
+
+![우선 검토 지역 12곳과 도로 여건](docs/images/result_priority.png)
+
+| 도로 여건 | 저속 비중 | 동 |
 |---|---|---|
-| airflow-apiserver | Airflow UI·API | http://localhost:8080 |
-| airflow-scheduler, dag-processor, triggerer | 스케줄링·DAG 파싱·deferrable 대기 | — |
-| airflow-worker-default-1, -2 | 일반 처리 (`default` 큐) | — |
-| airflow-worker-api | 외부 API 호출 (`api` 큐) | — |
-| flower | 워커 모니터링 | http://localhost:5555 |
-| postgis | 분석 DB (staging·core·mart·ops·quarantine) | localhost:5432 |
-| postgres | Airflow 메타데이터 DB | localhost:5431 |
-| rshiny | 운영 현황·규모×추세·월별 추세·시간대 속도·분류 결과 대시보드 | http://localhost:3838 |
+| 원활 2곳 | 13% 미만 | 세곡동, 청담동 |
+| 보통 5곳 | 13~22% | 개포2동, 문정2동, 잠실2동, 잠원동, 논현1동 |
+| 혼잡 5곳 | 22% 이상 | 삼성1동, 개포1동, 잠실4동, 장지동, 도곡2동 |
 
-## 실행
+급속·완속 유형은 현장 조사에서 정한다.
 
-```bash
-cp .env.example .env      # 비밀번호·API 키 입력
-docker compose up -d --build
+### 13개월 추세
+
+3개 구 전기차 29,443 → 36,379대(+23.6%), 12개월 연속 증가.
+
+![우선 검토 12곳의 월별 전기차 대수](docs/images/result_trend.png)
+
+- 12곳 모두 12개월 중 11~12개월 증가. 잠실4동 +125%도 한 번에 뛴 게 아님
+- 대치2동: 1년 증가 대부분이 2025년 11월 한 달에 몰림 → 원인 확인 필요
+- 반포본동: 최근 3개월 +57%(직전 3개월의 5배) → 다음 갱신 때 우선 확인
+
+## 전체 구조
+
+```mermaid
+flowchart LR
+    road["도로소통 API<br/>30분"] --> ev01["ev01<br/>도로 수집"]
+    reg["등록현황 API<br/>월 1회"] --> ev02["ev02<br/>등록 수집"]
+    map["표준링크·행정동 경계"] --> ev10["ev10<br/>도로-동 연결"]
+    ev01 -. "DB 누적" .-> ev03
+    ev02 -- "갱신 신호" --> ev03
+    ev10 -- "갱신 신호" --> ev03
+    ev03["ev03<br/>지표·분류·품질 관문"] --> mart[("mart<br/>통과분만 교체")]
+    mart --> shiny["Rshiny 대시보드"]
+    ev12["ev12<br/>품질 리포트"] --> slack["Slack"]
+    ev11["ev11<br/>재처리"] -. trigger .-> ev02
+    ev11 -. trigger .-> ev03
 ```
 
-Airflow 로그인 계정은 `.env`의 `AIRFLOW_ADMIN_USER` / `AIRFLOW_ADMIN_PASSWORD`.
+| 단계 | 하는 일 | DAG | 스키마 |
+|---|---|---|---|
+| ① 수집 | 원본 그대로 저장 | ev01, ev02 | staging |
+| ② 정제·연결 | 이상값 격리, 도로를 소속 동에 지도 매칭(버전 관리) | ev10 | core, quarantine |
+| ③ 검증·공개 | 품질 확인 후 통과분만 한 트랜잭션으로 교체 | ev03 | mart |
+| ④ 활용·운영 | 대시보드, Slack 알림, 재처리, 보존 정리 | ev11~13, Rshiny | ops |
 
-계정·DB 비밀번호는 볼륨을 처음 만들 때만 반영된다. 이후 `.env`에서 바꾸면 `docker compose down -v`로 초기화하거나 DB에서 직접 변경해야 한다.
+주기가 다른 수집은 DAG를 나눠 따로 돌린다. 통합 DAG ev03은 새 데이터 신호나 매일 06:00에 시작해, 수집 완료를 기다리지 않고 DB에 쌓인 값으로 판단한다.
 
-커넥션·Variable은 UI가 아니라 `.env` → 환경변수(`AIRFLOW_CONN_*`, `AIRFLOW_VAR_*`)로 등록한다. 볼륨을 초기화해도 유지되고, UI 목록에는 보이지 않는다.
+### 통합 DAG (ev03)
 
-## DAG
+![ev03 앞부분: 재처리·등록·마스터 신호, 기준월 확정, 관문 1](docs/images/dag_ev03_front.png)
+![ev03 뒷부분: 계산, 분류, 검증, 공개, 결과 기록](docs/images/dag_ev03_back.png)
 
-| DAG | 주기 | 역할 |
+### 품질 관문
+
+| 관문 | 기준 | 미달 시 |
 |---|---|---|
-| ev01_traffic_collect | 30분 | 도로소통 수집·시간대 집계 |
-| ev02_registration_monthly | 매월 1일 | 등록현황 스냅샷 (api / file) |
-| ev03_mart_integration | 매일 06:00 또는 Asset | 지표·분류·마트 게시 |
-| ev10_master_refresh | 수동 | 링크·경계 마스터 버전 |
-| ev11_reprocess | 수동 | 재처리 요청 |
-| ev12_quality_monitor | 매일 08:00 | 실행 상태 × 데이터 상태 리포트 |
-| ev13_retention_cleanup | 매주 일 03:00 | 조건부 보존 정리 (기본 dry-run) |
+| 1. 3개 구 전체 | 도로 관측률 60% 이상 | 공개 보류, 지난 결과 유지 |
+| 2. 동네마다 | 관측률 60%, 관측 6시간, 도로 3곳 이상 | 데이터 보완 필요 |
+| 3. 통과한 동 | 전기차 522대, 1년 증가율 39.7% 이상 (67개 동 상위 40% 경계, 잠정) | 관찰 대상 |
 
-## DBeaver 연결
+## 운영에서 확인한 것
 
-| 연결 | Host | Port | Database | 계정 |
-|---|---|---|---|---|
-| 분석 DB | localhost | 5432 | `EV_DB_NAME` | `EV_DB_USER` / `EV_DB_PASSWORD` |
-| Airflow 메타데이터 | localhost | 5431 | `POSTGRES_DB` | `POSTGRES_USER` / `POSTGRES_PASSWORD` |
+| 문제 | 해결 |
+|---|---|
+| 회차마다 일부 도로 값 누락 (40회 중 25회) | 받은 값은 저장, 회차는 '부분 성공'으로 기록 |
+| 분석 기간이 덜 찼는데 06:00 정기 실행 (4회) | 관문 1에서 공개 보류, Slack 알림 |
+| 과거 11개월 백필 중 통합 DAG 10회 자동 시작 | 입력 지문 비교로 10회 모두 재계산 생략 |
 
-메타데이터 DB에서는 `dag_run`, `task_instance`로 실행 이력을 직접 조회할 수 있다. 쓰기는 하지 않는다.
+매일 08:00 품질 리포트가 '성공'으로 끝났지만 데이터가 부족한 실행을 찾아낸다. 10/28 리포트에서 17건 발견.
 
-## 참고
+![Slack 일일 품질 리포트](docs/images/slack_quality_report.png)
 
-- RFP 원문은 저장소에 포함하지 않음
-- 공식 `postgis/postgis` 이미지는 amd64 전용이라 `postgres:16`에 PostGIS를 설치해 빌드
-- Rshiny는 읽기 전용 계정 `rshiny_reader`로 `mart`, `ops`만 조회
+## CI/CD
+
+`lint` → `test` → `validate_dag` → `validate_ddl` 4단계를 GitHub Actions로 실행하고, 통과해야 보호 브랜치 main에 병합된다. `build`·`deploy`까지 포함한 6단계는 `.gitlab-ci.yml`로 설계.
