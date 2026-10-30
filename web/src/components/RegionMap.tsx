@@ -131,12 +131,12 @@ export function RegionMap({ geo, regions, mode, matches, activeCd, height, onSel
           ]}
         />
       )}
-      <MapLegend mode={mode} />
+      <MapLegend mode={mode} hasOutside={paths.some(({ props }) => !byCd.has(props.adm_cd))} />
     </div>
   );
 }
 
-function MapLegend({ mode }: { mode: MapMode }) {
+function MapLegend({ mode, hasOutside }: { mode: MapMode; hasOutside: boolean }) {
   return (
     <div className="legend" style={{ marginTop: 8 }}>
       {mode === "class" ? (
@@ -158,10 +158,12 @@ function MapLegend({ mode }: { mode: MapMode }) {
           </span>
         ))
       )}
-      <span>
-        <i className="swatch" style={{ background: "var(--outside)", border: "1px solid var(--border)" }} />
-        분석 대상 외
-      </span>
+      {hasOutside && (
+        <span>
+          <i className="swatch" style={{ background: "var(--outside)", border: "1px solid var(--border)" }} />
+          분석 대상 외
+        </span>
+      )}
     </div>
   );
 }
