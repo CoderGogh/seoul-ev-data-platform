@@ -25,8 +25,10 @@ export function Quality({ data }: { data: AppData }) {
 
   return (
     <div className="page">
-      <section>
-        <div className="kicker">기준월 {fmtMonth(meta.base_month)}</div>
+      <section className="hero">
+        <div className="kicker">
+          <span className="chip">기준월 {fmtMonth(meta.base_month)}</span>
+        </div>
         <h1>데이터 품질</h1>
         <p className="lede">
           수집·실행·지역 3단계 관문을 통과한 결과만 공개합니다. 수집은 2026년 10월 28일 과제 제출 후 중단해서 이 화면은 그
@@ -40,7 +42,7 @@ export function Quality({ data }: { data: AppData }) {
           <dl className="kv">
             <dt>상태</dt>
             <dd>
-              <span className="check">✓</span> {meta.publish_status === "current" ? "최신 (current)" : meta.publish_status}
+              <span className="pass">{meta.publish_status === "current" ? "최신 게시" : meta.publish_status}</span>
             </dd>
             <dt>게시 시각</dt>
             <dd>{fmtDateTime(meta.published_at)}</dd>

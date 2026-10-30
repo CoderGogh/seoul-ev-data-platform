@@ -1,5 +1,5 @@
 // 개요: 결과 요약·판정 기준·3개 구 추세
-import { useMemo } from "react";
+import { useMemo, type CSSProperties } from "react";
 import {
   CartesianGrid,
   Line,
@@ -12,7 +12,17 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { CLASS_LABEL, fmtDateTime, fmtInt, fmtMonth, fmtPct, type AppData, type Region } from "../data";
+import {
+  CLASS_LABEL,
+  HINT_LABEL,
+  HINT_ORDER,
+  fmtDateTime,
+  fmtInt,
+  fmtMonth,
+  fmtPct,
+  type AppData,
+  type Region,
+} from "../data";
 import { HintBadge } from "../components/Badges";
 import { Tip, chartTipStyle } from "../components/Tip";
 import { Link, navigate } from "../router";
@@ -44,14 +54,19 @@ export function Overview({ data }: { data: AppData }) {
 
   return (
     <div className="page">
-      <section>
+      <section className="hero">
         <div className="kicker">
-          등록 {fmtMonth(meta.base_month)} · 도로 {fmtDateTime(meta.traffic_window_start)} ~ {fmtDateTime(meta.traffic_window_end)} 관측
+          <span className="chip">등록 {fmtMonth(meta.base_month)}</span>
+          <span className="chip">
+            도로 {fmtDateTime(meta.traffic_window_start)} ~ {fmtDateTime(meta.traffic_window_end)} 관측
+          </span>
         </div>
-        <h1>충전소를 먼저 늘릴 동네 {priority.length}곳</h1>
+        <h1>
+          충전소를 먼저 늘릴 동네 <span className="accent-num">{priority.length}곳</span>
+        </h1>
         <p className="lede">
-          강남·서초·송파 {regions.length}개 행정동을 전기차 대수와 1년 증가율로 골랐습니다. 도로 저속 비중으로 동네 도로
-          여건을 함께 붙였고, 급속·완속 유형은 현장 조사에서 정합니다.
+          강남·서초·송파 {regions.length}개 행정동을 전기차 대수와 1년 증가율로 골랐습니다. 동네마다 도로 여건을 함께
+          붙였고, 급속·완속 유형은 현장 조사에서 정합니다.
         </p>
       </section>
 
@@ -65,7 +80,7 @@ export function Overview({ data }: { data: AppData }) {
           <div className="stat-label">30분마다 수집한 도로 링크</div>
         </div>
         <div className="stat">
-          <div className="stat-value">{priority.length}곳</div>
+          <div className="stat-value accent-num">{priority.length}곳</div>
           <div className="stat-label">충전소 우선 검토 지역</div>
         </div>
         <div className="stat">
@@ -78,18 +93,29 @@ export function Overview({ data }: { data: AppData }) {
         <div className="card-head">
           <div>
             <h2>우선 검토 {priority.length}곳</h2>
-            <p className="card-sub">전기차 대수 순. 누르면 동네 검토 카드로 이동</p>
+            <p className="card-sub">전기차 대수 순. 왼쪽 띠 색은 도로 여건, 누르면 검토 카드로 이동</p>
           </div>
-          <Link to="/regions">전체 {regions.length}개 동 보기 →</Link>
+          <div className="badges">
+            {HINT_ORDER.map((h) => (
+              <span key={h} className={`badge badge-hint-${h}`}>
+                {HINT_LABEL[h]} {priority.filter((r) => r.charger_hint === h).length}
+              </span>
+            ))}
+          </div>
         </div>
         <div className="region-list">
           {priority.map((r) => (
-            <Link key={r.adm_cd} to={`/regions/${r.adm_cd}`} className="region-item">
+            <Link
+              key={r.adm_cd}
+              to={`/regions/${r.adm_cd}`}
+              className="region-item"
+              style={r.charger_hint ? ({ "--rail": `var(--hint-${r.charger_hint})` } as CSSProperties) : undefined}
+            >
               <span className="name">
                 {r.adm_nm} <span className="metric-note">{r.sgg_nm}</span>
               </span>
               <span className="meta">
-                전기차 {fmtInt(r.ev_cnt)}대 · 1년 {fmtPct(r.ev_yoy_rate)}
+                전기차 <b>{fmtInt(r.ev_cnt)}대</b> · 1년 <b>+{fmtPct(r.ev_yoy_rate)}</b>
               </span>
               <span>
                 <HintBadge value={r.charger_hint} prefix />
@@ -97,6 +123,9 @@ export function Overview({ data }: { data: AppData }) {
             </Link>
           ))}
         </div>
+        <p style={{ marginTop: 14 }}>
+          <Link to="/regions">전체 {regions.length}개 동 지도·목록 보기 →</Link>
+        </p>
       </section>
 
       <section className="card">

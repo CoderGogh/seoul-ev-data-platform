@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { fmtDateTime, fmtMonth, loadData, type AppData } from "./data";
 import { Link, usePath } from "./router";
+import { useTheme } from "./theme";
 import { Overview } from "./pages/Overview";
 import { Regions } from "./pages/Regions";
 import { RegionDetail } from "./pages/RegionDetail";
@@ -30,6 +31,7 @@ function route(path: string, data: AppData) {
 
 export function App() {
   const path = usePath();
+  const { theme, toggle } = useTheme();
   const [data, setData] = useState<AppData | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -44,6 +46,11 @@ export function App() {
       <header className="header">
         <div className="wrap">
           <Link to="/" className="brand">
+            <span className="brand-mark" aria-hidden="true">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M13 2 4 14h7l-1 8 9-12h-7l1-8z" />
+              </svg>
+            </span>
             서울 전동화 입지 인사이트
           </Link>
           <nav className="nav" aria-label="주 메뉴">
@@ -53,6 +60,9 @@ export function App() {
               </Link>
             ))}
           </nav>
+          <button className="theme-toggle" onClick={toggle} aria-label="화면 테마 전환">
+            {theme === "light" ? "🌙 다크" : "☀️ 라이트"}
+          </button>
         </div>
       </header>
       <main className="wrap">

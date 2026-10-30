@@ -1,4 +1,5 @@
 // 동네 검토 카드: 수요 축 + 도로 여건 + 현장 체크포인트
+import type { CSSProperties } from "react";
 import {
   Bar,
   BarChart,
@@ -58,12 +59,13 @@ export function RegionDetail({ data, admCd }: { data: AppData; admCd: string }) 
 
   return (
     <div className="page">
-      <section>
+      <section className="hero">
         <Link to="/regions" className="back">
           ← 행정동 목록
         </Link>
-        <div className="kicker" style={{ marginTop: 12 }}>
-          {r.sgg_nm} · 행정동 코드 {r.adm_cd}
+        <div className="kicker" style={{ marginTop: 14 }}>
+          <span className="chip">{r.sgg_nm}</span>
+          <span className="chip">행정동 코드 {r.adm_cd}</span>
         </div>
         <h1>{r.adm_nm}</h1>
         <div className="badges" style={{ marginTop: 10 }}>
@@ -127,6 +129,7 @@ export function RegionDetail({ data, admCd }: { data: AppData; admCd: string }) 
               value={fmtPct(r.low_spd_ratio)}
               ratio={r.low_spd_ratio / 40}
               marks={[p.hint_fast_max_low / 40, p.hint_slow_min_low / 40]}
+              color={r.charger_hint ? `var(--hint-${r.charger_hint})` : undefined}
               note={`원활 ${p.hint_fast_max_low}% 미만 · 혼잡 ${p.hint_slow_min_low}% 이상`}
             />
             <div className="metric">
@@ -255,23 +258,27 @@ interface ThresholdMetricProps {
   mark?: number;
   marks?: number[];
   pass?: boolean;
+  color?: string;
   note: string;
 }
 
 // 기준선 대비 막대
-function ThresholdMetric({ label, value, ratio, mark, marks, pass, note }: ThresholdMetricProps) {
+function ThresholdMetric({ label, value, ratio, mark, marks, pass, color, note }: ThresholdMetricProps) {
   const all = marks ?? (mark != null ? [mark] : []);
   return (
     <div className="metric">
       <div className="metric-row">
         <span className="metric-label">{label}</span>
         <span className="metric-value">
-          {pass != null && (pass ? <span className="check">✓ </span> : <span className="metric-note">미달 </span>)}
           {value}
+          {pass != null && <span className={`pass${pass ? "" : " no"}`}>{pass ? "기준 충족" : "기준 미달"}</span>}
         </span>
       </div>
       <div className="bar" aria-hidden="true">
-        <div className="bar-fill" style={{ width: `${Math.min(ratio, 1) * 100}%` }} />
+        <div
+          className="bar-fill"
+          style={{ width: `${Math.min(ratio, 1) * 100}%`, ...(color ? ({ "--bar": color } as CSSProperties) : {}) }}
+        />
         {all.map((m) => (
           <div key={m} className="bar-mark" style={{ left: `${Math.min(m, 1) * 100}%` }} />
         ))}
