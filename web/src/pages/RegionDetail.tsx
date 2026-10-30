@@ -166,7 +166,7 @@ export function RegionDetail({ data, admCd }: { data: AppData; admCd: string }) 
               <CartesianGrid stroke="var(--grid)" vertical={false} />
               <XAxis dataKey="month" {...axisProps} interval={2} />
               <YAxis {...axisProps} width={48} tickFormatter={fmtInt} domain={[0, "auto"]} />
-              <ReferenceLine y={p.a_min_ev_cnt} stroke="var(--muted)" strokeDasharray="4 4" />
+              <ReferenceLine y={p.a_min_ev_cnt} stroke="var(--muted)" strokeDasharray="4 4" ifOverflow="extendDomain" />
               <Tooltip
                 cursor={{ stroke: "var(--axis)" }}
                 content={({ active, payload, label }) =>
