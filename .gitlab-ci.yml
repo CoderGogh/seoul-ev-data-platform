@@ -1,5 +1,6 @@
 # GitLab CI (과제 제출용 설계, GitHub Actions 와 같은 단계)
 # lint → test → validate_dag → validate_ddl 은 MR·main 자동 실행 (CI)
+# web_build 는 web/ 변경 시에만 (배포는 Vercel 이 main 기준 자동)
 # build → deploy 는 main 에서만, deploy 는 수동 승인 (CD)
 
 stages: [lint, test, validate_dag, validate_ddl, build, deploy]
@@ -38,6 +39,21 @@ test:
   <<: *airflow_env
   script:
     - pytest -q tests/test_scripts.py
+
+# 웹 화면 타입 체크 + 정적 빌드
+web_build:
+  stage: test
+  image: node:22-slim
+  needs: []
+  rules:
+    - changes: [web/**/*]
+  cache:
+    key: npm-web
+    paths: [web/.npm]
+  script:
+    - cd web
+    - npm ci --cache .npm --prefer-offline
+    - npm run build
 
 validate_dag:
   stage: validate_dag
