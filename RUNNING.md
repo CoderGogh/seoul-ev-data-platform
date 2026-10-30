@@ -58,6 +58,28 @@ docker compose up -d --build
 
 메타데이터 DB에서는 `dag_run`, `task_instance`로 실행 이력을 조회할 수 있습니다. (조회 전용, 쓰기 금지)
 
+## 6. 웹 화면
+
+결과 화면(https://seoul-ev-insight.vercel.app)은 DB에 직접 붙지 않고, `web/public/data/*.json` 스냅샷만 읽는 정적 사이트입니다. main에 병합되면 Vercel이 자동으로 다시 배포합니다.
+
+**데이터 갱신** (재게시 후)
+
+```bash
+docker compose up -d postgis      # 수집 재개 없이 DB만
+./scripts/export_web_data.sh      # files/sqls/web/*.sql → web/public/data/*.json
+docker compose down               # -v 금지
+```
+
+바뀐 JSON을 브랜치에서 커밋하고 PR로 병합합니다.
+
+**로컬 실행**
+
+```bash
+cd web
+npm ci
+npm run dev                       # http://localhost:5173
+```
+
 ---
 
 ## 알아둘 점

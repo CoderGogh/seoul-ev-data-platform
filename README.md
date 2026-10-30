@@ -2,6 +2,8 @@
 
 전기차 등록현황(월 1회)과 실시간 도로소통정보(30분)를 행정동 단위로 맞춰, 충전소를 먼저 늘릴 동네를 매일 자동으로 고르는 Airflow 파이프라인. 품질 기준을 통과한 결과만 공개한다.
 
+**결과 화면: https://seoul-ev-insight.vercel.app** (2026-10-28 게시 결과 스냅샷)
+
 설계는 [docs/dag_design.md](docs/dag_design.md), 형상 관리 규칙은 [CONTRIBUTING.md](CONTRIBUTING.md), 실행 방법은 [RUNNING.md](RUNNING.md) 참고.
 
 | 67개 동 | 914곳 | 3단계 | 12곳 |
@@ -46,6 +48,7 @@ flowchart LR
     ev10 -- "갱신 신호" --> ev03
     ev03["ev03<br/>지표·분류·품질 관문"] --> mart[("mart<br/>통과분만 교체")]
     mart --> shiny["Rshiny 대시보드"]
+    mart -. "JSON 내보내기" .-> web["웹 화면<br/>Vercel"]
     ev12["ev12<br/>품질 리포트"] --> slack["Slack"]
     ev11["ev11<br/>재처리"] -. trigger .-> ev02
     ev11 -. trigger .-> ev03
@@ -56,7 +59,7 @@ flowchart LR
 | ① 수집 | 원본 그대로 저장 | ev01, ev02 | staging |
 | ② 정제·연결 | 이상값 격리, 도로를 소속 동에 지도 매칭(버전 관리) | ev10 | core, quarantine |
 | ③ 검증·공개 | 품질 확인 후 통과분만 한 트랜잭션으로 교체 | ev03 | mart |
-| ④ 활용·운영 | 대시보드, Slack 알림, 재처리, 보존 정리 | ev11~13, Rshiny | ops |
+| ④ 활용·운영 | 대시보드·웹 화면, Slack 알림, 재처리, 보존 정리 | ev11~13, Rshiny, web | ops |
 
 주기가 다른 수집은 DAG를 나눠 따로 돌린다. 통합 DAG ev03은 새 데이터 신호나 매일 06:00에 시작해, 수집 완료를 기다리지 않고 DB에 쌓인 값으로 판단한다.
 
@@ -87,4 +90,4 @@ flowchart LR
 
 ## CI/CD
 
-`lint` → `test` → `validate_dag` → `validate_ddl` 4단계를 GitHub Actions로 실행하고, 통과해야 보호 브랜치 main에 병합된다. `build`·`deploy`까지 포함한 6단계는 `.gitlab-ci.yml`로 설계.
+`lint` → `test` → `validate_dag` → `validate_ddl` 4단계를 GitHub Actions로 실행하고, 통과해야 보호 브랜치 main에 병합된다. `build`·`deploy`까지 포함한 6단계는 `.gitlab-ci.yml`로 설계. `web/`이 바뀌면 웹 빌드(`web_build`)를 따로 확인하고, main에 병합되면 Vercel이 자동 배포한다.

@@ -30,6 +30,7 @@
 - 템플릿(`.github/pull_request_template.md`)을 채운다.
 - 제목은 커밋과 같은 `type: 설명` 형식으로 쓴다.
 - CI(lint → test → validate_dag)가 통과해야 병합할 수 있다.
+- `web/`을 바꾸면 웹 빌드(`web_build`)도 통과해야 한다.
 - 병합은 merge commit 방식이다. 브랜치의 작은 커밋 이력을 그대로 남긴다.
 - 병합 후 브랜치는 삭제한다.
 
