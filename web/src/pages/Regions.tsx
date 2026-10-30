@@ -1,11 +1,12 @@
-// 지도 + 목록: 구·분류 필터, 정렬 표
-import { useMemo, useState } from "react";
-import { CLASS_LABEL, fmtInt, fmtPct, type AppData, type Region } from "../data";
+// 지도 + 목록: 구·분류·도로 여건 필터, 정렬 표
+import { useMemo, useState, type ReactNode } from "react";
+import { CLASS_LABEL, HINT_LABEL, HINT_ORDER, fmtInt, fmtPct, type AppData, type ChargerHint, type Region } from "../data";
 import { ClassBadge, HintBadge } from "../components/Badges";
 import { RegionMap, type MapMode } from "../components/RegionMap";
 import { Link, navigate } from "../router";
 
 type ClassFilter = "all" | "A" | "REF";
+type HintFilter = "all" | ChargerHint;
 type SortKey = "adm_nm" | "ev_cnt" | "ev_yoy_rate" | "low_spd_ratio" | "classification";
 
 const COLUMNS: { key: SortKey; label: string; num?: boolean }[] = [
@@ -22,14 +23,36 @@ function compare(a: Region, b: Region, key: SortKey) {
   return (a[key] ?? -Infinity) - (b[key] ?? -Infinity);
 }
 
+interface ChipProps {
+  on: boolean;
+  onClick: () => void;
+  count?: number;
+  dot?: string;
+  children: ReactNode;
+}
+
+function Chip({ on, onClick, count, dot, children }: ChipProps) {
+  return (
+    <button className="chip-btn" aria-pressed={on} onClick={onClick}>
+      {dot && <i className="dot" style={{ background: dot }} />}
+      {children}
+      {count != null && <span className="count">{count}</span>}
+    </button>
+  );
+}
+
 export function Regions({ data }: { data: AppData }) {
   const { regions, geo } = data;
   const sggs = useMemo(() => [...new Set(regions.map((r) => r.sgg_nm))].sort(), [regions]);
   const [sgg, setSgg] = useState("all");
   const [cls, setCls] = useState<ClassFilter>("all");
+  const [hint, setHint] = useState<HintFilter>("all");
   const [q, setQ] = useState("");
   const [mode, setMode] = useState<MapMode>("class");
   const [sort, setSort] = useState<{ key: SortKey; desc: boolean }>({ key: "ev_cnt", desc: true });
+
+  // 항목별 개수
+  const countBy = (pred: (r: Region) => boolean) => regions.filter(pred).length;
 
   // 필터 적용
   const filtered = useMemo(
@@ -38,9 +61,10 @@ export function Regions({ data }: { data: AppData }) {
         (r) =>
           (sgg === "all" || r.sgg_nm === sgg) &&
           (cls === "all" || (cls === "A" ? r.classification === "A" : r.classification !== "A")) &&
+          (hint === "all" || r.charger_hint === hint) &&
           (!q || r.adm_nm.includes(q.trim())),
       ),
-    [regions, sgg, cls, q],
+    [regions, sgg, cls, hint, q],
   );
   const matches = useMemo(() => new Set(filtered.map((r) => r.adm_cd)), [filtered]);
   const sorted = useMemo(() => {
@@ -51,45 +75,78 @@ export function Regions({ data }: { data: AppData }) {
   const toggleSort = (key: SortKey) =>
     setSort((s) => (s.key === key ? { key, desc: !s.desc } : { key, desc: key !== "adm_nm" }));
 
+  // 도로 여건 필터 선택 시 지도도 도로 여건 색으로
+  const pickHint = (h: HintFilter) => {
+    setHint(h);
+    if (h !== "all") setMode("hint");
+  };
+
   const open = (cd: string) => navigate(`/regions/${cd}`);
 
   return (
     <div className="page">
-      <section>
-        <div className="kicker">강남·서초·송파</div>
-        <h1>행정동 {regions.length}곳</h1>
-        <p className="lede">지도나 표에서 동네를 고르면 검토 카드로 이동합니다.</p>
+      <section className="hero">
+        <div className="kicker">
+          <span className="chip">강남·서초·송파</span>
+        </div>
+        <h1>행정동 {regions.length}곳 한눈에 보기</h1>
+        <p className="lede">조건으로 좁혀 보고, 지도나 표에서 동네를 누르면 검토 카드로 이동합니다.</p>
       </section>
 
-      <div className="filters" role="group" aria-label="필터">
-        <select value={sgg} onChange={(e) => setSgg(e.target.value)} aria-label="자치구">
-          <option value="all">전체 구</option>
+      <section className="card toolbar" aria-label="필터">
+        <div className="filter-row">
+          <span className="filter-label">자치구</span>
+          <Chip on={sgg === "all"} onClick={() => setSgg("all")} count={regions.length}>
+            전체
+          </Chip>
           {sggs.map((s) => (
-            <option key={s} value={s}>
+            <Chip key={s} on={sgg === s} onClick={() => setSgg(s)} count={countBy((r) => r.sgg_nm === s)}>
               {s}
-            </option>
-          ))}
-        </select>
-        <div className="segmented" aria-label="분류">
-          {(["all", "A", "REF"] as ClassFilter[]).map((c) => (
-            <button key={c} aria-pressed={cls === c} onClick={() => setCls(c)}>
-              {c === "all" ? "전체" : CLASS_LABEL[c]}
-            </button>
+            </Chip>
           ))}
         </div>
-        <input type="search" placeholder="동 이름 검색" value={q} onChange={(e) => setQ(e.target.value)} aria-label="동 이름 검색" />
-      </div>
+        <div className="filter-row">
+          <span className="filter-label">분류</span>
+          <Chip on={cls === "all"} onClick={() => setCls("all")}>
+            전체
+          </Chip>
+          <Chip on={cls === "A"} onClick={() => setCls("A")} dot="var(--accent)" count={countBy((r) => r.classification === "A")}>
+            {CLASS_LABEL.A}
+          </Chip>
+          <Chip on={cls === "REF"} onClick={() => setCls("REF")} dot="var(--ref)" count={countBy((r) => r.classification !== "A")}>
+            {CLASS_LABEL.REF}
+          </Chip>
+        </div>
+        <div className="filter-row">
+          <span className="filter-label">도로 여건</span>
+          <Chip on={hint === "all"} onClick={() => pickHint("all")}>
+            전체
+          </Chip>
+          {HINT_ORDER.map((h) => (
+            <Chip key={h} on={hint === h} onClick={() => pickHint(h)} dot={`var(--hint-${h})`} count={countBy((r) => r.charger_hint === h)}>
+              {HINT_LABEL[h]}
+            </Chip>
+          ))}
+        </div>
+        <div className="filter-row">
+          <span className="filter-label">검색</span>
+          <input type="search" placeholder="동 이름 (예: 잠실)" value={q} onChange={(e) => setQ(e.target.value)} aria-label="동 이름 검색" />
+        </div>
+      </section>
 
       <section className="card">
         <div className="card-head">
-          <h2>지도</h2>
-          <div className="segmented" aria-label="지도 색상 기준">
-            <button aria-pressed={mode === "class"} onClick={() => setMode("class")}>
-              분류
-            </button>
-            <button aria-pressed={mode === "hint"} onClick={() => setMode("hint")}>
-              도로 여건
-            </button>
+          <div>
+            <h2>지도</h2>
+            <p className="card-sub">조건에 맞는 동만 진하게 표시</p>
+          </div>
+          <div className="filter-row" aria-label="지도 색상 기준">
+            <Chip on={mode === "class"} onClick={() => setMode("class")}>
+              분류로 색칠
+            </Chip>
+            <Chip on={mode === "hint"} onClick={() => setMode("hint")}>
+              도로 여건으로 색칠
+            </Chip>
           </div>
         </div>
         <RegionMap geo={geo} regions={regions} mode={mode} matches={matches} onSelect={open} />
@@ -98,7 +155,7 @@ export function Regions({ data }: { data: AppData }) {
       <section className="card">
         <div className="card-head">
           <h2>목록</h2>
-          <span className="card-sub">{sorted.length}곳</span>
+          <span className="card-sub">{sorted.length}곳 · 머리글을 누르면 정렬</span>
         </div>
         <div className="table-wrap">
           <table>
