@@ -2,7 +2,8 @@
 
 전기차 등록현황(월 1회)과 실시간 도로소통정보(30분)를 행정동 단위로 맞춰, 충전소를 먼저 늘릴 동네를 매일 자동으로 고르는 Airflow 파이프라인. 품질 기준을 통과한 결과만 공개한다.
 
-**결과 화면: https://seoul-ev-insight.vercel.app** (2026-10-28 게시 결과 스냅샷)
+**배포정보
+🚀https://seoul-ev-insight.vercel.app** (2026-10-28 게시 결과 스냅샷)
 
 설계는 [docs/dag_design.md](docs/dag_design.md), 형상 관리 규칙은 [CONTRIBUTING.md](CONTRIBUTING.md), 실행 방법은 [RUNNING.md](RUNNING.md) 참고.
 
