@@ -1,5 +1,5 @@
 // 경로 라우팅 (History API, 화면 4개)
-import { useEffect, useState, type MouseEvent, type ReactNode } from "react";
+import { useEffect, useState, type CSSProperties, type MouseEvent, type ReactNode } from "react";
 
 export function navigate(to: string) {
   window.history.pushState(null, "", to);
@@ -20,6 +20,7 @@ export function usePath() {
 interface LinkProps {
   to: string;
   className?: string;
+  style?: CSSProperties;
   children: ReactNode;
   "aria-current"?: "page";
 }
