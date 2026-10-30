@@ -1,0 +1,13 @@
+{"base_month" : "202609", "publish_status" : "current", "published_at" : "2026-10-28T15:01:39.626759+09:00", "traffic_window_start" : "2026-10-27T17:30:00+09:00", "traffic_window_end" : "2026-10-28T12:00:00+09:00", "period_mismatch" : true, "link_ver" : "map20250306_shp20261014", "boundary_ver" : "ver20260701", "region_cnt" : 67, "threshold" : {"ver" : "mvp_v2", "basis" : "provisional", "params" : {"low_spd_kmh": 15, "a_min_ev_cnt": 522, "min_coverage": 60, "min_link_cnt": 3, "a_min_yoy_rate": 39.7, "hint_fast_max_low": 13, "hint_slow_min_low": 22, "min_valid_timebands": 6, "valid_tb_link_ratio": 0.5}}, "reg_months" : ["202509", "202510", "202511", "202512", "202601", "202602", "202603", "202604", "202605", "202606", "202607", "202608", "202609"], "pipeline" : [{"dag_id":"bootstrap_collector","status":"success","runs":3,"last_finished_at":"2026-10-27T18:30:49.747416+09:00"}, 
+ {"dag_id":"ev01_traffic_collect","status":"partial","runs":37,"last_finished_at":"2026-10-28T23:00:46.548795+09:00"}, 
+ {"dag_id":"ev01_traffic_collect","status":"success","runs":22,"last_finished_at":"2026-10-28T16:30:34.366431+09:00"}, 
+ {"dag_id":"ev02_registration_monthly","status":"success","runs":13,"last_finished_at":"2026-10-28T16:01:31.306835+09:00"}, 
+ {"dag_id":"ev02_registration_monthly","status":"unchanged","runs":2,"last_finished_at":"2026-10-27T19:15:48.193209+09:00"}, 
+ {"dag_id":"ev03_mart_integration","status":"held","runs":4,"last_finished_at":"2026-10-28T06:00:07.672079+09:00"}, 
+ {"dag_id":"ev03_mart_integration","status":"published","runs":2,"last_finished_at":"2026-10-28T15:01:40.231657+09:00"}, 
+ {"dag_id":"ev03_mart_integration","status":"skipped_unchanged","runs":11,"last_finished_at":"2026-10-28T16:01:40.847564+09:00"}, 
+ {"dag_id":"ev10_master_refresh","status":"success","runs":2,"last_finished_at":"2026-10-27T19:43:35.13599+09:00"}, 
+ {"dag_id":"ev11_reprocess","status":"failed","runs":1,"last_finished_at":"2026-10-27T19:35:27.043526+09:00"}, 
+ {"dag_id":"ev11_reprocess","status":"success","runs":1,"last_finished_at":"2026-10-27T19:35:22.112572+09:00"}, 
+ {"dag_id":"ev12_quality_monitor","status":"success","runs":2,"last_finished_at":"2026-10-28T08:00:05.784736+09:00"}, 
+ {"dag_id":"ev13_retention_cleanup","status":"success","runs":1,"last_finished_at":"2026-10-27T19:45:45.359097+09:00"}], "poll" : {"batches" : 62, "first_at" : "2026-10-27T17:31:57.797675+09:00", "last_at" : "2026-10-28T23:00:05.545283+09:00", "ok_ratio" : 98.6}, "exported_at" : "2026-10-30T13:28:23.194863+09:00"}
