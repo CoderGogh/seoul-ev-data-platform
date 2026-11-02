@@ -6,6 +6,7 @@ import { Link, usePath } from "./router";
 import { useTheme } from "./theme";
 import { Icon } from "./components/Icon";
 import { Sidebar } from "./components/Sidebar";
+import { FreshnessBar } from "./components/Freshness";
 import { Dashboard } from "./pages/Dashboard";
 import { Priority } from "./pages/Priority";
 import { MapPage } from "./pages/MapPage";
@@ -85,11 +86,12 @@ export function App() {
         <main className="main">
           {error && <div className="empty">데이터를 불러오지 못했습니다. {error}</div>}
           {!error && !data && <div className="empty">불러오는 중…</div>}
+          {data && <FreshnessBar data={data} />}
           {data && route(path, data)}
         </main>
         <footer className="footer">
-          <span>데이터: 서울 열린데이터광장 실시간 도로소통정보 · 자동차 등록현황</span>
-          <span>2026-10-28 게시 결과 스냅샷</span>
+          <span>데이터: 서울 열린데이터광장 실시간 도로소통정보 · 자동차 등록현황 · 한국환경공단 전기자동차 충전소 정보</span>
+          <span>{data ? `${data.meta.threshold.ver} 게시 결과 스냅샷` : "게시 결과 스냅샷"}</span>
         </footer>
       </div>
     </div>
