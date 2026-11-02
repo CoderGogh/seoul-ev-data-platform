@@ -57,7 +57,7 @@ test:
     - for f in files/sqls/ddl/*.sql; do psql -v ON_ERROR_STOP=1 -q -f "$f"; done
     - pytest -q tests --ignore=tests/test_dag_integrity.py   # DAG 정책은 validate_dag
 
-# 웹 화면 타입 체크 + 정적 빌드
+# 웹 화면 단위 테스트 + 타입 체크 + 정적 빌드
 web_build:
   stage: test
   image: node:22-slim
@@ -70,6 +70,7 @@ web_build:
   script:
     - cd web
     - npm ci --cache .npm --prefer-offline
+    - npm test
     - npm run build
 
 validate_dag:

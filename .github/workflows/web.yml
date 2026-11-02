@@ -1,4 +1,4 @@
-# 웹 화면 빌드 확인 (web/ 변경 시에만, 타입 체크 + 정적 빌드)
+# 웹 화면 빌드 확인 (web/ 변경 시에만, 단위 테스트 + 타입 체크 + 정적 빌드)
 name: web
 
 on:
@@ -22,4 +22,5 @@ jobs:
           cache: npm
           cache-dependency-path: web/package-lock.json
       - run: npm ci
+      - run: npm test
       - run: npm run build
