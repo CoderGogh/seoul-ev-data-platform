@@ -8,6 +8,17 @@ DELETE FROM staging.registration_raw r
 WHERE r.loaded_at < now() - make_interval(days => %(retention_days)s)
   AND EXISTS (SELECT 1 FROM ops.pipeline_run p WHERE p.run_id = r.run_id AND p.status <> 'running');
 
+-- 충전기 원천·정제: 실행 상태 확정분 (이력은 core.charger 에 보존)
+DELETE FROM staging.charger_raw r
+WHERE r.collected_at < now() - make_interval(days => %(retention_days)s)
+  AND EXISTS (SELECT 1 FROM ops.pipeline_run p WHERE p.run_id = r.run_id AND p.status <> 'running');
+
+DELETE FROM staging.charger_norm n
+WHERE NOT EXISTS (SELECT 1 FROM staging.charger_raw r WHERE r.run_id = n.run_id)
+  AND EXISTS (SELECT 1 FROM ops.pipeline_run p WHERE p.run_id = n.run_id AND p.status <> 'running');
+
+DELETE FROM quarantine.charger_record WHERE created_at < now() - make_interval(days => %(retention_days)s);
+
 DELETE FROM quarantine.traffic_record WHERE created_at < now() - make_interval(days => %(retention_days)s);
 
 DELETE FROM quarantine.registration_record WHERE created_at < now() - make_interval(days => %(retention_days)s);

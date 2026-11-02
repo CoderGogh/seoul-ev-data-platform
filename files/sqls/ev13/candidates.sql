@@ -27,10 +27,16 @@ reg_raw AS (  -- 등록 원천: 실행 상태 확정 여부
     SELECT r.run_id, EXISTS (SELECT 1 FROM ops.pipeline_run p WHERE p.run_id = r.run_id AND p.status <> 'running') AS settled
     FROM staging.registration_raw r, cutoff WHERE r.loaded_at < cutoff.ts
 ),
+charger_raw AS (  -- 충전기 원천: 실행 상태 확정 여부
+    SELECT r.run_id, EXISTS (SELECT 1 FROM ops.pipeline_run p WHERE p.run_id = r.run_id AND p.status <> 'running') AS settled
+    FROM staging.charger_raw r, cutoff WHERE r.collected_at < cutoff.ts
+),
 q AS (
     SELECT created_at FROM quarantine.traffic_record, cutoff WHERE created_at < cutoff.ts
     UNION ALL
     SELECT created_at FROM quarantine.registration_record, cutoff WHERE created_at < cutoff.ts
+    UNION ALL
+    SELECT created_at FROM quarantine.charger_record, cutoff WHERE created_at < cutoff.ts
 )
 SELECT 'core.traffic_obs' AS target, count(*) AS expired,
        count(*) FILTER (WHERE is_final AND published AND NOT requested) AS deletable,
@@ -44,5 +50,8 @@ FROM raw
 UNION ALL
 SELECT 'staging.registration_raw', count(*), count(*) FILTER (WHERE settled), count(*) FILTER (WHERE NOT settled), 0, 0
 FROM reg_raw
+UNION ALL
+SELECT 'staging.charger_raw', count(*), count(*) FILTER (WHERE settled), count(*) FILTER (WHERE NOT settled), 0, 0
+FROM charger_raw
 UNION ALL
 SELECT 'quarantine.*', count(*), count(*), 0, 0, 0 FROM q;
