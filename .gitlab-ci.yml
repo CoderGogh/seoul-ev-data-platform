@@ -34,11 +34,28 @@ lint:
     - black --check .
     - flake8 dags plugins scripts tests
 
+# 단위 테스트 + DB 통합 테스트 (빈 PostGIS 에 DDL 적용 후 게시·적재 경로 실행)
 test:
   stage: test
   <<: *airflow_env
+  services:
+    - name: postgis/postgis:16-3.4
+      alias: db
+  variables:
+    POSTGRES_USER: ci
+    POSTGRES_PASSWORD: ci
+    POSTGRES_DB: ev_test
+    PGHOST: db
+    PGUSER: ci
+    PGPASSWORD: ci
+    PGDATABASE: ev_test
+    EV_TEST_DB_URL: postgresql://ci:ci@db:5432/ev_test
   script:
-    - pytest -q tests/test_scripts.py
+    - apt-get update -qq && apt-get install -y -qq postgresql-client > /dev/null
+    - until pg_isready; do sleep 2; done
+    - psql -v ON_ERROR_STOP=1 -q -f custom_image/postgis/initdb/00_extensions_schemas.sql
+    - for f in files/sqls/ddl/*.sql; do psql -v ON_ERROR_STOP=1 -q -f "$f"; done
+    - pytest -q tests --ignore=tests/test_dag_integrity.py   # DAG 정책은 validate_dag
 
 # 웹 화면 타입 체크 + 정적 빌드
 web_build:
