@@ -123,3 +123,21 @@ def test_go_kr_error_hides_key(monkeypatch):
     with pytest.raises(RuntimeError) as e:
         hook.call("p", pageNo=1)
     assert "504" in str(e.value) and "SECRETKEY" not in str(e.value)
+
+
+# 서울 Hook: 호출 예외 메시지·결과에 인증키 미포함 (키가 URL 경로에 들어감)
+def test_seoul_error_hides_key():
+    import pytest
+    import requests
+
+    class _Boom:
+        def get(self, url, timeout=None):
+            raise requests.ConnectionError(f"failed: {url}")
+
+    hook = h.SeoulOpenApiHook(api_key_var="k")
+    hook._base, hook._session = "http://x:8088/SECRETKEY/xml", _Boom()
+    r = hook.call("Svc", 1, 1, raise_on_error=False)
+    assert r.status == "api_error" and "SECRETKEY" not in (r.message or "")
+    with pytest.raises(RuntimeError) as e:
+        hook.call("Svc", 1, 1)
+    assert "SECRETKEY" not in str(e.value) and e.value.__cause__ is None

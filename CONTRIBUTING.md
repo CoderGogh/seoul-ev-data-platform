@@ -49,3 +49,6 @@
 
 - `.env`, API 키, 비밀번호는 커밋하지 않는다. `.env.example`에 항목만 둔다.
 - CI·배포에서는 CI 변수(masked, protected)로 주입한다.
+- 커밋 전 `scripts/check_secrets.sh`로 스테이징 변경에 `.env` 비밀값이 없는지 확인한다. 훅으로 쓰려면 `ln -s ../../scripts/check_secrets.sh .git/hooks/pre-commit`
+- 인증키가 URL에 들어가는 API는 예외 메시지를 그대로 남기지 않는다 (`requests` 예외에 전체 URL 포함). Hook에서 오류 유형·상태 코드만 기록하고 `mask_secret`으로 로그 가림 등록
+- 키를 쓰는 임시 스크립트는 직접 URL을 만들지 말고 Hook으로 호출한다
