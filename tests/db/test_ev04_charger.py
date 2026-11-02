@@ -127,3 +127,33 @@ def test_same_day_rerun(cur, seed):
     _, t4 = _day(cur, "c4", D2, sggs, pts)  # 전날과 같은 입력으로 재실행
     assert (t4["changed_cnt"], t4["closed_cnt"]) == (0, 0)
     assert _counts(cur) == {"open": n, "total": n, "fast": len(pts)}
+
+
+# 급속: 출력 기준 (출력 없으면 타입), 좌표가 다른 구면 sgg_mismatch
+def test_fast_by_output_and_sgg_mismatch(cur, seed):
+    _, pts = _setup(cur)
+    p = pts[0]
+    base = {"statNm": "x", "lat": str(p["lat"]), "lng": str(p["lng"]), "delYn": "N"}
+    items = [
+        ("11680", {**base, "statId": "F1", "chgerId": "01", "chgerType": "07", "output": "7"}),  # AC3상 7kW → 완속
+        ("11680", {**base, "statId": "F2", "chgerId": "01", "chgerType": "11", "output": "120"}),  # 미등록 타입 → 출력
+        ("11680", {**base, "statId": "F3", "chgerId": "01", "chgerType": "04", "output": ""}),  # 출력 없음 → 타입
+        ("11650", {**base, "statId": "M1", "chgerId": "01", "chgerType": "02", "output": "7"}),  # 요청 구 ≠ 좌표 구
+    ]
+    cur.executemany(
+        "INSERT INTO staging.charger_raw (run_id, sgg_cd, row_no, payload) VALUES ('f1', %s, %s, %s)",
+        [(sgg, i, json.dumps(r)) for i, (sgg, r) in enumerate(items, 1)],
+    )
+    db._run(cur, db.read_sql("ev04/normalize.sql"), {"run_id": "f1"}, False)
+    got = {
+        r["stat_id"]: (r["is_fast"], r["assign_status"])
+        for r in rows(cur, "SELECT stat_id, is_fast, assign_status FROM staging.charger_norm WHERE run_id = 'f1'")
+    }
+    assert got == {
+        "F1": (False, "assigned"),
+        "F2": (True, "assigned"),
+        "F3": (True, "assigned"),
+        "M1": (False, "sgg_mismatch"),
+    }
+    gate = db._run(cur, db.read_sql("ev04/gate_metrics.sql"), {"run_id": "f1"}, True)[0]
+    assert (gate["assigned_rows"], gate["sgg_mismatch_rows"], gate["unknown_type_rows"]) == (3, 1, 0)
