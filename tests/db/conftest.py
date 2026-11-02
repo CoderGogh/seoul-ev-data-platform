@@ -20,8 +20,18 @@ DONGS = [
     ("1168000002", "나동", 3, HOURS, 30, 100, 90),  # 기준 미만 → REF
     ("1168000003", "다동", 3, range(7, 9), 30, 800, 400),  # 관측 부족 → C
     ("1168000004", "라동", 0, (), None, 50, 40),  # 링크 없음 → WITHHELD
+    ("1168000005", "마동", 3, HOURS, 30, 900, 450),  # 수요 기준 이상, 공급 충분 → REF (v3)
 ]
-EXPECTED_CLASS = {"1168000001": "A", "1168000002": "REF", "1168000003": "C", "1168000004": "WITHHELD"}
+EXPECTED_CLASS = {
+    "1168000001": "A",
+    "1168000002": "REF",
+    "1168000003": "C",
+    "1168000004": "WITHHELD",
+    "1168000005": "REF",
+}
+CHARGER_DATE = "2026-11-02"
+# 충전기: (행정동, 승용 대수, 급속 대수, 버스전용 대수) → 가동 1000/10 = 100 (부족), 마동 900/500 = 1.8 (충분)
+SUPPLY = [("1168000001", 10, 2, 5), ("1168000005", 500, 50, 0)]
 
 
 @pytest.fixture
@@ -101,3 +111,22 @@ def seed(cur):
             _reg_row(cur, m, adm_cd, "e", cnt, loads[m])
             _reg_row(cur, m, adm_cd, "a", cnt * 10, loads[m])
     return loads
+
+
+# 충전기 이력 (공급 기준일 = 첫 스냅샷, 기준월 말일보다 늦음)
+@pytest.fixture
+def supply(cur, seed):
+    rows = []
+    for adm_cd, n, fast, bus in SUPPLY:
+        for k in range(n + bus):
+            is_bus = k >= n
+            rows.append((f"P{adm_cd[-1]}", f"{k:04d}", adm_cd, "11" if is_bus else ("04" if k < fast else "02"),
+                         is_bus or k < fast, "N" if k % 2 else "Y"))  # fmt: skip
+    cur.executemany(
+        """INSERT INTO core.charger (stat_id, chger_id, valid_from, sgg_cd, chger_type, is_fast, limit_yn, geom,
+               boundary_ver, adm_cd, assign_status, attr_hash, load_id)
+           SELECT %s, %s, %s, '11680', %s, %s, %s, ST_PointOnSurface(a.geom), 'bt', a.adm_cd, 'assigned', 'h', 1
+           FROM core.admdong a WHERE a.boundary_ver = 'bt' AND a.adm_cd = %s""",
+        [(s, c, CHARGER_DATE, t, f, lim, adm) for s, c, adm, t, f, lim in rows],
+    )
+    return rows
