@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 
 import requests
 from airflow.sdk import BaseHook, Variable
+from airflow.sdk.log import mask_secret
 
 OK = "INFO-000"
 NO_DATA = "INFO-200"
@@ -48,7 +49,9 @@ class SeoulOpenApiHook(BaseHook):
     def get_conn(self):
         if self._base is None:
             c = self.get_connection(self.conn_id)
-            self._base = f"http://{c.host}:{c.port}/{Variable.get(self.api_key_var)}/xml"
+            key = Variable.get(self.api_key_var)
+            mask_secret(key)  # Task 로그 가림
+            self._base = f"http://{c.host}:{c.port}/{key}/xml"
             self._session = requests.Session()  # 링크 순회 시 연결 재사용
         return self._base
 
@@ -74,9 +77,12 @@ class SeoulOpenApiHook(BaseHook):
             res.raise_for_status()
             result = self.parse(res.content)
         except Exception as e:
+            # 예외 메시지에 인증키 포함 URL → 유형·상태 코드만 기록
+            status = getattr(getattr(e, "response", None), "status_code", None)
+            msg = f"{type(e).__name__}" + (f" HTTP {status}" if status else "")
             if raise_on_error:
-                raise
-            result = ApiResult(code=f"EXC:{type(e).__name__}", message=str(e)[:200])
+                raise RuntimeError(f"{service} 호출 실패: {msg}") from None
+            result = ApiResult(code=f"EXC:{type(e).__name__}", message=msg)
         result.resp_ms = int((time.perf_counter() - t0) * 1000)
         if raise_on_error and result.code not in (OK, NO_DATA):
             raise RuntimeError(f"{service} 오류 {result.code}: {result.message}")
