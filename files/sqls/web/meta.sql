@@ -19,7 +19,9 @@ SELECT json_build_object(
     'reg_months', (SELECT json_agg(DISTINCT base_month ORDER BY base_month) FROM mart.v_reg_monthly),
     'pipeline', (SELECT json_agg(p ORDER BY p.dag_id, p.status) FROM (
                      SELECT dag_id, status, count(*) AS runs, max(finished_at) AS last_finished_at
-                     FROM ops.pipeline_run GROUP BY dag_id, status) p),
+                     FROM ops.pipeline_run
+                     WHERE dag_id <> 'ev14_web_publish' AND status <> 'running'  -- 자기 실행·진행 중 제외 (비교 안정)
+                     GROUP BY dag_id, status) p),
     'poll', (SELECT json_build_object('batches', count(*), 'first_at', min(collected_at), 'last_at', max(collected_at),
                                       'ok_ratio', round(100.0 * sum(ok_cnt) / nullif(sum(target_cnt), 0), 1))
              FROM ops.poll_coverage)
