@@ -1209,3 +1209,67 @@ td.up {
   color: var(--bad-text);
   --dot: var(--bad-text);
 }
+
+/* 개발 진행 */
+.todos {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+}
+.todo {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  padding: 11px 2px;
+  border-bottom: 1px solid var(--grid);
+}
+.todo:last-child {
+  border-bottom: 0;
+}
+.todo-title {
+  flex: 1 1 260px;
+  min-width: 0;
+  font-weight: 600;
+  text-decoration: none;
+  color: var(--text);
+}
+.todo-title:hover {
+  color: var(--accent-ink);
+  text-decoration: underline;
+}
+.todo.done .todo-title {
+  color: var(--text-2);
+}
+.todo-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.todo-meta .chip {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--text-2);
+}
+.progress-track {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  overflow: hidden;
+  margin: 2px 0 8px;
+}
+.progress-track span {
+  display: block;
+  height: 100%;
+  background: var(--good);
+  border-radius: inherit;
+}
+.tone-skip {
+  background: var(--surface-2);
+  color: var(--text-2);
+  --dot: var(--muted);
+}
