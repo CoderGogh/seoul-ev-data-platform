@@ -9,6 +9,7 @@
 
 - **Docker / Docker Compose** 설치
 - **서울시 공공데이터 API 키** (도로소통정보·등록현황 수집용)
+- **GitHub fine-grained 토큰** (웹 데이터 자동 게시용, 선택). Settings → Developer settings → Fine-grained tokens → 이 저장소만, Repository permissions에서 Contents: Read and write만 → `.env`의 `GITHUB_WEB_DATA_TOKEN`. 없으면 ev14만 실패하고 웹은 배포 스냅샷 사용
 - **공공데이터포털 API 키** (충전소 정보 수집용, [15076352](https://www.data.go.kr/data/15076352/openapi.do) 활용신청 → `.env`의 `EV_CHARGER_API_KEY`). 없으면 ev04만 실패
 
 ## 2. 빠른 시작
@@ -50,6 +51,7 @@ docker compose up -d --build
 | ev11_reprocess | 수동 | 재처리 요청 |
 | ev12_quality_monitor | 매일 08:00 | 실행 상태 × 데이터 상태 리포트 |
 | ev13_retention_cleanup | 매주 일 03:00 | 조건부 보존 정리 (기본 dry-run) |
+| ev14_web_publish | 게시·공급 변경 시, 매일 07:10 | 웹 데이터를 `web-data` 브랜치에 게시 |
 
 ## 5. DB 접속 (DBeaver)
 
@@ -64,7 +66,9 @@ docker compose up -d --build
 
 결과 화면(https://seoul-ev-insight.vercel.app)은 DB에 직접 붙지 않고, `web/public/data/*.json` 스냅샷만 읽는 정적 사이트입니다. main에 병합되면 Vercel이 자동으로 다시 배포합니다.
 
-**데이터 갱신** (재게시 후)
+**데이터 갱신**: Airflow가 돌고 있으면 ev14가 게시 직후 `web-data` 브랜치에 자동으로 올리고, 웹은 열 때 그걸 읽습니다. 아래 수동 방법은 배포 스냅샷(대체용)을 갱신할 때만 씁니다.
+
+**배포 스냅샷 갱신** (수동)
 
 ```bash
 docker compose up -d postgis      # 수집 재개 없이 DB만

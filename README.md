@@ -53,7 +53,9 @@ flowchart LR
     ev10 -- "갱신 신호" --> ev03
     ev03["ev03<br/>지표·분류·품질 관문"] --> mart[("mart<br/>통과분만 교체")]
     mart --> shiny["Rshiny 대시보드"]
-    mart -. "JSON 내보내기" .-> web["웹 화면<br/>Vercel"]
+    mart --> ev14["ev14<br/>웹 데이터 게시"]
+    ev14 -- "커밋" --> data[("web-data 브랜치")]
+    data -. "커밋 고정 로드" .-> web["웹 화면<br/>Vercel"]
     ev12["ev12<br/>품질 리포트"] --> slack["Slack"]
     ev11["ev11<br/>재처리"] -. trigger .-> ev02
     ev11 -. trigger .-> ev03
@@ -64,7 +66,7 @@ flowchart LR
 | ① 수집 | 원본 그대로 저장 | ev01, ev02, ev04 | staging |
 | ② 정제·연결 | 이상값 격리, 도로를 소속 동에 지도 매칭(버전 관리) | ev10 | core, quarantine |
 | ③ 검증·공개 | 품질 확인 후 통과분만 한 트랜잭션으로 교체 | ev03 | mart |
-| ④ 활용·운영 | 대시보드·웹 화면, Slack 알림, 재처리, 보존 정리 | ev11~13, Rshiny, web | ops |
+| ④ 활용·운영 | 대시보드·웹 화면, Slack 알림, 재처리, 보존 정리, 웹 데이터 자동 게시 | ev11~14, Rshiny, web | ops |
 
 주기가 다른 수집은 DAG를 나눠 따로 돌린다. 통합 DAG ev03은 새 데이터 신호나 매일 06:00에 시작해, 수집 완료를 기다리지 않고 DB에 쌓인 값으로 판단한다.
 
