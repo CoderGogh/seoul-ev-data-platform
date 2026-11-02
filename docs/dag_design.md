@@ -490,7 +490,7 @@ Rshiny는 읽기 전용 계정 `rshiny_reader`로 `mart`, `ops`만 조회한다.
 
 ## 11. 테스트와 CI
 
-`tests/` 16개. 외부 API를 부르지 않는다.
+`tests/` 24개 (단위 16 + DB 통합 8). 외부 API를 부르지 않는다.
 
 | 파일 | 내용 |
 |---|---|
@@ -498,19 +498,23 @@ Rshiny는 읽기 전용 계정 `rshiny_reader`로 `mart`, `ops`만 조회한다.
 | `test_custom_plugins.py` | Hook 응답 파싱·상태 판정, Sensor 통과 조건 |
 | `test_db_split.py` | SQL 문장 분리 (psycopg 3 한 번에 한 문장) |
 | `test_scripts.py` | 등록 xlsx 열 변환, 임시 수집기 회차 시각 정렬 |
+| `db/test_ev03_publish.py` | 실제 SQL로 게시 경로: 분류 결과, 파티션 교체(중복 없음), 계보, 보류(`never_published`·`stale`), 무변경 지문, 게시 중 실패 시 롤백 |
+| `db/test_ev02_load.py` | 신규 적재, 같은 내용 재공표 판정, 내용 변경 재공표(차이 기록·교체) |
+
+DB 통합 테스트는 DDL 적용된 빈 DB(`EV_TEST_DB_URL`)에서 테스트마다 롤백한다. 행정동 4개(A·REF·C·WITHHELD 하나씩)·링크 9개·시간대 관측·등록 2개월을 fixture로 넣는다. 로컬은 `scripts/test_db.sh`(운영 DB와 분리된 `ev_test` 재생성).
 
 CI (PR 필수 검사, GitHub Actions)
 
 | 단계 | 내용 |
 |---|---|
 | `lint` | black, flake8 |
-| `test` | pytest |
+| `test` | 단위 + DB 통합 (PostGIS 서비스에 DDL 적용 후) |
 | `validate_dag` | DAG 로드 오류 0 |
 | `validate_ddl` | 빈 PostGIS에 DDL 2회 적용 |
 
 `build`(SHA 태그 이미지), `deploy`(main, 수동 승인)까지 포함한 6단계는 `.gitlab-ci.yml`로 설계.
 
-실행으로 확인한 경로: ev02 3경로, ev03 보류·게시·무변경, ev10 재사용, ev11 요청 차단·mart 재처리, ev13 dry-run. 게시 트랜잭션과 파티션 교체의 자동 테스트는 아직 없다.
+실행으로 확인한 경로: ev02 3경로, ev03 보류·게시·무변경, ev10 재사용, ev11 요청 차단·mart 재처리, ev13 dry-run. 게시·적재 SQL 경로는 DB 통합 테스트로 자동 확인. DAG 분기·Task 상태 판정은 실행 확인만.
 
 ---
 
@@ -524,7 +528,6 @@ CI (PR 필수 검사, GitHub Actions)
 | 지각 허용 | 미구현 (확정 시간대만 사용) | 수집 지연 분포 확인 |
 | 일일 호출 한도 | 명시 없음 (1회 1,000건 제한만) | 오류 코드로 감시 |
 | 도로 분석 기간 | MVP 고정 기간 | 원안대로 기준월과 같은 월로 전환 |
-| 게시 경로 자동 테스트 | 수동 확인만 | DB 통합 테스트 추가 |
 
 ---
 
