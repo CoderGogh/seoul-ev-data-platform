@@ -10,6 +10,7 @@ from urllib.parse import unquote
 
 import requests
 from airflow.sdk import BaseHook, Variable
+from airflow.sdk.log import mask_secret
 
 OK_CODES = ("00", "0000")
 
@@ -59,7 +60,10 @@ class DataGoKrHook(BaseHook):
         if self._base is None:
             c = self.get_connection(self.conn_id)
             self._base = f"https://{c.host}"
-            self._key = unquote(Variable.get(self.api_key_var))  # Encoding 키 이중 인코딩 방지
+            raw = Variable.get(self.api_key_var)
+            self._key = unquote(raw)  # Encoding 키 이중 인코딩 방지
+            for v in (raw, self._key):
+                mask_secret(v)  # Task 로그 가림 (원형·디코딩형)
             self._session = requests.Session()
         return self._base
 
