@@ -10,24 +10,27 @@ CREATE TABLE IF NOT EXISTS staging.charger_raw (
     PRIMARY KEY (run_id, sgg_cd, row_no)
 );
 
--- 충전기 타입 코드 (출력값 없을 때 급속 판정 보조)
+-- 충전기 타입 코드 (OpenAPI 활용가이드 v1.25). 급속은 출력값 없을 때 보조, passenger=false 는 공급 집계 제외
 CREATE TABLE IF NOT EXISTS core.charger_type (
     chger_type      text        PRIMARY KEY,
     type_nm         text        NOT NULL,
     is_fast         boolean     NOT NULL
 );
-INSERT INTO core.charger_type (chger_type, type_nm, is_fast) VALUES
-    ('01', 'DC차데모', true),
-    ('02', 'AC완속', false),
-    ('03', 'DC차데모+AC3상', true),
-    ('04', 'DC콤보', true),
-    ('05', 'DC차데모+DC콤보', true),
-    ('06', 'DC차데모+AC3상+DC콤보', true),
-    ('07', 'AC3상', true),
-    ('08', 'DC콤보(완속)', false),
-    ('09', 'NACS', true),
-    ('10', 'DC콤보+NACS', true)
-ON CONFLICT (chger_type) DO UPDATE SET type_nm = EXCLUDED.type_nm, is_fast = EXCLUDED.is_fast;
+ALTER TABLE core.charger_type ADD COLUMN IF NOT EXISTS passenger boolean NOT NULL DEFAULT true;  -- 승용 사용 가능
+INSERT INTO core.charger_type (chger_type, type_nm, is_fast, passenger) VALUES
+    ('01', 'DC차데모', true, true),
+    ('02', 'AC완속', false, true),
+    ('03', 'DC차데모+AC3상', true, true),
+    ('04', 'DC콤보', true, true),
+    ('05', 'DC차데모+DC콤보', true, true),
+    ('06', 'DC차데모+AC3상+DC콤보', true, true),
+    ('07', 'AC3상', true, true),
+    ('08', 'DC콤보(완속)', false, true),
+    ('09', 'NACS', true, true),
+    ('10', 'DC콤보+NACS', true, true),
+    ('11', 'DC콤보2(버스전용)', true, false)
+ON CONFLICT (chger_type) DO UPDATE
+SET type_nm = EXCLUDED.type_nm, is_fast = EXCLUDED.is_fast, passenger = EXCLUDED.passenger;
 
 -- 원천 행 검사 (격리 사유, 삭제 표시). 검사 규칙은 이 view 한 곳에만
 CREATE OR REPLACE VIEW staging.v_charger_check AS
