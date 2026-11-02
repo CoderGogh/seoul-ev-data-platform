@@ -1,5 +1,6 @@
 # 커스텀 Hook·Sensor 단위 테스트 (외부 API 호출 없음)
 from hooks import seoul_openapi_hook as h
+from hooks.data_go_kr_hook import DataGoKrHook, GoKrResult
 from sensors.seoul_api_base_month_sensor import SeoulApiBaseMonthSensor
 
 TRAFFIC_OK = b"""<?xml version="1.0" encoding="UTF-8"?><TrafficInfo><list_total_count>1</list_total_count>
@@ -48,3 +49,50 @@ def test_sensor_poke(monkeypatch):
 def test_sensor_file_source_passes():
     s = SeoulApiBaseMonthSensor(task_id="t", service="S", api_key_var="k", base_month="202509", source="file")
     assert s.poke({}) is True
+
+
+# 공공데이터포털 Hook: 평면 JSON·단건 item·게이트웨이 XML 오류
+CHARGER_OK = (
+    b'{"resultMsg":"NORMAL SERVICE.","totalCount":2,"pageNo":1,"resultCode":"00","numOfRows":10,'
+    b'"items":{"item":[{"statId":"ME000001","chgerId":"01","lat":"37.5","lng":"127.0"},'
+    b'{"statId":"ME000001","chgerId":"02","lat":"37.5","lng":"127.0"}]}}'
+)
+CHARGER_SINGLE = b'{"response":{"header":{"resultCode":"00","resultMsg":"OK"},"body":{"totalCount":1,"items":{"item":{"statId":"A","chgerId":"01"}}}}}'  # noqa: E501
+CHARGER_EMPTY = b'{"resultCode":"00","resultMsg":"OK","totalCount":0,"items":""}'
+GATEWAY_ERROR = b"""<OpenAPI_ServiceResponse><cmmMsgHeader><errMsg>SERVICE ERROR</errMsg>
+<returnAuthMsg>SERVICE_KEY_IS_NOT_REGISTERED_ERROR</returnAuthMsg><returnReasonCode>30</returnReasonCode>
+</cmmMsgHeader></OpenAPI_ServiceResponse>"""
+
+
+def test_go_kr_parse_flat_json():
+    r = DataGoKrHook.parse(CHARGER_OK)
+    assert (r.ok, r.total, len(r.rows)) == (True, 2, 2)
+    assert r.rows[1]["chgerId"] == "02"
+
+
+def test_go_kr_parse_single_and_empty():
+    assert DataGoKrHook.parse(CHARGER_SINGLE).rows == [{"statId": "A", "chgerId": "01"}]
+    r = DataGoKrHook.parse(CHARGER_EMPTY)
+    assert (r.ok, r.total, r.rows) == (True, 0, [])
+
+
+def test_go_kr_gateway_error_not_ok():
+    r = DataGoKrHook.parse(GATEWAY_ERROR)
+    assert (r.ok, r.code) == (False, "30")
+    assert "NOT_REGISTERED" in r.message
+
+
+class _PagedHook(DataGoKrHook):
+    def __init__(self, total, page_rows):
+        self.total, self.page_rows, self.pages = total, page_rows, []
+
+    def call(self, path, **params):
+        self.pages.append(params["pageNo"])
+        return GoKrResult(code="00", total=self.total, rows=[{}] * self.page_rows)
+
+
+# 전수 페이지: totalCount 기준 페이지 수만 호출
+def test_go_kr_fetch_all_pages():
+    h = _PagedHook(total=25, page_rows=10)
+    total, rows = h.fetch_all("x", page_size=10)
+    assert (total, len(rows), h.pages) == (25, 30, [1, 2, 3])
