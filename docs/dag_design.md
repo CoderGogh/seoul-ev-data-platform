@@ -2,7 +2,7 @@
 
 | 항목 | 내용 |
 |---|---|
-| 버전 | v0.6 (2026-11-02) - ev04 충전기 공급 수집 추가 |
+| 버전 | v0.7 (2026-11-02) - 충전기 공급 지표, 분류 `mvp_v3` |
 | 대상 | 현대오토에버 데이터 플랫폼 운영 직무 과제 1 (Airflow·선후행·재처리) |
 | 환경 | Airflow 3.3.2 (CeleryExecutor), PostgreSQL 16 + PostGIS |
 | 범위 | DAG·Task 분리, 선후행, 실행 제어, 품질 게이트, 멱등성, 재처리 |
@@ -102,7 +102,7 @@ Task 성공과 데이터 준비 완료는 다르다. 세 가지를 따로 판단
 ```
 ev01 ──write──▶ [ DB: core 관측·집계 / ops 상태 ] ◀──read── ev03 (매일 06:00)
 ev02 ──Asset: ev_reg_snapshot ────────────────────────────▶ ev03
-ev04 ──write──▶ [ DB: core.charger 이력 ]  (ev03 연결은 다음 단계)
+ev04 ──write──▶ [ DB: core.charger 이력 ] ◀──read── ev03 (공급 기준일 시점)
 ev10 ──Asset: ev_master_version ──────────────────────────▶ ev03
 ev11 ─┬─ registration: ev02 트리거 (ev03는 ev02 Asset으로)
       ├─ timeband: 재집계 → ev03 트리거
@@ -116,6 +116,7 @@ ev12 ──read──▶ Airflow 메타DB + ops ──▶ Slack
 |---|---|---|
 | ev01 → ev03 | DB 조회 | 30분마다 마트를 다시 계산할 이유 없음 |
 | ev02 → ev03 | Asset | 새 스냅샷 즉시 반영 |
+| ev04 → ev03 | DB 조회 | 공급 기준일(기준월 말일)이 고정이라 일별 적재로 재게시하지 않음 |
 | ev10 → ev03 | Asset | 마스터 버전 활성화는 재계산 사유 |
 | ev03 자체 | 매일 06:00 (Asset과 OR) | 분석 기간 종료, 보류 해소를 주기적으로 재평가 |
 
@@ -216,12 +217,12 @@ resolve_base_month ─▶ wait_base_month_published (Sensor)
 ```
 resolve_target_period (branch)
   ├─▶ no_eligible_period ─────────────────────────────────────┐
-  └─▶ gate1_run_eligibility (5개 점검 병렬)                     │
+  └─▶ gate1_run_eligibility (6개 점검 병렬)                     │
       ─▶ evaluate_gate1 (branch)                              │
            ├─▶ hold_publish ─▶ mark_stale_and_alert ──────────┤
            ├─▶ skip_unchanged ────────────────────────────────┤
            └─▶ spatial_join ─▶ admdong_timeband_agg ─▶ compute_indicators
-               ─▶ region_quality_gate ─▶ classify_abc          │
+               ─▶ compute_supply ─▶ region_quality_gate ─▶ classify_abc
                ─▶ verify_candidate ─▶ publish_mart (Asset)     │
                                                               ▼
                                          record_run_result [all_done]
@@ -230,19 +231,21 @@ resolve_target_period (branch)
 대상 기준월과 fingerprint
 - 기준월 = `params.base_month`, 없으면 `core.reg_snapshot`의 최신 월
 - Asset `extra.base_month`는 힌트로 기록만 한다. 대상 결정에는 쓰지 않음
-- fingerprint = 기준월·전년 동월 `load_id`, 도로 집계 워터마크, 활성 링크·경계 버전, 임계값 버전, 분석 기간, 대상 집합의 해시
+- fingerprint = 기준월·전년 동월 `load_id`, 도로 집계 워터마크, 활성 링크·경계 버전, 임계값 버전, 분석 기간, 대상 집합, 공급 기준일·그 시점 충전기 `load_id`의 해시
+- 공급 기준일 = 기준월 말일. 충전기 이력 시작(2026-11-02) 전이면 첫 스냅샷일, 결과에 `supply_period_mismatch`
 - 직전 평가와 fingerprint가 같으면 `skip_unchanged` (`force=true`면 무시)
 - 당월 스냅샷이나 활성 임계값이 없으면 `no_eligible_period`
 - 과거 월 재계산은 ev11 `mart`로 기준월을 지정한다
 
 | Task | 하는 일 |
 |---|---|
-| `gate1_run_eligibility` | 등록 스냅샷, 도로 최신성, 커버리지, 마스터 버전, 관측 시간대 수 점검 (§5). Task는 실패시키지 않고 결과만 반환 |
+| `gate1_run_eligibility` | 등록 스냅샷, 도로 최신성, 커버리지, 마스터 버전, 관측 시간대 수, 충전기 이력 점검 (§5). Task는 실패시키지 않고 결과만 반환 |
 | `evaluate_gate1` | 하나라도 미달 → `hold_publish`, fingerprint 동일 → `skip_unchanged`, 그 외 진행 |
 | `mark_stale_and_alert` | 지난 결과 유지, 게시 상태 `stale`, Slack 알림 |
 | `spatial_join` | 활성 버전의 링크-행정동 귀속 결과 확인 |
 | `admdong_timeband_agg` | 행정동 × 시간대 평균 속도 (길이 가중, 단순 평균) |
 | `compute_indicators` | 후보 테이블에 대상 3구 행정동 전체 생성. 전기차 대수·증가율, 커버리지, 저속 비중 |
+| `compute_supply` | 공급 기준일 시점 동별 승용 충전기(버스전용 제외)·급속·제한 없음 수, 충전기 1대당 전기차 |
 | `region_quality_gate` | Gate 2. 행정동마다 품질 등급 |
 | `classify_abc` | 분류와 도로 여건 (§5) |
 | `verify_candidate` | 행 수 = 대상 행정동 수, 중복 없음, 분류 null 없음, `A`인데 도로 여건 null 없음. 실패면 게시 안 함 |
@@ -401,17 +404,21 @@ Gate 1 점검 (하나라도 미달이면 보류)
 | 커버리지 | 대상 링크 × 주간(07~21시) 시간대 중 관측 비율 60% 이상 |
 | 마스터 버전 | 링크·경계 활성 버전 2개, 대상 링크가 활성 버전 소속 |
 | 관측 시간대 | 주간 관측 시간대 6개 이상 |
+| 충전기 이력 | 공급 기준이 있는 임계값이면 공급 기준일 시점 충전기 이력 존재 |
 
-Gate 2 등급과 분류 (임계값 `mvp_v2`, provisional)
+Gate 2 등급과 분류 (임계값 `mvp_v3`, provisional)
 
 | 등급 | 조건 | 분류 |
 |---|---|---|
 | 치명 `fatal` | 등록 데이터 없음, 또는 귀속 링크 0개 | `WITHHELD` 판단 보류 |
 | 기준 미달 `below` | 링크 3개 미만, 커버리지 60% 미만, 유효 시간대 6개 미만 | `C` 데이터 보완 필요 |
 | 경고 `warn` | 전년 동월 등록 없음 | 아래 판정 (증가율 없어 `A` 제외) |
-| 정상 `ok` | - | 전기차 522대 이상 & 1년 증가율 39.7% 이상 → `A` 우선 검토, 그 외 `REF` 관찰 대상 |
+| 정상 `ok` | - | 전기차 522대 이상 & 1년 증가율 39.7% 이상 & 충전기 1대당 전기차 2.1대 이상 → `A` 우선 검토. 수요만 통과하면 `REF` + `supply_sufficient`, 그 외 `REF` |
 
-- `A` 기준은 67개 동 상위 40% 경계(p60). 민감도 검토 전 잠정치
+- 수요 기준은 67개 동 상위 40% 경계(p60), 공급 기준은 67개 동 중앙값(p50, 2026-11-02 첫 스냅샷). 민감도 검토 전 잠정치
+- 공급: 버스전용(`chgerType 11`) 제외, 이용 제한(`limitYn=Y`, 아파트 등) 포함. 등록이 거주지 기준이라 아파트 충전기도 그 동 전기차의 공급. 충전기 0대면 공급 부족
+- 공급 기준이 없는 버전(`mvp_v1`·`v2`)은 수요만으로 판정 (하위 호환)
+- v2 → v3: 우선 검토 12 → 7곳. 공급 충분으로 빠진 곳 세곡·잠실2·청담·문정2·도곡2 (1대당 0.9~1.6대)
 - `B`는 원천 관측 시각이 없어 비활성 (`b_suppressed=true`)
 
 도로 여건 (`charger_hint`, 품질 통과 동만)
@@ -575,8 +582,9 @@ CI (PR 필수 검사, GitHub Actions)
 
 | 항목 | 현재 | 할 일 |
 |---|---|---|
-| 충전기 공급 지표 | ev04 수집만 | ev03에 동별 충전기·급속 수, 전기차/충전기 비율 추가 → 분류 `v3` |
-| 분류 임계값 | `mvp_v2` provisional (p60, p33·p67) | 분포 누적 후 민감도 검토 |
+| 분류 임계값 | `mvp_v3` provisional (수요 p60, 공급 p50, 도로 p33·p67) | 분포 누적 후 민감도 검토 |
+| 충전기 운영 상태 | 이력에서 상태값 제외 | `stat=4` 운영중지 장기 지속분 공급 제외 검토 (`getChargerStatus`) |
+| 공급 기준일 | 첫 스냅샷(11/02)을 9월 기준으로 사용 | 10월 기준월부터 말일 기준 |
 | 분포 급변 경보 | 미구현 | `verify_candidate`에 직전 게시 대비 분포 변화 검사 |
 | 완료 묶음 최소 비율 | 미구현 (API 오류 1건이라도 `partial`) | 오류율 분포 보고 경보 기준 설정 |
 | 지각 허용 | 미구현 (확정 시간대만 사용) | 수집 지연 분포 확인 |
@@ -603,6 +611,7 @@ API·원천 실증 (2026-10-27, `scripts/verify_apis.py`)
 | 충전소 API (2026-11-02) | XML·JSON 모두 응답, `zscode` 필터 동작. 3구 17,173건(서초 5,416·강남 6,057·송파 5,700), 서울 76,998건 | 구별 수집 |
 | 충전소 페이지 크기 | 9,999건 요청 시 504, 1,000건은 0.3초 | 페이지 1,000 |
 | 충전소 값 | 키 중복·좌표 오류 0, 삭제 표시 282건, 타입 `11` 84건(코드표 없음, 120~240kW), `07` 28건 7kW | 출력 기준 급속 판정 |
+| 충전소 코드 (활용가이드 v1.25) | `11` = DC콤보2(버스전용), `limitYn` N = 제한 없음, `kind` H0 공동주택 등 10종, `stat` 0~9 | 버스전용 공급 제외 |
 | 충전소 귀속 | 활성 경계 귀속 99.7%, 서울 밖 36건, 다른 구 좌표 15건(서로 다른 아파트가 같은 상암동 좌표) | `sgg_mismatch` 분리 |
 
 Airflow 3.3.2 동작
@@ -624,6 +633,7 @@ Airflow 3.3.2 동작
 
 | 버전 | 날짜 | 내용 |
 |---|---|---|
+| v0.7 | 2026-11-02 | 충전기 공급 지표(`compute_supply`, Gate 1 충전기 이력), 분류 `mvp_v3` 공급 부족 조건, 버스전용 제외 |
 | v0.6 | 2026-11-02 | ev04 충전기 공급 수집 (SCD2 이력, 구별 Dynamic Task Mapping, 소멸 비율 게이트) |
 | v0.5 | 2026-10-29 | 구현 기준 전면 정리. 목차 추가, 대상 월 결정·보류 재평가·미구현 항목을 코드와 맞춤, 폴링 주기 30분 통일 |
 | v0.4 | 2026-10-28 | 도로 지표를 동네 도로 여건(원활·보통·혼잡)으로 재정의, 등록 13개월 백필·월별 증가 양상 (#19~#21) |
