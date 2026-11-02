@@ -23,11 +23,12 @@ SERVICE = "B552584/EvCharger/getChargerInfo"
 API_KEY_VAR = "apikey_ev_charger"
 API_POOL = "ev_charger_api_pool"
 SEOUL_ZCODE = "11"
-PAGE_SIZE = 9999
+PAGE_SIZE = 1000  # 6천 건 단일 요청 시 504 (2026-11-02 실측)
 
 # 품질 게이트 기준
 MIN_ASSIGN_RATE = 0.95  # 정제 행 대비 행정동 귀속 비율 (미만 치명)
 WARN_QUARANTINE_RATIO = 0.05  # 격리 행 비율 (초과 경고)
+WARN_MISMATCH_RATIO = 0.005  # 좌표 귀속 구 ≠ 요청 구 비율 (초과 경고, 원천 좌표 오류)
 MAX_CLOSE_RATIO = 0.10  # 구별 직전 대비 소멸 비율 (초과 치명, 원천 일부 누락 의심)
 
 FINAL_TASKS = [
@@ -132,7 +133,8 @@ with DAG(
         assign_rate = m["assigned_rows"] / m["norm_rows"] if m["norm_rows"] else 0
         q_ratio = m["quarantine_rows"] / m["raw_rows"] if m["raw_rows"] else 1
         fatal = m["norm_rows"] == 0 or assign_rate < MIN_ASSIGN_RATE
-        warn = q_ratio > WARN_QUARANTINE_RATIO or m["sgg_mismatch_rows"] or m["unknown_type_rows"]
+        mismatch = m["sgg_mismatch_rows"] / m["norm_rows"] if m["norm_rows"] else 0
+        warn = q_ratio > WARN_QUARANTINE_RATIO or mismatch > WARN_MISMATCH_RATIO or m["unknown_type_rows"]
         grade = "fatal" if fatal else ("warn" if warn else "ok")
         ops.record_quality(context, "assign_rate", "fatal" if fatal else "ok", round(assign_rate, 4), MIN_ASSIGN_RATE)
         ops.record_quality(context, "quarantine_ratio", grade, round(q_ratio, 4), WARN_QUARANTINE_RATIO, detail=m)
