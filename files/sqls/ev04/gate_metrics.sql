@@ -7,7 +7,7 @@ SELECT (SELECT count(*) FROM staging.charger_raw WHERE run_id = %(run_id)s) AS r
        (SELECT count(*) FROM staging.charger_norm
         WHERE run_id = %(run_id)s AND assign_status = 'assigned') AS assigned_rows,
        (SELECT count(*) FROM staging.charger_norm
-        WHERE run_id = %(run_id)s AND assign_status = 'assigned' AND left(adm_cd, 5) <> sgg_cd) AS sgg_mismatch_rows,
+        WHERE run_id = %(run_id)s AND assign_status = 'sgg_mismatch') AS sgg_mismatch_rows,
        (SELECT count(*) FROM staging.charger_norm
         WHERE run_id = %(run_id)s AND is_fast IS NULL) AS unknown_type_rows
 FROM staging.v_charger_check c

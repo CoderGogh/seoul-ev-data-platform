@@ -1,4 +1,6 @@
 -- 정제·행정동 귀속 (활성 경계, 점 포함). 삭제 표시(delYn=Y)는 제외 → 이력 종료 대상
+-- 급속: 출력 50kW 이상 (타입 코드와 실제 출력 불일치 있음, 예: 07 AC3상 7kW), 출력 없으면 타입 코드
+-- 귀속 구 ≠ 요청 구: sgg_mismatch (원천 좌표 오류, 공급 집계 제외)
 -- 파라미터: run_id
 DELETE FROM staging.charger_norm WHERE run_id = %(run_id)s;
 
@@ -22,9 +24,11 @@ src AS (
     FROM staging.v_charger_check c
     WHERE c.run_id = %(run_id)s AND c.reason_code IS NULL AND NOT c.is_deleted
 )
-SELECT s.run_id, s.stat_id, s.chger_id, s.sgg_cd, s.stat_nm, s.chger_type, t.is_fast, s.output_kw, s.busi_id,
+SELECT s.run_id, s.stat_id, s.chger_id, s.sgg_cd, s.stat_nm, s.chger_type,
+       CASE WHEN s.output_kw IS NOT NULL THEN s.output_kw >= 50 ELSE t.is_fast END, s.output_kw, s.busi_id,
        s.busi_nm, s.kind, s.kind_detail, s.limit_yn, s.parking_free, s.addr, s.geom, b.version, a.adm_cd,
-       CASE WHEN a.adm_cd IS NULL THEN 'outside' ELSE 'assigned' END,
+       CASE WHEN a.adm_cd IS NULL THEN 'outside'
+            WHEN left(a.adm_cd, 5) <> s.sgg_cd THEN 'sgg_mismatch' ELSE 'assigned' END,
        md5(concat_ws('|', s.sgg_cd, s.stat_nm, s.chger_type, s.output_kw, s.busi_id, s.busi_nm, s.kind,
                      s.kind_detail, s.limit_yn, s.parking_free, s.addr, ST_AsText(s.geom), b.version, a.adm_cd))
 FROM src s
