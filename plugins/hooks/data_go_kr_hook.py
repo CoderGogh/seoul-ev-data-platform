@@ -96,16 +96,20 @@ class DataGoKrHook(BaseHook):
         base = self.get_conn()
         query = {"serviceKey": self._key, "dataType": "JSON", **params}
         t0 = time.perf_counter()
-        res = self._session.get(f"{base}/{path}", params=query, timeout=self.timeout)
-        res.raise_for_status()
+        try:
+            res = self._session.get(f"{base}/{path}", params=query, timeout=self.timeout)
+        except requests.RequestException as e:
+            raise RuntimeError(f"{path} 호출 실패: {type(e).__name__}") from None  # 예외 메시지에 인증키 포함 URL
+        if not res.ok:
+            raise RuntimeError(f"{path} HTTP {res.status_code} {dict(params)}")  # URL 대신 인자만 기록
         result = self.parse(res.content)
         result.resp_ms = int((time.perf_counter() - t0) * 1000)
         if not result.ok:
             raise RuntimeError(f"{path} 오류 {result.code}: {result.message}")
         return result
 
-    # 전수 페이지 순회
-    def fetch_all(self, path, page_size=9999, **params):
+    # 전수 페이지 순회 (큰 페이지는 게이트웨이 504)
+    def fetch_all(self, path, page_size=1000, **params):
         first = self.call(path, pageNo=1, numOfRows=page_size, **params)
         rows = list(first.rows)
         for page in range(2, math.ceil(first.total / page_size) + 1):
