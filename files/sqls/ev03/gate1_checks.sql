@@ -1,5 +1,5 @@
 -- Gate 1 점검 지표 (기준월·도로 최신성·커버리지·마스터·시간대 수)
--- 파라미터: base_month, prev_month, window_start, window_end, target_set
+-- 파라미터: base_month, prev_month, window_start, window_end, target_set, threshold_ver, charger_asof
 WITH tl AS (
     SELECT t.* FROM core.target_link t
     JOIN core.master_version v ON v.master_type = 'link' AND v.version = t.link_ver AND v.status = 'active'
@@ -23,4 +23,9 @@ SELECT
     (SELECT count(*) FROM obs JOIN hours USING (hour_start)) AS observed_link_hours,
     (SELECT count(DISTINCT hour_start) FROM obs JOIN hours USING (hour_start)) AS observed_hours,
     (SELECT count(*) FROM core.master_version WHERE status = 'active') AS active_masters,
-    (SELECT count(*) FROM tl) > 0 AS target_on_active_link;
+    (SELECT count(*) FROM tl) > 0 AS target_on_active_link,
+    coalesce((SELECT params ? 'a_min_ev_per_charger' FROM ops.threshold_version
+              WHERE threshold_ver = %(threshold_ver)s), false) AS needs_supply,
+    (SELECT count(*) FROM core.charger c
+      WHERE c.valid_from <= %(charger_asof)s::date
+        AND (c.valid_to IS NULL OR c.valid_to > %(charger_asof)s::date)) AS charger_rows;
