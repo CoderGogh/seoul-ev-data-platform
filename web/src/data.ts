@@ -29,6 +29,12 @@ export interface Region {
   inc_12m: number | null;
   rate_3m: number | null;
   up_months: number | null;
+  charger_asof: string | null;
+  charger_cnt: number | null;
+  fast_cnt: number | null;
+  open_cnt: number | null;
+  ev_per_charger: number | null;
+  supply_gap: boolean | null;
 }
 
 export interface MonthlyPoint {
@@ -209,6 +215,8 @@ export const HINT_LABEL: Record<ChargerHint, string> = {
 export const REASON_LABEL: Record<string, string> = {
   period_mismatch: "등록 기준월(2026년 9월)과 도로 관측 기간(10월 27~28일)이 다름 (MVP 예외 허용)",
   b_suppressed_no_source_time: "원천에 관측 시각이 없어 B 유형 판정은 비활성",
+  supply_sufficient: "전기차 대수·증가율 기준은 넘었지만 충전기가 이미 충분해 우선 검토에서 제외",
+  supply_period_mismatch: "충전기 이력이 11월 2일부터라 기준월 말일 대신 첫 수집일 공급을 사용 (MVP 예외)",
 };
 
 export const GROWTH_DESC: Record<string, string> = {

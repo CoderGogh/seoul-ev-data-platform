@@ -32,7 +32,7 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     title: "지역 분석",
     items: [
-      { to: "/priority", label: "우선 검토 지역", icon: "star", desc: "충전소를 먼저 늘릴 12곳" },
+      { to: "/priority", label: "우선 검토 지역", icon: "star", desc: "충전소를 먼저 늘릴 동네" },
       { to: "/map", label: "지도", icon: "map", desc: "행정동 분류·도로 여건 지도" },
       { to: "/regions", label: "행정동 목록", icon: "list", desc: "67곳 정렬·필터 표" },
     ],
