@@ -31,11 +31,13 @@ x-airflow-common:
     AIRFLOW_CONN_CONN_POSTGIS_EV: postgresql://${EV_DB_USER:?set in .env}:${EV_DB_PASSWORD:?set in .env}@postgis:5432/${EV_DB_NAME:?set in .env}
     AIRFLOW_CONN_CONN_DB_POSTGRES_AIRFLOW: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
     AIRFLOW_CONN_CONN_SEOUL_OPENAPI: http://openapi.seoul.go.kr:8088
+    AIRFLOW_CONN_CONN_DATA_GO_KR: https://apis.data.go.kr
     # 실패 알림 Slack webhook (URL 내 / 때문에 JSON 형식)
     AIRFLOW_CONN_CONN_SLACK_AIRFLOW_BOT: '{"conn_type": "slackwebhook", "password": "${SLACK_WEBHOOK_URL:?set in .env}"}'
     # Variable (API 키)
     AIRFLOW_VAR_APIKEY_SEOUL_TRAFFIC: ${SEOUL_TRAFFIC_API_KEY:?set in .env}
     AIRFLOW_VAR_APIKEY_SEOUL_REGISTRATION: ${SEOUL_REGISTRATION_API_KEY:?set in .env}
+    AIRFLOW_VAR_APIKEY_EV_CHARGER: ${EV_CHARGER_API_KEY:-}
     AIRFLOW_VAR_EV_REG_SOURCE_MODE: ${EV_REG_SOURCE_MODE:-api}
   volumes:
     - ./dags:/opt/airflow/dags
@@ -222,6 +224,7 @@ services:
           airflow config list > /dev/null
           airflow pools set seoul_traffic_api_pool ${TRAFFIC_POOL_SLOTS:-4} "실시간 도로소통정보 API 동시 호출 제한"
           airflow pools set seoul_registration_api_pool ${REGISTRATION_POOL_SLOTS:-2} "등록현황 API 동시 호출 제한"
+          airflow pools set ev_charger_api_pool ${CHARGER_POOL_SLOTS:-1} "충전소 정보 API 동시 호출 제한"
         '
         # 공유 디렉터리 소유권 정리
         chown -R "${AIRFLOW_UID:-50000}:0" /opt/airflow/{logs,dags,plugins,config}
