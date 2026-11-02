@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS staging.charger_raw (
     PRIMARY KEY (run_id, sgg_cd, row_no)
 );
 
--- 충전기 타입 코드 (급속 판정 고정)
+-- 충전기 타입 코드 (출력값 없을 때 급속 판정 보조)
 CREATE TABLE IF NOT EXISTS core.charger_type (
     chger_type      text        PRIMARY KEY,
     type_nm         text        NOT NULL,
@@ -60,7 +60,7 @@ CREATE TABLE IF NOT EXISTS staging.charger_norm (
     sgg_cd          char(5)     NOT NULL,
     stat_nm         text,
     chger_type      text,
-    is_fast         boolean,                            -- 타입 코드 미등록이면 NULL
+    is_fast         boolean,                            -- 출력 50kW 이상, 출력 없으면 타입 코드
     output_kw       numeric,
     busi_id         text,
     busi_nm         text,
@@ -72,7 +72,7 @@ CREATE TABLE IF NOT EXISTS staging.charger_norm (
     geom            geometry(Point, 5186) NOT NULL,
     boundary_ver    text        NOT NULL,
     adm_cd          char(10),
-    assign_status   text        NOT NULL CHECK (assign_status IN ('assigned', 'outside')),
+    assign_status   text        NOT NULL CHECK (assign_status IN ('assigned', 'outside', 'sgg_mismatch')),  -- 불일치: 원천 좌표 오류
     attr_hash       text        NOT NULL,               -- 속성 변경 판정 (상태값 제외)
     PRIMARY KEY (run_id, stat_id, chger_id)
 );
