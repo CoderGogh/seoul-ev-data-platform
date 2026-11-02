@@ -11,6 +11,8 @@ const PATHS: Record<IconName | "menu" | "close" | "moon" | "sun" | "github", str
   road: "M8 3 4 21M16 3l4 18M12 4v3M12 10.5v3M12 17v3",
   shield: "M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6l8-3zM9 12l2 2 4-4",
   activity: "M3 12h4l3-8 4 16 3-8h4",
+  plug: "M9 3v5M15 3v5M6 8h12v3a6 6 0 0 1-12 0V8zM12 17v4",
+  flag: "M5 21V4M5 4h11l-2 4 2 4H5",
   menu: "M4 6h16M4 12h16M4 18h16",
   close: "M6 6l12 12M18 6 6 18",
   moon: "M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5z",

@@ -69,10 +69,11 @@ docker compose up -d --build
 ```bash
 docker compose up -d postgis      # 수집 재개 없이 DB만
 ./scripts/export_web_data.sh      # files/sqls/web/*.sql → web/public/data/*.json
+python3 scripts/export_progress.py  # 로드맵 이슈·병합 PR → progress.json (gh 로그인 필요)
 docker compose down               # -v 금지
 ```
 
-바뀐 JSON을 브랜치에서 커밋하고 PR로 병합합니다.
+바뀐 JSON을 브랜치에서 커밋하고 PR로 병합합니다. 개발 진행 화면은 열 때 GitHub 공개 API로 이슈 상태를 다시 받아와서, 스냅샷이 오래돼도 완료 여부는 최신으로 보입니다.
 
 **로컬 실행**
 

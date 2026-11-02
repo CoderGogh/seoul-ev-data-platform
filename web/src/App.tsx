@@ -16,6 +16,8 @@ import { Trend } from "./pages/Trend";
 import { Road } from "./pages/Road";
 import { Quality } from "./pages/Quality";
 import { Pipeline } from "./pages/Pipeline";
+import { Supply } from "./pages/Supply";
+import { ProgressPage } from "./pages/Progress";
 
 const SITE = "서울 전동화 입지 인사이트";
 
@@ -29,6 +31,8 @@ const PAGES: Record<string, (props: { data: AppData }) => JSX.Element> = {
   "/road": Road,
   "/quality": Quality,
   "/pipeline": Pipeline,
+  "/supply": Supply,
+  "/progress": ProgressPage,
 };
 
 function route(path: string, data: AppData) {

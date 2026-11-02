@@ -76,7 +76,68 @@ export interface Meta {
   exported_at: string;
 }
 
+// 충전기 공급 (ev04 최신 상태, chargers.json)
+export interface ChargerDong {
+  adm_cd: string;
+  adm_nm: string;
+  sgg_nm: string;
+  classification: Classification;
+  ev_cnt: number | null;
+  chargers: number;
+  stations: number;
+  fast: number;
+  open_cnt: number;
+  ev_per_charger: number | null;
+  ev_per_fast: number | null;
+}
+
+export interface ChargerSgg {
+  sgg_nm: string;
+  chargers: number;
+  stations: number;
+  fast: number;
+  open_cnt: number;
+  ev_cnt: number;
+}
+
+export interface QualityCheck {
+  check: string;
+  scope: string;
+  grade: string;
+  metric: number | null;
+  threshold: number | null;
+}
+
+export interface Chargers {
+  snapshot_date: string;
+  loaded_at: string;
+  source: string;
+  load: { row_cnt: number; new_cnt: number; changed_cnt: number; closed_cnt: number; quality_grade: string };
+  status: Record<string, number>;
+  quality: QualityCheck[];
+  by_sgg: ChargerSgg[];
+  by_dong: ChargerDong[];
+}
+
+// 개발 진행 (progress.json, scripts/export_progress.py)
+export interface ProgressIssue {
+  title: string;
+  state: "OPEN" | "CLOSED";
+  closed_at: string | null;
+  url: string;
+  labels: string[];
+}
+
+export interface Progress {
+  repo: string;
+  roadmap: { number: number; title: string; url: string };
+  stages: { title: string; issues: number[] }[];
+  issues: Record<string, ProgressIssue>;
+  merged: { number: number; title: string; merged_at: string; url: string; closes: number[] }[];
+}
+
 export interface AppData {
+  chargers: Chargers | null;
   regions: Region[];
   monthly: Record<string, MonthlyPoint[]>;
   timeband: Record<string, TimebandPoint[]>;
@@ -90,16 +151,42 @@ async function fetchJson<T>(name: string): Promise<T> {
   return res.json() as Promise<T>;
 }
 
-// 전체 데이터 일괄 로드 (합계 약 370KB)
+// 전체 데이터 일괄 로드 (합계 약 390KB). 충전기는 없어도 나머지 화면 표시
 export async function loadData(): Promise<AppData> {
-  const [regions, monthly, timeband, geo, meta] = await Promise.all([
+  const [regions, monthly, timeband, geo, meta, chargers] = await Promise.all([
     fetchJson<Region[]>("regions"),
     fetchJson<Record<string, MonthlyPoint[]>>("monthly"),
     fetchJson<Record<string, TimebandPoint[]>>("timeband"),
     fetchJson<AdmdongGeo>("admdong"),
     fetchJson<Meta>("meta"),
+    fetchJson<Chargers>("chargers").catch(() => null),
   ]);
-  return { regions, monthly, timeband, geo, meta };
+  return { regions, monthly, timeband, geo, meta, chargers };
+}
+
+export const loadProgress = () => fetchJson<Progress>("progress");
+
+// GitHub 공개 API 최신 이슈 상태 (실패 시 스냅샷 유지)
+export async function fetchLiveIssues(repo: string): Promise<Record<string, ProgressIssue> | null> {
+  try {
+    const res = await fetch(`https://api.github.com/repos/${repo}/issues?state=all&per_page=100`, {
+      headers: { Accept: "application/vnd.github+json" },
+    });
+    if (!res.ok) return null;
+    const rows: { number: number; title: string; state: string; closed_at: string | null; html_url: string;
+      labels: { name: string }[]; pull_request?: unknown }[] = await res.json();
+    return Object.fromEntries(
+      rows
+        .filter((r) => !r.pull_request)
+        .map((r) => [
+          String(r.number),
+          { title: r.title, state: r.state === "closed" ? "CLOSED" : "OPEN", closed_at: r.closed_at, url: r.html_url,
+            labels: r.labels.map((l) => l.name) },
+        ]),
+    );
+  } catch {
+    return null;
+  }
 }
 
 // 표시 문구
@@ -136,6 +223,7 @@ export const DAG_LABEL: Record<string, string> = {
   ev01_traffic_collect: "도로 수집 (30분)",
   ev02_registration_monthly: "등록 수집 (월)",
   ev03_mart_integration: "지표·분류·게시",
+  ev04_charger_daily: "충전기 수집 (일)",
   ev10_master_refresh: "도로-동 연결 마스터",
   ev11_reprocess: "재처리",
   ev12_quality_monitor: "품질 리포트",
@@ -160,6 +248,9 @@ export const fmtInt = (n: number | null | undefined) => (n == null ? "-" : intFm
 export const fmtPct = (n: number | null | undefined, digits = 1) => (n == null ? "-" : `${n.toFixed(digits)}%`);
 
 export const fmtMonth = (ym: string) => `${ym.slice(0, 4)}.${ym.slice(4, 6)}`;
+
+export const fmtDate = (iso: string) =>
+  new Date(iso).toLocaleDateString("ko-KR", { timeZone: "Asia/Seoul", month: "numeric", day: "numeric" });
 
 export const fmtDateTime = (iso: string) =>
   new Date(iso).toLocaleString("ko-KR", {

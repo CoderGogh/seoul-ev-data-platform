@@ -1,6 +1,6 @@
 // 대시보드: 핵심 수치·우선 검토 순위·지도·주목할 동네·요약
 import { useMemo } from "react";
-import { HINT_LABEL, fmtDateTime, fmtInt, fmtMonth, fmtPct, type AppData } from "../data";
+import { HINT_LABEL, fmtDate, fmtDateTime, fmtInt, fmtMonth, fmtPct, type AppData } from "../data";
 import { hintCounts, monthlyTotals, nearMiss, watchList } from "../insights";
 import { HintBadge } from "../components/Badges";
 import { CardHead, PageHead } from "../components/PageHead";
@@ -56,6 +56,8 @@ export function Dashboard({ data }: { data: AppData }) {
           <div className="stat-label">30분마다 수집한 도로 링크</div>
         </div>
       </section>
+
+      {data.chargers && <SupplyTeaser data={data} />}
 
       <div className="grid-dash">
         <section className="card">
@@ -175,5 +177,42 @@ export function Dashboard({ data }: { data: AppData }) {
         </section>
       </div>
     </div>
+  );
+}
+
+// 충전기 공급 요약 (우선 검토 지역 중 공급 부족)
+function SupplyTeaser({ data }: { data: AppData }) {
+  const c = data.chargers!;
+  const chargers = c.by_sgg.reduce((s, g) => s + g.chargers, 0);
+  const fast = c.by_sgg.reduce((s, g) => s + g.fast, 0);
+  const avg = c.by_sgg.reduce((s, g) => s + g.ev_cnt, 0) / chargers;
+  const gap = c.by_dong
+    .filter((d) => d.classification === "A" && (d.ev_per_charger ?? 0) > avg)
+    .sort((a, b) => (b.ev_per_charger ?? 0) - (a.ev_per_charger ?? 0));
+  return (
+    <section className="card">
+      <CardHead
+        title={<>충전기 공급 <span className="badge tone-ok">새로 추가</span></>}
+        sub={`${fmtDate(c.snapshot_date)} 첫 수집 · 아직 분류에는 미반영`}
+        action={<More to="/supply" />}
+      />
+      <div className="insights">
+        <div className="insight">
+          <div className="insight-title">3개 구 충전기</div>
+          <p className="stat-value">{fmtInt(chargers)}대</p>
+          <p className="metric-note">급속 {fmtInt(fast)}대 · 1대당 전기차 {avg.toFixed(1)}대</p>
+        </div>
+        <div className="insight">
+          <div className="insight-title">우선 검토 중 공급 부족</div>
+          <p className="metric-note">충전기 1대당 전기차가 평균보다 많은 곳</p>
+          {gap.slice(0, 4).map((d) => (
+            <Link key={d.adm_cd} to={`/regions/${d.adm_cd}`} className="insight-row">
+              <b>{d.adm_nm}</b>
+              <span>1대당 {d.ev_per_charger?.toFixed(1)}대</span>
+            </Link>
+          ))}
+        </div>
+      </div>
+    </section>
   );
 }
