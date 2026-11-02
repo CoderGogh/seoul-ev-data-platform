@@ -1273,3 +1273,73 @@ td.up {
   color: var(--text-2);
   --dot: var(--muted);
 }
+
+/* 데이터 기준일 띠 (모든 페이지 상단) */
+.fresh {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  padding: 10px 14px;
+  margin-bottom: 18px;
+  display: grid;
+  gap: 8px;
+}
+.fresh-warn {
+  border-color: var(--hint-mixed);
+  background: var(--warn-soft);
+}
+.fresh-bad {
+  border-color: var(--bad-text);
+  background: var(--bad-soft);
+}
+.fresh-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+}
+.fresh-title {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--text-2);
+  margin-right: 2px;
+}
+.fresh-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12.5px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-variant-numeric: tabular-nums;
+}
+.fresh-item.tone-ok {
+  background: var(--surface-2);
+  color: var(--text-2);
+}
+.fresh-age {
+  font-weight: 700;
+}
+.fresh-more {
+  margin-left: auto;
+  font: inherit;
+  font-size: 12.5px;
+  color: var(--accent-ink);
+  background: none;
+  border: 0;
+  cursor: pointer;
+  padding: 2px 4px;
+}
+.fresh-msg {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-2);
+}
+.fresh-rules {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 12.5px;
+  color: var(--text-2);
+  display: grid;
+  gap: 2px;
+}
