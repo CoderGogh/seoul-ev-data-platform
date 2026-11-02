@@ -1,5 +1,6 @@
 // 데이터 품질: 게시 상태·품질 관문·임계값
-import { fmtDateTime, fmtMonth, type AppData } from "../data";
+import { fmtDate, fmtDateTime, fmtInt, fmtMonth, type AppData } from "../data";
+import { Link } from "../router";
 import { CardHead, PageHead } from "../components/PageHead";
 
 const PARAM_LABEL: Record<string, string> = {
@@ -33,7 +34,7 @@ export function Quality({ data }: { data: AppData }) {
       <PageHead
         tags={["데이터 운영", `기준월 ${fmtMonth(meta.base_month)}`]}
         title="데이터 품질"
-        lede="수집·실행·지역 3단계 관문을 통과한 결과만 공개합니다. 수집은 2026년 10월 28일 과제 제출 후 중단해서 이 화면은 그 시점 스냅샷입니다."
+        lede="수집·실행·지역 3단계 관문을 통과한 결과만 공개합니다. 도로·등록 결과는 2026년 10월 28일 과제 제출 시점 스냅샷이고, 충전기 공급은 11월 2일부터 수집합니다."
       />
 
       <section className="card">
@@ -56,6 +57,40 @@ export function Quality({ data }: { data: AppData }) {
           </div>
         </div>
       </section>
+
+      {data.chargers && (
+        <section className="card">
+          <CardHead
+            title="충전기 수집 관문"
+            sub={`${fmtDate(data.chargers.snapshot_date)} 수집 · 하나라도 미달이면 반영 안 함`}
+            action={
+              <Link to="/supply" className="more">
+                충전기 공급 →
+              </Link>
+            }
+          />
+          <div className="gates">
+            <div className="gate">
+              <span className="gate-step">건수 · 구별</span>
+              <h3>원천 = 적재</h3>
+              <p>구마다 원천 총건수와 적재 건수가 같아야 함. 구 하나라도 실패하면 반영 안 함 (빠진 구가 철거로 기록되는 것 방지)</p>
+            </div>
+            <div className="gate">
+              <span className="gate-step">귀속 · 전체</span>
+              <h3>행정동 귀속 95% 이상</h3>
+              <p>
+                이번 {((data.chargers.status.assigned ?? 0) / Object.values(data.chargers.status).reduce((s, n) => s + n, 0) * 100).toFixed(1)}%. 다른 구 좌표{" "}
+                {fmtInt(data.chargers.status.sgg_mismatch ?? 0)}건은 원천 좌표 오류로 따로 표시
+              </p>
+            </div>
+            <div className="gate">
+              <span className="gate-step">변화 · 구별</span>
+              <h3>소멸 10% 이하</h3>
+              <p>직전보다 충전기가 10% 넘게 사라지면 원천 누락으로 보고 반영 차단. 같은 날 재실행은 그날 반영분만 교체</p>
+            </div>
+          </div>
+        </section>
+      )}
 
       <div className="grid-2">
         <section className="card">
