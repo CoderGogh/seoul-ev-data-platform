@@ -30,32 +30,41 @@ def parse_roadmap(body):
     return stages
 
 
+def issue_row(i):
+    labels = [lb["name"] for lb in i["labels"]]
+    return {"title": i["title"], "state": i["state"], "closed_at": i["closedAt"], "url": i["url"], "labels": labels}
+
+
+def pr_row(p):
+    closes = [c["number"] for c in p["closingIssuesReferences"]]
+    return {"number": p["number"], "title": p["title"], "merged_at": p["mergedAt"], "url": p["url"], "closes": closes}
+
+
 def main(roadmap_no):
     repo = gh("repo", "view", "--json", "nameWithOwner")["nameWithOwner"]
     roadmap = gh("issue", "view", str(roadmap_no), "--json", "number,title,body,url")
-    issues = gh("issue", "list", "--state", "all", "--limit", "200",
-                "--json", "number,title,state,labels,closedAt,url")  # fmt: skip
-    prs = gh("pr", "list", "--state", "merged", "--limit", "30",
-             "--json", "number,title,mergedAt,url,closingIssuesReferences")  # fmt: skip
+    issues = gh("issue", "list", "--state", "all", "--limit", "200", "--json", "number,title,state,labels,closedAt,url")
+    prs = gh(
+        "pr",
+        "list",
+        "--state",
+        "merged",
+        "--limit",
+        "30",
+        "--json",
+        "number,title,mergedAt,url,closingIssuesReferences",
+    )
     data = {
         "repo": repo,
         "roadmap": {"number": roadmap["number"], "title": roadmap["title"], "url": roadmap["url"]},
         "stages": parse_roadmap(roadmap["body"]),
-        "issues": {
-            str(i["number"]): {
-                "title": i["title"], "state": i["state"], "closed_at": i["closedAt"], "url": i["url"],
-                "labels": [lb["name"] for lb in i["labels"]],
-            }
-            for i in issues
-        },  # fmt: skip
-        "merged": [
-            {"number": p["number"], "title": p["title"], "merged_at": p["mergedAt"], "url": p["url"],
-             "closes": [c["number"] for c in p["closingIssuesReferences"]]}
-            for p in sorted(prs, key=lambda p: p["mergedAt"], reverse=True)
-        ],  # fmt: skip
+        "issues": {str(i["number"]): issue_row(i) for i in issues},
+        "merged": [pr_row(p) for p in sorted(prs, key=lambda p: p["mergedAt"], reverse=True)],
     }
     OUT.write_text(json.dumps(data, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
-    print(f"내보냄: {OUT.relative_to(ROOT)} (단계 {len(data['stages'])}, 이슈 {len(data['issues'])}, PR {len(data['merged'])})")
+    print(
+        f"내보냄: {OUT.relative_to(ROOT)} (단계 {len(data['stages'])}, 이슈 {len(data['issues'])}, PR {len(data['merged'])})"
+    )
 
 
 if __name__ == "__main__":
