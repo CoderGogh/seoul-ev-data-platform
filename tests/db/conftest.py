@@ -129,4 +129,9 @@ def supply(cur, seed):
            FROM core.admdong a WHERE a.boundary_ver = 'bt' AND a.adm_cd = %s""",
         [(s, c, CHARGER_DATE, t, f, lim, adm) for s, c, adm, t, f, lim in rows],
     )
+    cur.execute(
+        """INSERT INTO ops.charger_load (snapshot_date, run_id, sgg_cds, row_cnt, new_cnt, changed_cnt, closed_cnt,
+               quality_grade) VALUES (%s, 'c_seed', '{11680}', %s, %s, 0, 0, 'ok')""",
+        (CHARGER_DATE, len(rows), len(rows)),
+    )
     return rows
