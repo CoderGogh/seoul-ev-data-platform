@@ -82,6 +82,16 @@ npm ci
 npm run dev                       # http://localhost:5173
 ```
 
+## 7. 테스트
+
+```bash
+pytest -q tests --ignore=tests/test_dag_integrity.py   # 단위 (DB 테스트는 건너뜀)
+pytest -q tests/test_dag_integrity.py                  # DAG 정책
+docker compose up -d postgis && ./scripts/test_db.sh   # DB 통합 (테스트 전용 ev_test 재생성)
+```
+
+운영 DB(`EV_DB_NAME`)는 건드리지 않습니다. Airflow 패키지가 설치된 가상환경에서 실행합니다.
+
 ---
 
 ## 알아둘 점
