@@ -173,6 +173,7 @@ with DAG(
             fetch=True,
         )[0]["e"]
         changed = totals["new_cnt"] or totals["changed_cnt"] or totals["closed_cnt"]
+        context["ti"].xcom_push(key="rerun", value=applied_today)
         return "load_charger" if changed or applied_today else "skip_unchanged"
 
     skip_unchanged = EmptyOperator(task_id="skip_unchanged")
@@ -207,7 +208,8 @@ with DAG(
             return
         load = context["ti"].xcom_pull(task_ids="load_charger") or {}
         counts = f"신규 {load.get('new_cnt')}·변경 {load.get('changed_cnt')}·소멸 {load.get('closed_cnt')}"
-        reason = f"load_id={load.get('load_id')} {counts}"
+        rerun = context["ti"].xcom_pull(task_ids="compare_with_current", key="rerun")
+        reason = f"load_id={load.get('load_id')} {'같은 날 재반영 ' if rerun else ''}{counts} (수집일 직전 대비)"
         ops.record_run(context, "success", snapshot_date, reason=reason, detail=load)
 
     info = init_run()
