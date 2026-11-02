@@ -51,7 +51,7 @@ export function Supply({ data }: { data: AppData }) {
   );
   const priority = c.by_dong.filter((d) => d.classification === "A");
   const avg = total.ev / total.chargers;
-  const gap = priority.filter((d) => (d.ev_per_charger ?? 0) > avg).sort((a, b) => (b.ev_per_charger ?? 0) - (a.ev_per_charger ?? 0));
+  const gap = [...priority].sort((a, b) => (b.ev_per_charger ?? 0) - (a.ev_per_charger ?? 0));
   const toggleSort = (key: SortKey) => setSort((s) => (s.key === key ? { key, desc: !s.desc } : { key, desc: key !== "adm_nm" }));
   const statusTotal = Object.values(c.status).reduce((s, n) => s + n, 0);
 
@@ -60,7 +60,7 @@ export function Supply({ data }: { data: AppData }) {
       <PageHead
         tags={["지표 분석", `수집 ${fmtDate(c.snapshot_date)}`, "ev04 · core.charger"]}
         title="충전기 공급"
-        lede="지금 분류는 수요(전기차 대수·증가율)만 봅니다. 동네에 충전기가 얼마나 있는지 함께 보려고 충전기 공급을 매일 수집합니다. 아직 분류에는 반영하지 않았습니다 (다음 단계 #37)."
+        lede="충전기 공급을 매일 수집해서 분류 v3에 반영합니다. 전기차가 많고 빠르게 늘어도 충전기가 이미 충분하면 우선 검토에서 뺍니다. 표는 최신 수집 기준이고, 분류는 기준월 공급 기준일(첫 수집일 11월 2일) 기준입니다."
       />
 
       <section className="stats" aria-label="공급 요약">
@@ -84,7 +84,7 @@ export function Supply({ data }: { data: AppData }) {
 
       <div className="grid-2">
         <section className="card">
-          <CardHead title="우선 검토 지역 중 공급이 평균보다 부족한 곳" sub={`충전기 1대당 전기차 ${avg.toFixed(1)}대 초과 · 우선 검토 ${priority.length}곳 중 ${gap.length}곳`} />
+          <CardHead title={`우선 검토 ${priority.length}곳의 공급`} sub={`충전기 1대당 전기차 기준 ${data.meta.threshold.params.a_min_ev_per_charger ?? "-"}대 이상 · 3개 구 평균 ${avg.toFixed(1)}대`} />
           <ol className="rank">
             {gap.map((d, i) => (
               <li key={d.adm_cd}>
@@ -101,7 +101,7 @@ export function Supply({ data }: { data: AppData }) {
             ))}
           </ol>
           <p className="metric-note" style={{ marginTop: 12 }}>
-            분류 기준 v3(수요 큼 + 공급 부족)를 만들기 전 참고용입니다.
+            수요 기준은 넘었지만 충전기가 충분해 빠진 곳은 우선 검토 지역 화면에 따로 있습니다.
           </p>
         </section>
 

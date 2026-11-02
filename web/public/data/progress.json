@@ -266,6 +266,13 @@
  },
  "merged": [
   {
+   "number": 60,
+   "title": "feat: 웹 충전기 공급·개발 진행 화면 추가",
+   "merged_at": "2026-11-02T11:15:44Z",
+   "url": "https://github.com/CoderGogh/seoul-ev-data-platform/pull/60",
+   "closes": []
+  },
+  {
    "number": 59,
    "title": "fix: API 인증키 로그 노출 차단",
    "merged_at": "2026-11-02T11:09:15Z",
@@ -470,13 +477,6 @@
    "title": "feat: ev03 통합 마트 DAG 추가",
    "merged_at": "2026-10-27T10:07:32Z",
    "url": "https://github.com/CoderGogh/seoul-ev-data-platform/pull/9",
-   "closes": []
-  },
-  {
-   "number": 8,
-   "title": "fix: 종료된 시간대 집계를 다음 회차에서 확정",
-   "merged_at": "2026-10-27T10:05:20Z",
-   "url": "https://github.com/CoderGogh/seoul-ev-data-platform/pull/8",
    "closes": []
   }
  ]

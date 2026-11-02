@@ -1,7 +1,8 @@
 """ev03 통합 마트 (설계서 §4.3)
 
-대상 기준월 결정 → [Gate 1: 5개 점검 병렬] → 판정 분기(보류 | 변경 없음 | 진행)
-→ 귀속 확인 → 시간대 집계 → 지표 → Gate 2 → 분류 → 후보 검증 → 게시(단일 트랜잭션) → 결과 확정
+대상 기준월 결정 → [Gate 1: 6개 점검 병렬] → 판정 분기(보류 | 변경 없음 | 진행)
+→ 귀속 확인 → 시간대 집계 → 지표 → 공급 → Gate 2 → 분류 → 후보 검증 → 게시(단일 트랜잭션) → 결과 확정
+- 충전기 공급(ev04)도 DB 조회. 공급 기준일 고정이라 일별 적재로 재게시하지 않음
 - 수집 DAG 성공을 기다리지 않고 DB 상태를 조회 (cron 또는 Asset 이벤트로 시작)
 - Asset 이벤트는 힌트일 뿐, 대상 기준월은 DB 와 params 로 결정
 """
@@ -18,12 +19,12 @@ from config.default_args import DEFAULT_ARGS
 KST = "Asia/Seoul"
 GATE = "gate1_run_eligibility"
 CHECKS = ["check_reg_snapshot", "check_traffic_freshness", "check_coverage", "check_master_version",
-          "check_min_timebands"]  # fmt: skip
+          "check_min_timebands", "check_charger_supply"]  # fmt: skip
 MIN_RUN_COVERAGE = 60  # 실행 전체 커버리지 % (Gate 1)
 MIN_RUN_HOURS = 6  # 관측된 주간 시간대 수 (Gate 1)
 FINAL_TASKS = ["resolve_target_period", "no_eligible_period", *[f"{GATE}.{c}" for c in CHECKS], "evaluate_gate1",
                "hold_publish", "mark_stale_and_alert", "skip_unchanged", "spatial_join", "admdong_timeband_agg",
-               "compute_indicators", "region_quality_gate", "classify_abc", "verify_candidate",
+               "compute_indicators", "compute_supply", "region_quality_gate", "classify_abc", "verify_candidate",
                "publish_mart"]  # fmt: skip
 
 
@@ -123,8 +124,16 @@ with DAG(
             ok = m["observed_hours"] >= MIN_RUN_HOURS
             return {"ok": ok, "reason": None if ok else f"관측 시간대 {m['observed_hours']}개 < {MIN_RUN_HOURS}"}
 
+        # 공급 기준 있는 임계값 버전이면 공급 기준일 시점 충전기 이력 필요
+        @task
+        def check_charger_supply(**context):
+            m = _metrics(context)
+            ok = not m["needs_supply"] or m["charger_rows"] > 0
+            asof = _info(context)["charger_asof"]
+            return {"ok": ok, "reason": None if ok else f"충전기 이력 없음 (기준일 {asof})"}
+
         checks = [check_reg_snapshot(), check_traffic_freshness(), check_coverage(), check_master_version(),
-                  check_min_timebands()]  # fmt: skip
+                  check_min_timebands(), check_charger_supply()]  # fmt: skip
 
     # 판정 분기: 미달 → 보류, 입력 동일 → 변경 없음, 그 외 진행
     @task.branch
@@ -182,6 +191,11 @@ with DAG(
     @task
     def compute_indicators(**context):
         db.execute_file("ev03/indicators.sql", _run_args(context))
+
+    # 공급 기준일 시점 동별 충전기 (버스전용 제외)
+    @task
+    def compute_supply(**context):
+        db.execute_file("ev03/supply.sql", _run_args(context))
 
     # Gate 2: 지역별 품질 등급
     @task
@@ -251,6 +265,7 @@ with DAG(
     joined = spatial_join()
     tb = admdong_timeband_agg()
     ind = compute_indicators()
+    sup = compute_supply()
     g2 = region_quality_gate()
     cls = classify_abc()
     verified = verify_candidate()
@@ -265,5 +280,5 @@ with DAG(
     evaluated >> Label("입력 지문 동일") >> skip_unchanged
     evaluated >> Label("통과") >> joined
     hold_publish >> Label("이전 결과 유지") >> stale
-    joined >> tb >> ind >> g2 >> Label("지역별 품질 등급") >> cls >> verified >> Label("검증 통과") >> published
+    joined >> tb >> ind >> sup >> g2 >> Label("지역별 품질 등급") >> cls >> verified >> Label("검증 통과") >> published
     [no_eligible_period, stale, skip_unchanged, published] >> Label("all_done") >> final

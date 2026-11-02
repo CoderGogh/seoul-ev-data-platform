@@ -17,7 +17,7 @@ export function Criteria({ data }: { data: AppData }) {
       <PageHead
         tags={["지표 분석", `임계값 ${meta.threshold.ver} · 잠정`]}
         title="판정 기준"
-        lede={`전기차 ${fmtInt(p.a_min_ev_cnt)}대 이상, 1년 증가율 ${p.a_min_yoy_rate}% 이상을 모두 넘으면 우선 검토입니다. 두 값은 67개 동 상위 40% 경계입니다.`}
+        lede={`전기차 ${fmtInt(p.a_min_ev_cnt)}대 이상, 1년 증가율 ${p.a_min_yoy_rate}% 이상을 모두 넘고(67개 동 상위 40% 경계), 충전기 1대당 전기차가 ${p.a_min_ev_per_charger}대 이상(67개 동 중앙값)이면 우선 검토입니다. 수요가 커도 충전기가 이미 충분하면 관찰 대상으로 둡니다.`}
       />
 
       <section className="card">
@@ -105,16 +105,26 @@ export function Criteria({ data }: { data: AppData }) {
                 </tr>
                 <tr>
                   <td>정상</td>
-                  <td>두 기준 모두 충족</td>
+                  <td>전기차·증가율 기준 충족 + 충전기 1대당 전기차 {p.a_min_ev_per_charger}대 이상</td>
                   <td>
-                    <b>{CLASS_LABEL.A}</b>, 그 외 {CLASS_LABEL.REF}
+                    <b>{CLASS_LABEL.A}</b>
                   </td>
+                </tr>
+                <tr>
+                  <td>정상</td>
+                  <td>전기차·증가율 기준 충족, 충전기 충분</td>
+                  <td>{CLASS_LABEL.REF} (공급 충분)</td>
+                </tr>
+                <tr>
+                  <td>정상</td>
+                  <td>그 외</td>
+                  <td>{CLASS_LABEL.REF}</td>
                 </tr>
               </tbody>
             </table>
           </div>
           <p className="metric-note" style={{ marginTop: 12 }}>
-            이번 기준월은 67개 동 모두 정상 등급
+            이번 기준월은 67개 동 모두 정상 등급. 충전기는 버스전용(DC콤보2)을 빼고 이용 제한 충전기(아파트 등)는 포함. 등록이 거주지 기준이라 아파트 충전기도 그 동 전기차의 공급
           </p>
         </section>
       </div>

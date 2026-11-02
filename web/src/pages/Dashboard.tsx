@@ -35,13 +35,13 @@ export function Dashboard({ data }: { data: AppData }) {
             충전소를 먼저 늘릴 동네 <span className="accent-num">{priority.length}곳</span>
           </>
         }
-        lede={`강남·서초·송파 ${regions.length}개 행정동을 전기차 대수와 1년 증가율로 골랐습니다. 동네마다 도로 여건을 함께 붙였고, 급속·완속 유형은 현장 조사에서 정합니다.`}
+        lede={`강남·서초·송파 ${regions.length}개 행정동에서 전기차가 많고 빠르게 늘면서 충전기가 부족한 곳을 골랐습니다. 동네마다 도로 여건을 함께 붙였고, 급속·완속 유형은 현장 조사에서 정합니다.`}
       />
 
       <section className="stats" aria-label="핵심 수치">
         <div className="stat">
           <div className="stat-value accent-num">{priority.length}곳</div>
-          <div className="stat-label">충전소 우선 검토 지역</div>
+          <div className="stat-label">충전소 우선 검토 지역 (분류 v3)</div>
         </div>
         <div className="stat">
           <div className="stat-value">+{growth.toFixed(1)}%</div>
@@ -186,14 +186,12 @@ function SupplyTeaser({ data }: { data: AppData }) {
   const chargers = c.by_sgg.reduce((s, g) => s + g.chargers, 0);
   const fast = c.by_sgg.reduce((s, g) => s + g.fast, 0);
   const avg = c.by_sgg.reduce((s, g) => s + g.ev_cnt, 0) / chargers;
-  const gap = c.by_dong
-    .filter((d) => d.classification === "A" && (d.ev_per_charger ?? 0) > avg)
-    .sort((a, b) => (b.ev_per_charger ?? 0) - (a.ev_per_charger ?? 0));
+  const excluded = data.regions.filter((r) => r.reason_codes.includes("supply_sufficient"));
   return (
     <section className="card">
       <CardHead
         title={<>충전기 공급 <span className="badge tone-ok">새로 추가</span></>}
-        sub={`${fmtDate(c.snapshot_date)} 첫 수집 · 아직 분류에는 미반영`}
+        sub={`${fmtDate(c.snapshot_date)} 첫 수집 · 분류 v3에 반영`}
         action={<More to="/supply" />}
       />
       <div className="insights">
@@ -203,12 +201,12 @@ function SupplyTeaser({ data }: { data: AppData }) {
           <p className="metric-note">급속 {fmtInt(fast)}대 · 1대당 전기차 {avg.toFixed(1)}대</p>
         </div>
         <div className="insight">
-          <div className="insight-title">우선 검토 중 공급 부족</div>
-          <p className="metric-note">충전기 1대당 전기차가 평균보다 많은 곳</p>
-          {gap.slice(0, 4).map((d) => (
-            <Link key={d.adm_cd} to={`/regions/${d.adm_cd}`} className="insight-row">
-              <b>{d.adm_nm}</b>
-              <span>1대당 {d.ev_per_charger?.toFixed(1)}대</span>
+          <div className="insight-title">충전기가 충분해 빠진 곳</div>
+          <p className="metric-note">수요 기준은 넘었지만 1대당 전기차 {data.meta.threshold.params.a_min_ev_per_charger}대 미만</p>
+          {excluded.map((r) => (
+            <Link key={r.adm_cd} to={`/regions/${r.adm_cd}`} className="insight-row">
+              <b>{r.adm_nm}</b>
+              <span>1대당 {r.ev_per_charger?.toFixed(1)}대</span>
             </Link>
           ))}
         </div>

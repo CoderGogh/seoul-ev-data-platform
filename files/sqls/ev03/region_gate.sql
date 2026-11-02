@@ -9,6 +9,8 @@ SET reason_codes = array_remove(ARRAY[
         CASE WHEN c.coverage < (p.params->>'min_coverage')::numeric THEN 'low_coverage' END,
         CASE WHEN c.valid_timebands < (p.params->>'min_valid_timebands')::int THEN 'few_timebands' END,
         CASE WHEN c.prev_ev_cnt IS NULL THEN 'no_prev_year' END,
+        CASE WHEN c.charger_asof IS DISTINCT FROM (to_date(c.base_month, 'YYYYMM') + interval '1 month - 1 day')::date
+             THEN 'supply_period_mismatch' END,
         'period_mismatch', 'b_suppressed_no_source_time'], NULL),
     quality_grade = CASE
         WHEN c.ev_cnt IS NULL OR c.link_cnt = 0 THEN 'fatal'

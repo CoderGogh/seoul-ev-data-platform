@@ -22,6 +22,4 @@ SELECT 'mvp_v2', params || jsonb_build_object(
 FROM ops.threshold_version WHERE threshold_ver = 'mvp_v1'
 ON CONFLICT (threshold_ver) DO NOTHING;
 
--- 활성 버전 전환 (부분 유니크 인덱스: 해제 후 지정)
-UPDATE ops.threshold_version SET is_active = false WHERE is_active AND threshold_ver <> 'mvp_v2';
-UPDATE ops.threshold_version SET is_active = true WHERE threshold_ver = 'mvp_v2';
+-- 활성 버전 전환은 12_supply.sql (최신 버전 파일에서만)

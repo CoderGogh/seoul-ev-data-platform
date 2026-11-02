@@ -13,6 +13,7 @@ const PARAM_LABEL: Record<string, string> = {
   low_spd_kmh: "저속 기준 (km/h)",
   hint_fast_max_low: "원활 상한 저속 비중 (%)",
   hint_slow_min_low: "혼잡 하한 저속 비중 (%)",
+  a_min_ev_per_charger: "우선 검토 공급 부족 기준 (충전기 1대당 전기차)",
 };
 
 const GRADE_LABEL: [string, string][] = [

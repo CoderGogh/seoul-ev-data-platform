@@ -100,6 +100,16 @@ export function RegionDetail({ data, admCd }: { data: AppData; admCd: string }) 
               pass={yoyPass}
               note={`기준 ${p.a_min_yoy_rate}% · 1년 +${fmtInt(r.ev_yoy_abs)}대`}
             />
+            {r.ev_per_charger != null && p.a_min_ev_per_charger != null && (
+              <ThresholdMetric
+                label="충전기 1대당 전기차"
+                value={`${r.ev_per_charger.toFixed(1)}대`}
+                ratio={Math.min(1, r.ev_per_charger / (p.a_min_ev_per_charger * 3))}
+                mark={1 / 3}
+                pass={Boolean(r.supply_gap)}
+                note={`기준 ${p.a_min_ev_per_charger}대 이상이면 공급 부족 · 충전기 ${fmtInt(r.charger_cnt)}대 (급속 ${fmtInt(r.fast_cnt)})`}
+              />
+            )}
             <div className="metric">
               <div className="metric-row">
                 <span className="metric-label">전체 차량 중 전기차</span>
