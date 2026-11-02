@@ -9,6 +9,7 @@
 
 - **Docker / Docker Compose** 설치
 - **서울시 공공데이터 API 키** (도로소통정보·등록현황 수집용)
+- **공공데이터포털 API 키** (충전소 정보 수집용, [15076352](https://www.data.go.kr/data/15076352/openapi.do) 활용신청 → `.env`의 `EV_CHARGER_API_KEY`). 없으면 ev04만 실패
 
 ## 2. 빠른 시작
 
@@ -44,6 +45,7 @@ docker compose up -d --build
 | ev01_traffic_collect | 30분 | 도로소통 수집·시간대 집계 |
 | ev02_registration_monthly | 매월 1일 | 등록현황 스냅샷 (api / file) |
 | ev03_mart_integration | 매일 06:00 또는 Asset | 지표·분류·마트 게시 |
+| ev04_charger_daily | 매일 05:00 | 충전기 공급 스냅샷 (이력 관리) |
 | ev10_master_refresh | 수동 | 링크·경계 마스터 버전 |
 | ev11_reprocess | 수동 | 재처리 요청 |
 | ev12_quality_monitor | 매일 08:00 | 실행 상태 × 데이터 상태 리포트 |
