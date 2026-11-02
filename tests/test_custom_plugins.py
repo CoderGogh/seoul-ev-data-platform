@@ -96,3 +96,30 @@ def test_go_kr_fetch_all_pages():
     h = _PagedHook(total=25, page_rows=10)
     total, rows = h.fetch_all("x", page_size=10)
     assert (total, len(rows), h.pages) == (25, 30, [1, 2, 3])
+
+
+class _BoomSession:
+    def get(self, url, params=None, timeout=None):
+        import requests
+
+        raise requests.ConnectionError(f"{url}?serviceKey={params['serviceKey']}")
+
+
+class _Res:
+    ok, status_code = False, 504
+
+
+# 호출 오류 메시지에 인증키 미포함 (Task 로그 노출 방지)
+def test_go_kr_error_hides_key(monkeypatch):
+    import pytest
+
+    hook = DataGoKrHook(api_key_var="k")
+    hook._base, hook._key, hook._session = "https://x", "SECRETKEY", _BoomSession()
+    monkeypatch.setattr(hook, "get_conn", lambda: hook._base)
+    with pytest.raises(RuntimeError) as e:
+        hook.call("p", pageNo=1)
+    assert "SECRETKEY" not in str(e.value) and e.value.__cause__ is None
+    hook._session = type("S", (), {"get": lambda self, *a, **k: _Res()})()
+    with pytest.raises(RuntimeError) as e:
+        hook.call("p", pageNo=1)
+    assert "504" in str(e.value) and "SECRETKEY" not in str(e.value)
