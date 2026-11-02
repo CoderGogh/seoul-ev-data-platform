@@ -73,7 +73,7 @@ python3 scripts/export_progress.py  # 로드맵 이슈·병합 PR → progress.j
 docker compose down               # -v 금지
 ```
 
-바뀐 JSON을 브랜치에서 커밋하고 PR로 병합합니다. 개발 진행 화면은 열 때 GitHub 공개 API로 이슈 상태를 다시 받아와서, 스냅샷이 오래돼도 완료 여부는 최신으로 보입니다.
+바뀐 JSON을 브랜치에서 커밋하고 PR로 병합합니다. 모든 화면 위에 원천별 기준일과 경과 일수가 나오고, 기준을 넘으면 주의·오래됨 색으로 바뀝니다 (`web/src/freshness.ts`). 개발 진행 화면은 열 때 GitHub 공개 API로 이슈 상태를 다시 받아와서, 스냅샷이 오래돼도 완료 여부는 최신으로 보입니다.
 
 **로컬 실행**
 
@@ -81,6 +81,7 @@ docker compose down               # -v 금지
 cd web
 npm ci
 npm run dev                       # http://localhost:5173
+npm test                          # 단위 테스트 (데이터 신선도 규칙)
 ```
 
 ## 7. 테스트
