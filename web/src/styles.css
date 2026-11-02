@@ -1343,3 +1343,12 @@ td.up {
   display: grid;
   gap: 2px;
 }
+.fresh-src {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.fresh-src + .fresh-more {
+  margin-left: 0;
+}

@@ -2,7 +2,7 @@
 
 | 항목 | 내용 |
 |---|---|
-| 버전 | v0.7 (2026-11-02) - 충전기 공급 지표, 분류 `mvp_v3` |
+| 버전 | v0.8 (2026-11-02) - ev14 웹 데이터 자동 게시 |
 | 대상 | 현대오토에버 데이터 플랫폼 운영 직무 과제 1 (Airflow·선후행·재처리) |
 | 환경 | Airflow 3.3.2 (CeleryExecutor), PostgreSQL 16 + PostGIS |
 | 범위 | DAG·Task 분리, 선후행, 실행 제어, 품질 게이트, 멱등성, 재처리 |
@@ -21,6 +21,7 @@
    - [ev11 재처리](#46-ev11-재처리)
    - [ev12 품질 리포트](#47-ev12-품질-리포트)
    - [ev13 보존 정리](#48-ev13-보존-정리)
+   - [ev14 웹 데이터 게시](#49-ev14-웹-데이터-게시)
 5. [품질 게이트와 분류](#5-품질-게이트와-분류)
 6. [멱등성과 재처리](#6-멱등성과-재처리)
 7. [상태 모델](#7-상태-모델)
@@ -94,6 +95,7 @@ Task 성공과 데이터 준비 완료는 다르다. 세 가지를 따로 판단
 | `ev11_reprocess` | 재처리 요청 진입점 | 수동 | - |
 | `ev12_quality_monitor` | 실행 상태 × 데이터 상태 리포트 | `0 8 * * *` | - |
 | `ev13_retention_cleanup` | 조건부 보존 정리 | `0 3 * * 0` | - |
+| `ev14_web_publish` | 웹 결과 데이터를 데이터 브랜치에 게시 | `10 7 * * *` 또는 Asset | - |
 
 - 모든 DAG: `CronTriggerTimetable`(KST), `catchup=False`, `max_active_runs=1`
 - 공통 `default_args`: 재시도 2회, 지수 백오프(최대 10분), `execution_timeout` 20분, 실패 시 Slack
@@ -108,6 +110,8 @@ ev11 ─┬─ registration: ev02 트리거 (ev03는 ev02 Asset으로)
       ├─ timeband: 재집계 → ev03 트리거
       └─ mart: ev03 트리거
 ev12 ──read──▶ Airflow 메타DB + ops ──▶ Slack
+ev03 ──Asset: ev_mart_published ─┬──────────────────────▶ ev14 ──commit──▶ web-data 브랜치 ◀── 웹
+ev04 ──Asset: ev_charger_supply ─┘
 ```
 
 결합 방식
@@ -119,6 +123,7 @@ ev12 ──read──▶ Airflow 메타DB + ops ──▶ Slack
 | ev04 → ev03 | DB 조회 | 공급 기준일(기준월 말일)이 고정이라 일별 적재로 재게시하지 않음 |
 | ev10 → ev03 | Asset | 마스터 버전 활성화는 재계산 사유 |
 | ev03 자체 | 매일 06:00 (Asset과 OR) | 분석 기간 종료, 보류 해소를 주기적으로 재평가 |
+| ev03·ev04 → ev14 | Asset + 매일 07:10 | 게시·공급 변경 즉시 반영, 매일 재평가 시각도 웹 신선도에 반영 |
 
 쓰지 않은 대안
 
@@ -385,6 +390,30 @@ find_candidates ─▶ decide_delete (branch: dry_run)
  ─▶ record_run [all_done]
 ```
 
+### 4.9 ev14 웹 데이터 게시
+
+게시 결과를 웹이 읽는 JSON으로 만들어 저장소 `web-data` 브랜치에 올린다. main(보호 브랜치, PR·CI 필수)과 코드 배포를 거치지 않는다.
+
+```
+check_publish_state (branch: 게시된 기준월 있음?)
+  ├─▶ no_publish
+  └─▶ export_bundle (files/sqls/web/*.sql) ─▶ validate_bundle ─▶ compare_remote (branch)
+        ├─▶ skip_unchanged
+        └─▶ commit_bundle (GitHubDataHook, 커밋 하나)
+  ─▶ record_run [all_done]
+```
+
+| 단계 | 내용 |
+|---|---|
+| 검증 | 게시 상태 `current`, 행정동 수 = 게시 수·중복 없음, 활성 임계값, 충전기 동 수, 링크 있는 동의 월별 추세, 게시 동 경계 존재, 파일 2MB 이하. 미달이면 커밋 안 함 |
+| 비교 | 파일별 Git blob SHA를 원격 트리와 비교. 데이터 파일이 같으면 `unchanged`. 내보낸 시각은 `manifest.json`에만, meta 실행 요약에서 ev14 자기 실행·진행 중 기록은 제외 (매 실행 내용이 바뀌어 비교가 무의미해지는 것 방지) |
+| 커밋 | 바뀐 파일 blob → tree → commit → ref fast-forward. 비교 시점 head가 바뀌었으면 실패 후 재시도에서 다시 비교. 강제 갱신 없음 |
+| 웹 | 브랜치 최신 커밋 SHA를 받아 그 SHA 주소로 파일을 읽음 (CDN 캐시로 버전이 섞이지 않게). 실패·불일치·6초 초과면 배포 스냅샷 |
+
+- 실패해도 mart 게시 결과와 웹의 이전 데이터는 그대로
+- 토큰: fine-grained, 이 저장소만, Contents 읽기·쓰기만. `mask_secret` 등록, 오류에는 상태 코드·경로만
+- 쓰지 않은 대안: 봇 PR(데이터 갱신마다 PR·CI·병합, main 이력 오염), Vercel Deploy Hook(데이터가 git에 있어야 해서 결국 PR 필요)
+
 ---
 
 ## 5. 품질 게이트와 분류
@@ -516,13 +545,14 @@ Gate 2 등급과 분류 (임계값 `mvp_v3`, provisional)
 
 | 종류 | 이름 | 비고 |
 |---|---|---|
-| Pool | `seoul_traffic_api_pool`(4), `seoul_registration_api_pool`(2), `ev_charger_api_pool`(1) | API 키가 데이터셋별로 따로. slots는 `.env` |
+| Pool | `seoul_traffic_api_pool`(4), `seoul_registration_api_pool`(2), `ev_charger_api_pool`(1), `github_api_pool`(1) | API 키가 데이터셋별로 따로. slots는 `.env` |
 | Celery 큐 | `default` (워커 2), `api` (워커 1) | 외부 API Task는 `queue=api`. API 지연이 적재를 막지 않게 |
-| Connection | `conn_seoul_openapi`, `conn_data_go_kr`, `conn_postgis_ev`, `conn_db_postgres_airflow`, `conn_slack_airflow_bot` | `AIRFLOW_CONN_*` 환경변수. 메타DB는 ev12 조회용 |
+| Connection | `conn_seoul_openapi`, `conn_data_go_kr`, `conn_github_web_data`, `conn_postgis_ev`, `conn_db_postgres_airflow`, `conn_slack_airflow_bot` | `AIRFLOW_CONN_*` 환경변수. 메타DB는 ev12 조회용 |
 | Variable | `apikey_seoul_traffic`, `apikey_seoul_registration`, `apikey_ev_charger` | `AIRFLOW_VAR_*` 환경변수. 임계값은 DB 버전 테이블 |
 | Asset | `ev_traffic_obs`, `ev_reg_snapshot`, `ev_charger_supply`, `ev_master_version`, `ev_mart_published` | `plugins/common/assets.py`에서 한 번만 정의 |
 | 커스텀 Hook | `SeoulOpenApiHook` | XML 파싱, 결과 코드 → ok / no_data / api_error, 전수 페이지, 링크 단위 부분 실패 허용 |
 | 커스텀 Hook | `DataGoKrHook` | 공공데이터포털 공통. JSON·XML 응답, 게이트웨이 오류(XML) 판정, 전수 페이지 |
+| 커스텀 Hook | `GitHubDataHook` | Git Data API. 바뀐 파일만 커밋 하나로, fast-forward 만 |
 | 커스텀 Sensor | `SeoulApiBaseMonthSensor` | 원천 최신 기준월 = 대상 월이면 통과, `reschedule`, 파일 경로는 즉시 통과 |
 
 ---
@@ -549,7 +579,7 @@ Rshiny는 읽기 전용 계정 `rshiny_reader`로 `mart`, `ops`만 조회한다.
 
 ## 11. 테스트와 CI
 
-`tests/` 31개 (단위 20 + DB 통합 11). 외부 API를 부르지 않는다.
+`tests/` 단위 30 + DB 통합 16, 웹 12 (`web/src/*.test.ts`). 외부 API를 부르지 않는다.
 
 | 파일 | 내용 |
 |---|---|
@@ -560,6 +590,9 @@ Rshiny는 읽기 전용 계정 `rshiny_reader`로 `mart`, `ops`만 조회한다.
 | `db/test_ev03_publish.py` | 실제 SQL로 게시 경로: 분류 결과, 파티션 교체(중복 없음), 계보, 보류(`never_published`·`stale`), 무변경 지문, 게시 중 실패 시 롤백 |
 | `db/test_ev02_load.py` | 신규 적재, 같은 내용 재공표 판정, 내용 변경 재공표(차이 기록·교체) |
 | `db/test_ev04_charger.py` | 격리 사유·동 귀속·급속 판정, SCD2 변경·삭제 표시·소멸, 시점 조회, 같은 날 재실행 |
+| `db/test_web_export.py` | 게시 결과에서 웹 JSON 생성 → ev14 검증 통과 (스키마 변경으로 웹 데이터가 깨지는 것 방지), meta 에서 ev14 자기 실행 제외 |
+| `test_web_publish.py` | blob SHA(`git hash-object`와 일치), 바뀐 파일만 커밋, 브랜치 생성·fast-forward, head 변경 시 중단, 토큰 미노출, 묶음 검증 |
+| `web/src/*.test.ts` | 신선도 등급 규칙, 데이터 로더(커밋 고정 주소·대체 조건) |
 
 DB 통합 테스트는 DDL 적용된 빈 DB(`EV_TEST_DB_URL`)에서 테스트마다 롤백한다. 행정동 4개(A·REF·C·WITHHELD 하나씩)·링크 9개·시간대 관측·등록 2개월을 fixture로 넣는다. 로컬은 `scripts/test_db.sh`(운영 DB와 분리된 `ev_test` 재생성).
 
@@ -611,6 +644,7 @@ API·원천 실증 (2026-10-27, `scripts/verify_apis.py`)
 | 충전소 API (2026-11-02) | XML·JSON 모두 응답, `zscode` 필터 동작. 3구 17,173건(서초 5,416·강남 6,057·송파 5,700), 서울 76,998건 | 구별 수집 |
 | 충전소 페이지 크기 | 9,999건 요청 시 504, 1,000건은 0.3초 | 페이지 1,000 |
 | 충전소 값 | 키 중복·좌표 오류 0, 삭제 표시 282건, 타입 `11` 84건(코드표 없음, 120~240kW), `07` 28건 7kW | 출력 기준 급속 판정 |
+| ev14 첫 게시 (2026-11-02) | 1차 전체 커밋, 2차 meta만, 3차 `unchanged`. raw·API 모두 CORS 허용 | 커밋 SHA 고정 로드 |
 | 충전소 코드 (활용가이드 v1.25) | `11` = DC콤보2(버스전용), `limitYn` N = 제한 없음, `kind` H0 공동주택 등 10종, `stat` 0~9 | 버스전용 공급 제외 |
 | 충전소 귀속 | 활성 경계 귀속 99.7%, 서울 밖 36건, 다른 구 좌표 15건(서로 다른 아파트가 같은 상암동 좌표) | `sgg_mismatch` 분리 |
 
@@ -633,6 +667,7 @@ Airflow 3.3.2 동작
 
 | 버전 | 날짜 | 내용 |
 |---|---|---|
+| v0.8 | 2026-11-02 | ev14 웹 데이터 게시 (데이터 브랜치 원자 커밋, 웹 커밋 고정 로드·배포 스냅샷 대체) |
 | v0.7 | 2026-11-02 | 충전기 공급 지표(`compute_supply`, Gate 1 충전기 이력), 분류 `mvp_v3` 공급 부족 조건, 버스전용 제외 |
 | v0.6 | 2026-11-02 | ev04 충전기 공급 수집 (SCD2 이력, 구별 Dynamic Task Mapping, 소멸 비율 게이트) |
 | v0.5 | 2026-10-29 | 구현 기준 전면 정리. 목차 추가, 대상 월 결정·보류 재평가·미구현 항목을 코드와 맞춤, 폴링 주기 30분 통일 |

@@ -79,7 +79,7 @@ export interface Meta {
   reg_months: string[];
   pipeline: PipelineRow[];
   poll: { batches: number; first_at: string; last_at: string; ok_ratio: number };
-  exported_at: string;
+  exported_at?: string;
 }
 
 // 충전기 공급 (ev04 최신 상태, chargers.json)
@@ -142,7 +142,16 @@ export interface Progress {
   merged: { number: number; title: string; merged_at: string; url: string; closes: number[] }[];
 }
 
+// 데이터 출처: 데이터 브랜치(ev14 자동 게시, 커밋 고정) 또는 배포 스냅샷
+export interface DataSource {
+  kind: "remote" | "bundle";
+  sha?: string;
+  committed_at?: string;
+  reason?: string; // 배포 스냅샷으로 대체한 이유
+}
+
 export interface AppData {
+  source: DataSource;
   chargers: Chargers | null;
   regions: Region[];
   monthly: Record<string, MonthlyPoint[]>;
@@ -151,23 +160,66 @@ export interface AppData {
   meta: Meta;
 }
 
-async function fetchJson<T>(name: string): Promise<T> {
-  const res = await fetch(`/data/${name}.json`);
+type Fetch = typeof fetch;
+
+export const REMOTE = { repo: "CoderGogh/seoul-ev-data-platform", branch: "web-data", dir: "web" };
+const REMOTE_TIMEOUT_MS = 6000;
+
+async function fetchJson<T>(name: string, base = "/data/", f: Fetch = fetch): Promise<T> {
+  const res = await f(`${base}${name}.json`);
   if (!res.ok) throw new Error(`${name}.json 로드 실패 (${res.status})`);
   return res.json() as Promise<T>;
 }
 
-// 전체 데이터 일괄 로드 (합계 약 390KB). 충전기는 없어도 나머지 화면 표시
-export async function loadData(): Promise<AppData> {
+async function loadFrom(base: string, f: Fetch, chargersOptional: boolean) {
   const [regions, monthly, timeband, geo, meta, chargers] = await Promise.all([
-    fetchJson<Region[]>("regions"),
-    fetchJson<Record<string, MonthlyPoint[]>>("monthly"),
-    fetchJson<Record<string, TimebandPoint[]>>("timeband"),
-    fetchJson<AdmdongGeo>("admdong"),
-    fetchJson<Meta>("meta"),
-    fetchJson<Chargers>("chargers").catch(() => null),
+    fetchJson<Region[]>("regions", base, f),
+    fetchJson<Record<string, MonthlyPoint[]>>("monthly", base, f),
+    fetchJson<Record<string, TimebandPoint[]>>("timeband", base, f),
+    fetchJson<AdmdongGeo>("admdong", base, f),
+    fetchJson<Meta>("meta", base, f),
+    chargersOptional ? fetchJson<Chargers>("chargers", base, f).catch(() => null) : fetchJson<Chargers>("chargers", base, f),
   ]);
+  if (!Array.isArray(regions) || regions.length !== meta.region_cnt) throw new Error("행정동 수 불일치");
   return { regions, monthly, timeband, geo, meta, chargers };
+}
+
+// 데이터 브랜치 최신 커밋 → 커밋 SHA 고정 주소 (CDN 캐시로 파일 버전이 섞이지 않게)
+async function remoteBase(f: Fetch) {
+  const res = await f(`https://api.github.com/repos/${REMOTE.repo}/branches/${REMOTE.branch}`, {
+    headers: { Accept: "application/vnd.github+json" },
+  });
+  if (!res.ok) throw new Error(`데이터 브랜치 조회 실패 (${res.status})`);
+  const b = (await res.json()) as { commit: { sha: string; commit: { committer: { date: string } } } };
+  return {
+    base: `https://raw.githubusercontent.com/${REMOTE.repo}/${b.commit.sha}/${REMOTE.dir}/`,
+    sha: b.commit.sha,
+    committed_at: b.commit.commit.committer.date,
+  };
+}
+
+// 전체 데이터 로드: 데이터 브랜치 우선, 실패·불일치·시간 초과면 배포 스냅샷 (합계 약 390KB)
+export async function loadData(f: Fetch = fetch): Promise<AppData> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, rej) => {
+    timer = setTimeout(() => rej(new Error("시간 초과")), REMOTE_TIMEOUT_MS);
+  });
+  try {
+    const r = await Promise.race([
+      (async () => {
+        const rb = await remoteBase(f);
+        return { ...(await loadFrom(rb.base, f, false)), rb };
+      })(),
+      timeout,
+    ]);
+    const { rb, ...data } = r;
+    return { ...data, source: { kind: "remote", sha: rb.sha, committed_at: rb.committed_at } };
+  } catch (e) {
+    const data = await loadFrom("/data/", f, true);
+    return { ...data, source: { kind: "bundle", reason: (e as Error).message } };
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 export const loadProgress = () => fetchJson<Progress>("progress");

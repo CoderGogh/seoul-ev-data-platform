@@ -12,6 +12,7 @@ MAX_ACTIVE_RUNS = {
     "ev02_registration_monthly": 1,
     "ev03_mart_integration": 1,
     "ev04_charger_daily": 1,
+    "ev14_web_publish": 1,
     "ev10_master_refresh": 1,
     "ev11_reprocess": 1,
     "ev12_quality_monitor": 1,
@@ -21,6 +22,8 @@ API_TASKS = {
     ("ev01_traffic_collect", "extract_chunk"): "seoul_traffic_api_pool",
     ("ev02_registration_monthly", "extract_reg_api"): "seoul_registration_api_pool",
     ("ev04_charger_daily", "extract_sgg"): "ev_charger_api_pool",
+    ("ev14_web_publish", "compare_remote"): "github_api_pool",
+    ("ev14_web_publish", "commit_bundle"): "github_api_pool",
 }
 
 
@@ -79,6 +82,7 @@ def test_single_all_done_leaf(dagbag):
     for dag in dags(dagbag):
         if dag.dag_id not in (
             "ev01_traffic_collect", "ev02_registration_monthly", "ev03_mart_integration", "ev04_charger_daily",
+            "ev14_web_publish",
         ):  # fmt: skip
             continue
         leaves = [t for t in dag.tasks if not t.downstream_task_ids]

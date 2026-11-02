@@ -32,6 +32,8 @@ x-airflow-common:
     AIRFLOW_CONN_CONN_DB_POSTGRES_AIRFLOW: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
     AIRFLOW_CONN_CONN_SEOUL_OPENAPI: http://openapi.seoul.go.kr:8088
     AIRFLOW_CONN_CONN_DATA_GO_KR: https://apis.data.go.kr
+    # 웹 데이터 브랜치 (fine-grained 토큰: 대상 저장소 Contents 읽기·쓰기만)
+    AIRFLOW_CONN_CONN_GITHUB_WEB_DATA: '{"conn_type": "http", "password": "${GITHUB_WEB_DATA_TOKEN:-}", "extra": {"repo": "${GITHUB_WEB_DATA_REPO:-CoderGogh/seoul-ev-data-platform}", "branch": "web-data"}}'
     # 실패 알림 Slack webhook (URL 내 / 때문에 JSON 형식)
     AIRFLOW_CONN_CONN_SLACK_AIRFLOW_BOT: '{"conn_type": "slackwebhook", "password": "${SLACK_WEBHOOK_URL:?set in .env}"}'
     # Variable (API 키)
@@ -225,6 +227,7 @@ services:
           airflow pools set seoul_traffic_api_pool ${TRAFFIC_POOL_SLOTS:-4} "실시간 도로소통정보 API 동시 호출 제한"
           airflow pools set seoul_registration_api_pool ${REGISTRATION_POOL_SLOTS:-2} "등록현황 API 동시 호출 제한"
           airflow pools set ev_charger_api_pool ${CHARGER_POOL_SLOTS:-1} "충전소 정보 API 동시 호출 제한"
+          airflow pools set github_api_pool 1 "웹 데이터 브랜치 커밋 직렬화"
         '
         # 공유 디렉터리 소유권 정리
         chown -R "${AIRFLOW_UID:-50000}:0" /opt/airflow/{logs,dags,plugins,config}

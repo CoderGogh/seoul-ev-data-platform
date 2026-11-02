@@ -75,6 +75,36 @@ export function Pipeline({ data }: { data: AppData }) {
 
       <div className="grid-2">
         <section className="card">
+          <CardHead title="웹 데이터 게시 (ev14)" sub="게시·공급 변경 시, 매일 07:10 · web-data 브랜치" />
+          <dl className="kv">
+            <dt>지금 화면 데이터</dt>
+            <dd>{data.source.kind === "remote" ? "데이터 브랜치 (자동 게시)" : "배포 스냅샷 (대체)"}</dd>
+            {data.source.sha && (
+              <>
+                <dt>커밋</dt>
+                <dd>
+                  <a href={`https://github.com/CoderGogh/seoul-ev-data-platform/commit/${data.source.sha}`} target="_blank" rel="noreferrer">
+                    {data.source.sha.slice(0, 7)}
+                  </a>
+                </dd>
+              </>
+            )}
+            {data.source.committed_at && (
+              <>
+                <dt>게시 시각</dt>
+                <dd>{fmtDateTime(data.source.committed_at)}</dd>
+              </>
+            )}
+            {data.source.reason && (
+              <>
+                <dt>대체 사유</dt>
+                <dd>{data.source.reason}</dd>
+              </>
+            )}
+          </dl>
+        </section>
+
+        <section className="card">
           <CardHead title="자동 검사" sub="PR마다 통과해야 main 병합" />
           <dl className="kv">
             <dt>CI 4단계</dt>

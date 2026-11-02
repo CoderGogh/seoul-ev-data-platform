@@ -20,6 +20,9 @@ export function FreshnessBar({ data }: { data: AppData }) {
             <b>{i.label}</b> {i.value} <span className="fresh-age">{i.age}</span>
           </span>
         ))}
+        <span className="fresh-src" title={data.source.reason ?? data.source.sha}>
+          {data.source.kind === "remote" ? `자동 갱신 ${data.source.sha?.slice(0, 7)}` : "배포 스냅샷"}
+        </span>
         <button className="fresh-more" onClick={() => setOpen((v) => !v)} aria-expanded={open}>
           {open ? "닫기" : "기준"}
         </button>
