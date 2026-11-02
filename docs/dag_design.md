@@ -539,7 +539,7 @@ Rshiny는 읽기 전용 계정 `rshiny_reader`로 `mart`, `ops`만 조회한다.
 
 ## 11. 테스트와 CI
 
-`tests/` 28개 (단위 20 + DB 통합 8). 외부 API를 부르지 않는다.
+`tests/` 31개 (단위 20 + DB 통합 11). 외부 API를 부르지 않는다.
 
 | 파일 | 내용 |
 |---|---|
@@ -549,6 +549,7 @@ Rshiny는 읽기 전용 계정 `rshiny_reader`로 `mart`, `ops`만 조회한다.
 | `test_scripts.py` | 등록 xlsx 열 변환, 임시 수집기 회차 시각 정렬 |
 | `db/test_ev03_publish.py` | 실제 SQL로 게시 경로: 분류 결과, 파티션 교체(중복 없음), 계보, 보류(`never_published`·`stale`), 무변경 지문, 게시 중 실패 시 롤백 |
 | `db/test_ev02_load.py` | 신규 적재, 같은 내용 재공표 판정, 내용 변경 재공표(차이 기록·교체) |
+| `db/test_ev04_charger.py` | 격리 사유·동 귀속·급속 판정, SCD2 변경·삭제 표시·소멸, 시점 조회, 같은 날 재실행 |
 
 DB 통합 테스트는 DDL 적용된 빈 DB(`EV_TEST_DB_URL`)에서 테스트마다 롤백한다. 행정동 4개(A·REF·C·WITHHELD 하나씩)·링크 9개·시간대 관측·등록 2개월을 fixture로 넣는다. 로컬은 `scripts/test_db.sh`(운영 DB와 분리된 `ev_test` 재생성).
 
