@@ -8,7 +8,9 @@ export type IconName =
   | "trend"
   | "road"
   | "shield"
-  | "activity";
+  | "activity"
+  | "plug"
+  | "flag";
 
 export interface NavItem {
   to: string;
@@ -41,6 +43,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { to: "/criteria", label: "판정 기준", icon: "target", desc: "우선 검토 기준과 근접 동" },
       { to: "/trend", label: "전기차 추세", icon: "trend", desc: "13개월 등록 추세·증가 양상" },
       { to: "/road", label: "도로 여건", icon: "road", desc: "저속 비중·시간대 속도" },
+      { to: "/supply", label: "충전기 공급", icon: "plug", desc: "동별 충전기·전기차 대비 공급" },
     ],
   },
   {
@@ -48,6 +51,7 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { to: "/quality", label: "데이터 품질", icon: "shield", desc: "게시 상태·품질 관문" },
       { to: "/pipeline", label: "파이프라인 실행", icon: "activity", desc: "DAG 실행·수집 현황" },
+      { to: "/progress", label: "개발 진행", icon: "flag", desc: "로드맵·병합 이력" },
     ],
   },
 ];
