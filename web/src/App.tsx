@@ -7,7 +7,8 @@ import { Link, usePath } from "./router";
 import { useTheme } from "./theme";
 import { useCollapsed } from "./sidebar";
 import { Sidebar } from "./components/Sidebar";
-import { Topbar } from "./components/Topbar";
+import { Header } from "./components/Header";
+import { Aside } from "./components/Aside";
 import { FreshnessAlert } from "./components/Freshness";
 import { RequireRole } from "./components/RequireRole";
 import { UserMenu } from "./components/UserMenu";
@@ -81,26 +82,29 @@ export function App() {
     document.title = current && path !== "/" ? `${current.label} · ${SITE}` : SITE;
   }, [path, current]);
 
+  const isHome = path === "/";
+
   return (
-    <div className={`shell${collapsed ? " rail" : ""}`}>
-      <Sidebar
-        path={path}
-        open={menuOpen}
-        collapsed={collapsed}
-        onClose={() => setMenuOpen(false)}
-        onToggleCollapsed={toggleCollapsed}
-        baseMonth={data?.meta.base_month}
+    <div className="app">
+      <Header
+        current={current}
+        isHome={isHome}
         role={profile?.role}
+        data={data}
+        theme={theme}
+        onToggleTheme={toggle}
+        onOpenMenu={() => setMenuOpen(true)}
+        right={<UserMenu />}
       />
-      <div className="content">
-        <Topbar
-          current={current}
-          fallbackTitle="검토 카드"
-          data={data}
-          theme={theme}
-          onToggleTheme={toggle}
-          onOpenMenu={() => setMenuOpen(true)}
-          right={<UserMenu />}
+      <div className={`frame${collapsed ? " rail" : ""}${isHome ? " home" : ""}`}>
+        <Sidebar
+          path={path}
+          open={menuOpen}
+          collapsed={collapsed}
+          onClose={() => setMenuOpen(false)}
+          onToggleCollapsed={toggleCollapsed}
+          baseMonth={data?.meta.base_month}
+          role={profile?.role}
         />
         <main className="main">
           {Standalone ? (
@@ -120,11 +124,14 @@ export function App() {
             </>
           )}
         </main>
-        <footer className="footer">
+        <Aside data={data} current={current} isHome={isHome} />
+      </div>
+      <footer className="footer">
+        <div className="footer-inner">
           <span>데이터: 서울 열린데이터광장 실시간 도로소통정보 · 자동차 등록현황 · 한국환경공단 전기자동차 충전소 정보</span>
           <span>{data ? `${data.meta.threshold.ver} 게시 결과 스냅샷` : "게시 결과 스냅샷"}</span>
-        </footer>
-      </div>
+        </div>
+      </footer>
     </div>
   );
 }
