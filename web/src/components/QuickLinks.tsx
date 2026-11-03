@@ -8,7 +8,7 @@ import { Icon } from "./Icon";
 export function QuickLinks({ role }: { role?: Role | null }) {
   const groups = visibleGroups(role).filter((g) => g.title !== "개요");
   return (
-    <section className="quick" aria-label="화면 바로가기">
+    <section id="dash-quick" className="quick" aria-label="화면 바로가기">
       {groups.map((g) => (
         <div key={g.title} className="quick-group">
           <div className="quick-title">{g.title}</div>

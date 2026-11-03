@@ -1,4 +1,4 @@
-// 상단 바: 로고·카테고리 메뉴(드롭다운)·기준일·테마·사용자, 상세 화면은 카테고리 탭 줄
+// 상단 바: 로고·큰 카테고리(마우스 올리면 하위 화면 패널이 내려옴)·테마·사용자
 import type { ReactNode } from "react";
 import type { Role } from "../auth/roles";
 import { hasRole } from "../auth/roles";
@@ -9,13 +9,14 @@ import { Icon } from "./Icon";
 
 interface HeaderProps {
   current?: NavItem;
-  isHome: boolean;
   role?: Role | null;
   theme: Theme;
   onToggleTheme: () => void;
   onOpenMenu: () => void;
   right?: ReactNode;
 }
+
+const ROW_H = 40; // 하위 화면 한 줄 높이
 
 export function Brand() {
   return (
@@ -30,80 +31,56 @@ export function Brand() {
   );
 }
 
-export function Header({ current, isHome, role, theme, onToggleTheme, onOpenMenu, right }: HeaderProps) {
+export function Header({ current, role, theme, onToggleTheme, onOpenMenu, right }: HeaderProps) {
   const groups = visibleGroups(role);
   const group = groupOf(current);
-  const tabs = !isHome && group ? groups.find((g) => g.title === group.title)?.items ?? [] : [];
+  const rows = Math.max(...groups.map((g) => g.items.length));
 
   return (
-    <div className="header-wrap">
-      <header className="gnb">
-        <div className="gnb-inner">
-          <button className="icon-btn gnb-menu" onClick={onOpenMenu} aria-label="메뉴 열기">
-            <Icon name="menu" size={22} />
-          </button>
-          <Brand />
+    <header className="gnb">
+      <div className="gnb-inner">
+        <button className="icon-btn gnb-menu" onClick={onOpenMenu} aria-label="메뉴 열기">
+          <Icon name="menu" size={22} />
+        </button>
+        <Brand />
 
-          <nav className="gnb-nav" aria-label="카테고리">
-            {groups.map((g) => (
-              <div key={g.title} className="gnb-item">
-                <Link
-                  to={g.items[0].to}
-                  className="gnb-link"
-                  aria-current={group?.title === g.title ? "page" : undefined}
-                >
-                  {g.title}
-                  {g.items.length > 1 && <Icon name="chevron" size={12} />}
-                </Link>
-                {g.items.length > 1 && (
-                  <div className="gnb-drop" role="menu">
-                    {g.items.map((i) => (
-                      <Link key={i.to} to={i.to} className="gnb-drop-link">
-                        <span className={`tile-icon tone-${g.tone}`}>
-                          <Icon name={i.icon} size={16} />
-                        </span>
-                        <span>
-                          <b>
-                            {i.label}
-                            {!hasRole(role, i.minRole) && <Icon name="lock" size={12} />}
-                          </b>
-                          <small>{i.desc}</small>
-                        </span>
-                      </Link>
-                    ))}
-                  </div>
-                )}
-              </div>
-            ))}
-          </nav>
-
-          <div className="gnb-tools">
-            <button
-              className="icon-btn"
-              onClick={onToggleTheme}
-              title={theme === "light" ? "다크 모드" : "라이트 모드"}
-              aria-label={theme === "light" ? "다크 모드" : "라이트 모드"}
-            >
-              <Icon name={theme === "light" ? "moon" : "sun"} size={20} />
-            </button>
-            {right}
-          </div>
-        </div>
-      </header>
-
-      {tabs.length > 0 && group && (
-        <nav className="subtabs" aria-label={`${group.title} 화면`}>
-          <div className="subtabs-inner">
-            <span className="subtabs-title">{group.title}</span>
-            {tabs.map((t) => (
-              <Link key={t.to} to={t.to} className="subtab" aria-current={current?.to === t.to ? "page" : undefined}>
-                {t.label}
-                {!hasRole(role, t.minRole) && <Icon name="lock" size={12} />}
+        <nav className="gnb-nav" aria-label="카테고리" style={{ ["--mega-h" as string]: `${rows * ROW_H + 28}px` }}>
+          {groups.map((g) => (
+            <div key={g.title} className="gnb-item">
+              <Link to={g.items[0].to} className="gnb-link" aria-current={group?.title === g.title ? "page" : undefined}>
+                {g.title}
               </Link>
-            ))}
-          </div>
+              <div className="gnb-drop">
+                {g.items.map((i) => (
+                  <Link
+                    key={i.to}
+                    to={i.to}
+                    className="gnb-drop-link"
+                    title={i.desc}
+                    aria-current={current?.to === i.to ? "page" : undefined}
+                  >
+                    {i.label}
+                    {!hasRole(role, i.minRole) && <Icon name="lock" size={12} />}
+                  </Link>
+                ))}
+              </div>
+            </div>
+          ))}
+          <div className="mega-bg" aria-hidden="true" />
         </nav>
-      )}
-    </div>
+
+        <div className="gnb-tools">
+          <button
+            className="icon-btn"
+            onClick={onToggleTheme}
+            title={theme === "light" ? "다크 모드" : "라이트 모드"}
+            aria-label={theme === "light" ? "다크 모드" : "라이트 모드"}
+          >
+            <Icon name={theme === "light" ? "moon" : "sun"} size={20} />
+          </button>
+          {right}
+        </div>
+      </div>
+    </header>
   );
 }

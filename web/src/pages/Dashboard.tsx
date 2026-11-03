@@ -43,7 +43,7 @@ export function Dashboard({ data }: { data: AppData }) {
 
       <QuickLinks role={profile?.role} />
 
-      <section className="stats" aria-label="핵심 수치">
+      <section id="dash-stats" className="stats" aria-label="핵심 수치">
         <div className="stat">
           <div className="stat-value accent-num">{priority.length}곳</div>
           <div className="stat-label">충전소 우선 검토 지역 (분류 v3)</div>
@@ -64,7 +64,7 @@ export function Dashboard({ data }: { data: AppData }) {
 
       {data.chargers && <SupplyTeaser data={data} />}
 
-      <div className="grid-dash">
+      <div id="dash-rank" className="grid-dash">
         <section className="card">
           <CardHead title="우선 검토 순위" sub="전기차 대수 순" action={<More to="/priority" />} />
           <ol className="rank">
@@ -91,7 +91,7 @@ export function Dashboard({ data }: { data: AppData }) {
         </section>
       </div>
 
-      <section className="card">
+      <section id="dash-watch" className="card">
         <CardHead title="주목할 동네" sub="다음 갱신 때 먼저 확인할 곳 (판정에는 미사용)" action={<More to="/criteria" />} />
         <div className="insights">
           <div className="insight">
@@ -139,7 +139,7 @@ export function Dashboard({ data }: { data: AppData }) {
         </div>
       </section>
 
-      <div className="grid-3">
+      <div id="dash-summary" className="grid-3">
         <section className="card">
           <CardHead title="전기차 추세" sub={`${totals[0].month} → ${totals[totals.length - 1].month}`} action={<More to="/trend" />} />
           <TotalTrendChart data={totals} height={180} />
@@ -191,7 +191,7 @@ function SupplyTeaser({ data }: { data: AppData }) {
   const avg = c.by_sgg.reduce((s, g) => s + g.ev_cnt, 0) / chargers;
   const excluded = data.regions.filter((r) => r.reason_codes.includes("supply_sufficient"));
   return (
-    <section className="card">
+    <section id="dash-supply" className="card">
       <CardHead
         title={<>충전기 공급 <span className="badge tone-ok">새로 추가</span></>}
         sub="분류 v3에 반영"
