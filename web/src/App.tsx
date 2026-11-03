@@ -4,9 +4,10 @@ import { loadData, type AppData } from "./data";
 import { activeItem } from "./nav";
 import { Link, usePath } from "./router";
 import { useTheme } from "./theme";
-import { Icon } from "./components/Icon";
+import { useCollapsed } from "./sidebar";
 import { Sidebar } from "./components/Sidebar";
-import { FreshnessBar } from "./components/Freshness";
+import { Topbar } from "./components/Topbar";
+import { FreshnessAlert } from "./components/Freshness";
 import { Dashboard } from "./pages/Dashboard";
 import { Priority } from "./pages/Priority";
 import { MapPage } from "./pages/MapPage";
@@ -54,6 +55,7 @@ export function App() {
   const [data, setData] = useState<AppData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const { collapsed, toggle: toggleCollapsed } = useCollapsed();
   const current = activeItem(path);
 
   useEffect(() => {
@@ -67,26 +69,28 @@ export function App() {
   }, [path, current]);
 
   return (
-    <div className="shell">
+    <div className={`shell${collapsed ? " rail" : ""}`}>
       <Sidebar
         path={path}
         open={menuOpen}
+        collapsed={collapsed}
         onClose={() => setMenuOpen(false)}
-        theme={theme}
-        onToggleTheme={toggle}
+        onToggleCollapsed={toggleCollapsed}
         baseMonth={data?.meta.base_month}
       />
       <div className="content">
-        <header className="topbar">
-          <button className="icon-btn" onClick={() => setMenuOpen(true)} aria-label="메뉴 열기">
-            <Icon name="menu" />
-          </button>
-          <span className="topbar-title">{current?.label ?? "검토 카드"}</span>
-        </header>
+        <Topbar
+          current={current}
+          fallbackTitle="검토 카드"
+          data={data}
+          theme={theme}
+          onToggleTheme={toggle}
+          onOpenMenu={() => setMenuOpen(true)}
+        />
         <main className="main">
           {error && <div className="empty">데이터를 불러오지 못했습니다. {error}</div>}
           {!error && !data && <div className="empty">불러오는 중…</div>}
-          {data && <FreshnessBar data={data} />}
+          {data && <FreshnessAlert data={data} />}
           {data && route(path, data)}
         </main>
         <footer className="footer">
