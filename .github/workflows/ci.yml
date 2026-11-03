@@ -99,3 +99,11 @@ jobs:
       # 2회 적용: 재실행 안전성 확인
       - run: for f in files/sqls/ddl/*.sql; do psql -v ON_ERROR_STOP=1 -q -f "$f"; done
       - run: for f in files/sqls/ddl/*.sql; do psql -v ON_ERROR_STOP=1 -q -f "$f"; done
+      # 웹 로그인 권한 SQL (Supabase 흉내, 별도 DB)
+      - run: createdb auth_test
+      - run: |
+          psql -v ON_ERROR_STOP=1 -q -f supabase/tests/auth_stub.sql
+          for f in supabase/migrations/*.sql; do psql -v ON_ERROR_STOP=1 -q -f "$f"; done
+          psql -v ON_ERROR_STOP=1 -q -f supabase/tests/auth_roles_test.sql
+        env:
+          PGDATABASE: auth_test
