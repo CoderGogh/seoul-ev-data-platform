@@ -5,6 +5,8 @@
 **배포정보** (2026-11-02 분류 v3 게시 결과 스냅샷)
 <br>
 🚀 https://seoul-ev-insight.vercel.app
+<br>
+분석 화면은 공개, 데이터 운영 화면은 Google·카카오 로그인 후 역할을 받아야 열린다 ([docs/auth_setup.md](docs/auth_setup.md)).
 
 설계는 [docs/dag_design.md](docs/dag_design.md), 형상 관리 규칙은 [CONTRIBUTING.md](CONTRIBUTING.md), 실행 방법은 [RUNNING.md](RUNNING.md) 참고.
 
