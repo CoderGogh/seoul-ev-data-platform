@@ -1,5 +1,6 @@
 // 사이드바: 카테고리별 메뉴·접기(아이콘 레일)·하단 슬롯
 import type { ReactNode } from "react";
+import { hasRole, type Role } from "../auth/roles";
 import { NAV_GROUPS, activeItem } from "../nav";
 import { Link } from "../router";
 import { Icon } from "./Icon";
@@ -13,11 +14,17 @@ interface SidebarProps {
   onClose: () => void;
   onToggleCollapsed: () => void;
   baseMonth?: string;
+  role?: Role | null;
   footer?: ReactNode;
 }
 
-export function Sidebar({ path, open, collapsed, onClose, onToggleCollapsed, baseMonth, footer }: SidebarProps) {
+export function Sidebar({ path, open, collapsed, onClose, onToggleCollapsed, baseMonth, role, footer }: SidebarProps) {
   const current = activeItem(path);
+  // 관리 메뉴는 권한 있을 때만, 운영 메뉴는 잠금 표시
+  const groups = NAV_GROUPS.map((g) => ({
+    ...g,
+    items: g.items.filter((i) => i.minRole !== "admin" || hasRole(role, "admin")),
+  })).filter((g) => g.items.length > 0);
   const cls = ["sidebar", open && "open", collapsed && "collapsed"].filter(Boolean).join(" ");
   return (
     <>
@@ -41,7 +48,7 @@ export function Sidebar({ path, open, collapsed, onClose, onToggleCollapsed, bas
         </div>
 
         <nav className="side-nav">
-          {NAV_GROUPS.map((g) => (
+          {groups.map((g) => (
             <div key={g.title} className="side-group">
               <div className="side-group-title">{g.title}</div>
               {g.items.map((item) => (
@@ -54,6 +61,11 @@ export function Sidebar({ path, open, collapsed, onClose, onToggleCollapsed, bas
                 >
                   <Icon name={item.icon} />
                   <span className="side-label">{item.label}</span>
+                  {!hasRole(role, item.minRole) && (
+                    <span className="side-lock" title="운영 권한 필요">
+                      <Icon name="lock" size={14} />
+                    </span>
+                  )}
                 </Link>
               ))}
             </div>

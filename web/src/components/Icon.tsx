@@ -15,6 +15,7 @@ const PATHS: Record<IconName | ExtraIcon, string> = {
   activity: "M3 12h4l3-8 4 16 3-8h4",
   plug: "M9 3v5M15 3v5M6 8h12v3a6 6 0 0 1-12 0V8zM12 17v4",
   flag: "M5 21V4M5 4h11l-2 4 2 4H5",
+  users: "M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM2 21v-1a6 6 0 0 1 12 0v1M16 3.1a4 4 0 0 1 0 7.8M22 21v-1a6 6 0 0 0-4-5.6",
   menu: "M4 6h16M4 12h16M4 18h16",
   collapse: "M4 4h16v16H4zM9 4v16M16 9l-3 3 3 3",
   expand: "M4 4h16v16H4zM9 4v16M13 9l3 3-3 3",

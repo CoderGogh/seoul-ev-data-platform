@@ -1,4 +1,6 @@
-// 사이드바 메뉴 (카테고리 → 페이지)
+// 사이드바 메뉴 (카테고리 → 페이지, minRole 없으면 공개)
+import type { Role } from "./auth/roles";
+
 export type IconName =
   | "dashboard"
   | "star"
@@ -10,13 +12,15 @@ export type IconName =
   | "shield"
   | "activity"
   | "plug"
-  | "flag";
+  | "flag"
+  | "users";
 
 export interface NavItem {
   to: string;
   label: string;
   icon: IconName;
   desc: string;
+  minRole?: Role;
 }
 
 export interface NavGroup {
@@ -49,10 +53,14 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     title: "데이터 운영",
     items: [
-      { to: "/quality", label: "데이터 품질", icon: "shield", desc: "게시 상태·품질 관문" },
-      { to: "/pipeline", label: "파이프라인 실행", icon: "activity", desc: "DAG 실행·수집 현황" },
-      { to: "/progress", label: "개발 진행", icon: "flag", desc: "로드맵·병합 이력" },
+      { to: "/quality", label: "데이터 품질", icon: "shield", desc: "게시 상태·품질 관문", minRole: "operator" },
+      { to: "/pipeline", label: "파이프라인 실행", icon: "activity", desc: "DAG 실행·수집 현황", minRole: "operator" },
+      { to: "/progress", label: "개발 진행", icon: "flag", desc: "로드맵·병합 이력", minRole: "operator" },
     ],
+  },
+  {
+    title: "관리",
+    items: [{ to: "/admin/users", label: "사용자 권한", icon: "users", desc: "가입자 역할 지정", minRole: "admin" }],
   },
 ];
 
@@ -62,6 +70,9 @@ export function activeItem(path: string): NavItem | undefined {
   if (path.startsWith("/regions/")) return all.find((i) => i.to === "/regions");
   return all.find((i) => i.to === path);
 }
+
+// 로그인 화면 (메뉴 외 항목)
+export const LOGIN_ITEM: NavItem = { to: "/login", label: "로그인", icon: "users", desc: "Google·Kakao 로그인" };
 
 // 메뉴 항목의 카테고리 (상단 경로 표시)
 export function groupOf(item: NavItem | undefined): NavGroup | undefined {
