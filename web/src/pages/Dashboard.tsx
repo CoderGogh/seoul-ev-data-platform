@@ -7,6 +7,8 @@ import { CardHead, PageHead } from "../components/PageHead";
 import { RegionMap } from "../components/RegionMap";
 import { TotalTrendChart } from "../components/charts";
 import { Link, navigate } from "../router";
+import { useAuth } from "../auth/AuthContext";
+import { QuickLinks } from "../components/QuickLinks";
 
 const More = ({ to, label = "자세히" }: { to: string; label?: string }) => (
   <Link to={to} className="more">
@@ -25,6 +27,7 @@ export function Dashboard({ data }: { data: AppData }) {
   const watch = watchList(regions);
   const hints = hintCounts(regions);
   const maxHint = Math.max(...hints.map((h) => h.all));
+  const { profile } = useAuth();
 
   return (
     <div className="page">
@@ -37,6 +40,8 @@ export function Dashboard({ data }: { data: AppData }) {
         }
         lede={`강남·서초·송파 ${regions.length}개 행정동에서 전기차가 많고 빠르게 늘면서 충전기가 부족한 곳을 골랐습니다. 동네마다 도로 여건을 함께 붙였고, 급속·완속 유형은 현장 조사에서 정합니다.`}
       />
+
+      <QuickLinks role={profile?.role} />
 
       <section className="stats" aria-label="핵심 수치">
         <div className="stat">
