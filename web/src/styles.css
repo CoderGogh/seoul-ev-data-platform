@@ -694,13 +694,6 @@ button {
   line-height: 1.35;
 }
 
-/* 넓은 화면: 오른쪽 바 있으면 상단 기준일 칩 숨김 */
-@media (min-width: 1281px) {
-  .gnb-fresh {
-    display: none;
-  }
-}
-
 /* 중간 화면: 오른쪽 바 숨김 */
 @media (max-width: 1280px) {
   .frame {
@@ -1739,25 +1732,9 @@ td.up {
   --dot: var(--muted);
 }
 
-/* 데이터 기준일 (상단 바 칩·팝오버·경고 띠) */
+/* 팝오버·기준일 경고 띠 */
 .pop {
   position: relative;
-}
-.fresh-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  padding: 5px 12px;
-  font-size: 12.5px;
-  font-weight: 700;
-  cursor: pointer;
-  white-space: nowrap;
-}
-.fresh-chip.tone-ok {
-  background: var(--surface);
-  color: var(--text-2);
 }
 .dot {
   width: 8px;
@@ -1780,45 +1757,6 @@ td.up {
   display: grid;
   gap: 10px;
 }
-.pop-title {
-  font-size: 12.5px;
-  font-weight: 800;
-  color: var(--muted);
-}
-.pop-foot {
-  font-size: 12px;
-  color: var(--muted);
-  border-top: 1px solid var(--border);
-  padding-top: 8px;
-  font-variant-numeric: tabular-nums;
-}
-.fresh-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  gap: 8px;
-}
-.fresh-list li {
-  display: grid;
-  grid-template-columns: 8px auto 1fr auto;
-  align-items: center;
-  gap: 2px 8px;
-  font-size: 13.5px;
-}
-.fresh-list li .dot {
-  background: var(--dot);
-}
-.fresh-list li small {
-  grid-column: 2 / -1;
-  color: var(--muted);
-  font-size: 12px;
-  line-height: 1.4;
-}
-.fresh-age {
-  font-weight: 700;
-  color: var(--text-2);
-}
 .fresh-alert {
   border: 1px solid var(--border);
   border-radius: 12px;
@@ -1835,14 +1773,6 @@ td.up {
   border-color: var(--bad-text);
   background: var(--bad-soft);
   color: var(--bad-text);
-}
-@media (max-width: 560px) {
-  .fresh-chip-text {
-    display: none;
-  }
-  .fresh-chip {
-    padding: 8px;
-  }
 }
 
 /* 버튼 */
@@ -2151,4 +2081,27 @@ td.up {
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 5px 8px;
+}
+
+/* 화면 하단 버전 표시 */
+.ver-stamp {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-top: 18px;
+  font-size: 12px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.ver-tag {
+  display: inline-grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1;
 }
