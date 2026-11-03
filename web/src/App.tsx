@@ -93,7 +93,6 @@ export function App() {
     <div className="app">
       <Header
         current={current}
-        isHome={isHome}
         role={profile?.role}
         theme={theme}
         onToggleTheme={toggle}
