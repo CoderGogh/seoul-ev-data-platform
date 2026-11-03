@@ -1,13 +1,16 @@
 // 레이아웃 (사이드바 + 본문)·경로 분기
 import { useEffect, useState } from "react";
 import { loadData, type AppData } from "./data";
-import { activeItem } from "./nav";
+import { LOGIN_ITEM, activeItem } from "./nav";
+import { useAuth } from "./auth/AuthContext";
 import { Link, usePath } from "./router";
 import { useTheme } from "./theme";
 import { useCollapsed } from "./sidebar";
 import { Sidebar } from "./components/Sidebar";
 import { Topbar } from "./components/Topbar";
 import { FreshnessAlert } from "./components/Freshness";
+import { RequireRole } from "./components/RequireRole";
+import { UserMenu } from "./components/UserMenu";
 import { Dashboard } from "./pages/Dashboard";
 import { Priority } from "./pages/Priority";
 import { MapPage } from "./pages/MapPage";
@@ -20,6 +23,8 @@ import { Quality } from "./pages/Quality";
 import { Pipeline } from "./pages/Pipeline";
 import { Supply } from "./pages/Supply";
 import { ProgressPage } from "./pages/Progress";
+import { Login } from "./pages/Login";
+import { AdminUsers } from "./pages/AdminUsers";
 
 const SITE = "서울 전동화 입지 인사이트";
 
@@ -35,6 +40,12 @@ const PAGES: Record<string, (props: { data: AppData }) => JSX.Element> = {
   "/pipeline": Pipeline,
   "/supply": Supply,
   "/progress": ProgressPage,
+};
+
+// 데이터 없이 여는 화면 (로그인·관리)
+const STANDALONE: Record<string, () => JSX.Element | null> = {
+  "/login": Login,
+  "/admin/users": AdminUsers,
 };
 
 function route(path: string, data: AppData) {
@@ -56,7 +67,9 @@ export function App() {
   const [error, setError] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const { collapsed, toggle: toggleCollapsed } = useCollapsed();
-  const current = activeItem(path);
+  const current = activeItem(path) ?? (path === "/login" ? LOGIN_ITEM : undefined);
+  const { profile } = useAuth();
+  const Standalone = STANDALONE[path];
 
   useEffect(() => {
     loadData().then(setData, (e: Error) => setError(e.message));
@@ -77,6 +90,7 @@ export function App() {
         onClose={() => setMenuOpen(false)}
         onToggleCollapsed={toggleCollapsed}
         baseMonth={data?.meta.base_month}
+        role={profile?.role}
       />
       <div className="content">
         <Topbar
@@ -86,12 +100,25 @@ export function App() {
           theme={theme}
           onToggleTheme={toggle}
           onOpenMenu={() => setMenuOpen(true)}
+          right={<UserMenu />}
         />
         <main className="main">
-          {error && <div className="empty">데이터를 불러오지 못했습니다. {error}</div>}
-          {!error && !data && <div className="empty">불러오는 중…</div>}
-          {data && <FreshnessAlert data={data} />}
-          {data && route(path, data)}
+          {Standalone ? (
+            <RequireRole min={current?.minRole} path={path}>
+              <Standalone />
+            </RequireRole>
+          ) : (
+            <>
+              {error && <div className="empty">데이터를 불러오지 못했습니다. {error}</div>}
+              {!error && !data && <div className="empty">불러오는 중…</div>}
+              {data && <FreshnessAlert data={data} />}
+              {data && (
+                <RequireRole min={current?.minRole} path={path}>
+                  {route(path, data)}
+                </RequireRole>
+              )}
+            </>
+          )}
         </main>
         <footer className="footer">
           <span>데이터: 서울 열린데이터광장 실시간 도로소통정보 · 자동차 등록현황 · 한국환경공단 전기자동차 충전소 정보</span>
