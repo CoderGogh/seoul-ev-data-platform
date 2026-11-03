@@ -20,6 +20,7 @@ export function usePath() {
 interface LinkProps {
   to: string;
   className?: string;
+  title?: string;
   style?: CSSProperties;
   children: ReactNode;
   "aria-current"?: "page";

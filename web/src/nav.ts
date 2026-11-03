@@ -62,3 +62,8 @@ export function activeItem(path: string): NavItem | undefined {
   if (path.startsWith("/regions/")) return all.find((i) => i.to === "/regions");
   return all.find((i) => i.to === path);
 }
+
+// 메뉴 항목의 카테고리 (상단 경로 표시)
+export function groupOf(item: NavItem | undefined): NavGroup | undefined {
+  return item && NAV_GROUPS.find((g) => g.items.includes(item));
+}
