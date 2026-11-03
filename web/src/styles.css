@@ -242,7 +242,7 @@ button {
   margin-bottom: -1px;
   transition: color 0.15s ease;
 }
-.gnb-item:hover .gnb-link,
+.gnb-nav.open .gnb-item:hover .gnb-link,
 .gnb-link:focus-visible {
   color: var(--text);
 }
@@ -288,15 +288,13 @@ button {
   transition-delay: 0.08s, 0.08s, 0.3s;
   z-index: 2;
 }
-.gnb-nav:hover .mega-bg,
-.gnb-nav:focus-within .mega-bg {
+.gnb-nav.open .mega-bg {
   transform: scaleY(1);
   opacity: 1;
   pointer-events: auto;
   transition-delay: 0s;
 }
-.gnb-nav:hover .gnb-drop,
-.gnb-nav:focus-within .gnb-drop {
+.gnb-nav.open .gnb-drop {
   opacity: 1;
   visibility: visible;
   transform: none;
