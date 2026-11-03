@@ -24,6 +24,10 @@ import { Quality } from "./pages/Quality";
 import { Pipeline } from "./pages/Pipeline";
 import { Supply } from "./pages/Supply";
 import { ProgressPage } from "./pages/Progress";
+import { Versions } from "./pages/Versions";
+import { VersionStamp } from "./components/VersionStamp";
+import { stampFor } from "./versions";
+import { hasRole } from "./auth/roles";
 import { Login } from "./pages/Login";
 import { AdminUsers } from "./pages/AdminUsers";
 
@@ -41,6 +45,7 @@ const PAGES: Record<string, (props: { data: AppData }) => JSX.Element> = {
   "/pipeline": Pipeline,
   "/supply": Supply,
   "/progress": ProgressPage,
+  "/versions": Versions,
 };
 
 // 데이터 없이 여는 화면 (로그인·관리)
@@ -90,7 +95,6 @@ export function App() {
         current={current}
         isHome={isHome}
         role={profile?.role}
-        data={data}
         theme={theme}
         onToggleTheme={toggle}
         onOpenMenu={() => setMenuOpen(true)}
@@ -103,7 +107,6 @@ export function App() {
           collapsed={collapsed}
           onClose={() => setMenuOpen(false)}
           onToggleCollapsed={toggleCollapsed}
-          baseMonth={data?.meta.base_month}
           role={profile?.role}
         />
         <main className="main">
@@ -115,10 +118,11 @@ export function App() {
             <>
               {error && <div className="empty">데이터를 불러오지 못했습니다. {error}</div>}
               {!error && !data && <div className="empty">불러오는 중…</div>}
-              {data && <FreshnessAlert data={data} />}
+              {data && hasRole(profile?.role, "operator") && <FreshnessAlert data={data} />}
               {data && (
                 <RequireRole min={current?.minRole} path={path}>
                   {route(path, data)}
+                  <VersionStamp items={stampFor(path, data)} />
                 </RequireRole>
               )}
             </>
@@ -129,7 +133,6 @@ export function App() {
       <footer className="footer">
         <div className="footer-inner">
           <span>데이터: 서울 열린데이터광장 실시간 도로소통정보 · 자동차 등록현황 · 한국환경공단 전기자동차 충전소 정보</span>
-          <span>{data ? `${data.meta.threshold.ver} 게시 결과 스냅샷` : "게시 결과 스냅샷"}</span>
         </div>
       </footer>
     </div>

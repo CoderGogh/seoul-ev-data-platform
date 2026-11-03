@@ -1,6 +1,6 @@
 // 도로 여건: 분포·우선 검토 저속 비중·시간대 속도
 import { useMemo } from "react";
-import { HINT_LABEL, fmtDateTime, type AppData } from "../data";
+import { HINT_LABEL, type AppData } from "../data";
 import { hintCounts, timebandAverage } from "../insights";
 import { CardHead, PageHead } from "../components/PageHead";
 import { LowSpeedBars, TimebandBars } from "../components/charts";
@@ -15,7 +15,7 @@ export function Road({ data }: { data: AppData }) {
   return (
     <div className="page">
       <PageHead
-        tags={["지표 분석", `도로 ${fmtDateTime(meta.traffic_window_start)} ~ ${fmtDateTime(meta.traffic_window_end)}`]}
+        tags={["지표 분석"]}
         title="도로 여건"
         lede={`${p.low_spd_kmh}km/h 미만으로 달린 링크·시간 비중입니다. ${p.hint_fast_max_low}% 미만 원활, ${p.hint_slow_min_low}% 이상 혼잡. 모든 차량 기준이라 수요 판정에는 쓰지 않고, 현장 조사 포인트로만 씁니다.`}
       />

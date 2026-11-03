@@ -1,10 +1,9 @@
 // 오른쪽 바: 현재 화면 안내·데이터 기준일·우선 검토 바로가기·계정
 import { useAuth } from "../auth/AuthContext";
-import { ROLE_LABEL } from "../auth/roles";
+import { ROLE_LABEL, hasRole } from "../auth/roles";
 import { fmtInt, type AppData } from "../data";
 import { groupOf, type NavItem } from "../nav";
 import { Link, usePath } from "../router";
-import { FreshnessList } from "./Freshness";
 import { HintBadge } from "./Badges";
 import { Icon } from "./Icon";
 
@@ -29,15 +28,6 @@ export function Aside({ data, current, isHome }: { data: AppData | null; current
         </section>
       )}
 
-      {data && (
-        <section className="aside-card">
-          <h3>데이터 기준일</h3>
-          <FreshnessList data={data} />
-          <small className="aside-src">
-            {data.source.kind === "remote" ? `자동 갱신 ${data.source.sha?.slice(0, 7)}` : "배포 스냅샷"}
-          </small>
-        </section>
-      )}
 
       {top.length > 0 && (
         <section className="aside-card">
@@ -69,6 +59,11 @@ export function Aside({ data, current, isHome }: { data: AppData | null; current
           {session && profile ? (
             <p className="aside-text">
               <b>{profile.name || profile.email}</b> · <span className={`role-badge role-${profile.role}`}>{ROLE_LABEL[profile.role]}</span>
+              {hasRole(profile.role, "operator") && (
+                <Link to="/versions" className="aside-link">
+                  데이터 버전 확인 →
+                </Link>
+              )}
               {profile.role === "admin" && (
                 <Link to="/admin/users" className="aside-link">
                   사용자 권한 관리 →

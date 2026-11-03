@@ -13,11 +13,10 @@ interface SidebarProps {
   collapsed: boolean;
   onClose: () => void;
   onToggleCollapsed: () => void;
-  baseMonth?: string;
   role?: Role | null;
 }
 
-export function Sidebar({ path, open, collapsed, onClose, onToggleCollapsed, baseMonth, role }: SidebarProps) {
+export function Sidebar({ path, open, collapsed, onClose, onToggleCollapsed, role }: SidebarProps) {
   const current = activeItem(path);
   const cls = ["sidebar", open && "open", collapsed && "collapsed"].filter(Boolean).join(" ");
   return (
@@ -56,11 +55,6 @@ export function Sidebar({ path, open, collapsed, onClose, onToggleCollapsed, bas
         </nav>
 
         <div className="side-foot">
-          {baseMonth && (
-            <div className="side-meta">
-              등록 기준월 <b>{`${baseMonth.slice(0, 4)}.${baseMonth.slice(4)}`}</b>
-            </div>
-          )}
           <div className="side-tools">
             <a className="icon-btn" href={REPO_URL} title="GitHub 저장소" aria-label="GitHub 저장소">
               <Icon name="github" />

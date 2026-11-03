@@ -13,7 +13,8 @@ export type IconName =
   | "activity"
   | "plug"
   | "flag"
-  | "users";
+  | "users"
+  | "clock";
 
 export interface NavItem {
   to: string;
@@ -21,6 +22,7 @@ export interface NavItem {
   icon: IconName;
   desc: string;
   minRole?: Role;
+  hideLocked?: boolean; // 권한 없으면 메뉴에서 숨김
 }
 
 export interface NavGroup {
@@ -61,12 +63,13 @@ export const NAV_GROUPS: NavGroup[] = [
       { to: "/quality", label: "데이터 품질", icon: "shield", desc: "게시 상태·품질 관문", minRole: "operator" },
       { to: "/pipeline", label: "파이프라인 실행", icon: "activity", desc: "DAG 실행·수집 현황", minRole: "operator" },
       { to: "/progress", label: "개발 진행", icon: "flag", desc: "로드맵·병합 이력", minRole: "operator" },
+      { to: "/versions", label: "데이터 버전", icon: "clock", desc: "원천별 기준일·게시·배포 버전", minRole: "operator", hideLocked: true },
     ],
   },
   {
     title: "관리",
     tone: "purple",
-    items: [{ to: "/admin/users", label: "사용자 권한", icon: "users", desc: "가입자 역할 지정", minRole: "admin" }],
+    items: [{ to: "/admin/users", label: "사용자 권한", icon: "users", desc: "가입자 역할 지정", minRole: "admin", hideLocked: true }],
   },
 ];
 
@@ -80,11 +83,11 @@ export function activeItem(path: string): NavItem | undefined {
 // 로그인 화면 (메뉴 외 항목)
 export const LOGIN_ITEM: NavItem = { to: "/login", label: "로그인", icon: "users", desc: "Google·Kakao 로그인" };
 
-// 역할별 노출 메뉴 (관리 메뉴는 권한 있을 때만)
+// 역할별 노출 메뉴 (hideLocked 항목은 권한 있을 때만)
 export function visibleGroups(role?: Role | null): NavGroup[] {
   return NAV_GROUPS.map((g) => ({
     ...g,
-    items: g.items.filter((i) => i.minRole !== "admin" || hasRole(role, "admin")),
+    items: g.items.filter((i) => !i.hideLocked || hasRole(role, i.minRole)),
   })).filter((g) => g.items.length > 0);
 }
 

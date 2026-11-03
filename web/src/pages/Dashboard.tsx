@@ -1,6 +1,6 @@
 // 대시보드: 핵심 수치·우선 검토 순위·지도·주목할 동네·요약
 import { useMemo } from "react";
-import { HINT_LABEL, fmtDate, fmtDateTime, fmtInt, fmtMonth, fmtPct, type AppData } from "../data";
+import { HINT_LABEL, fmtInt, fmtPct, type AppData } from "../data";
 import { hintCounts, monthlyTotals, nearMiss, watchList } from "../insights";
 import { HintBadge } from "../components/Badges";
 import { CardHead, PageHead } from "../components/PageHead";
@@ -32,7 +32,7 @@ export function Dashboard({ data }: { data: AppData }) {
   return (
     <div className="page">
       <PageHead
-        tags={[`등록 ${fmtMonth(meta.base_month)}`, `도로 ${fmtDateTime(meta.traffic_window_start)} ~ ${fmtDateTime(meta.traffic_window_end)}`]}
+        tags={["강남·서초·송파 67개 동"]}
         title={
           <>
             충전소를 먼저 늘릴 동네 <span className="accent-num">{priority.length}곳</span>
@@ -170,8 +170,6 @@ export function Dashboard({ data }: { data: AppData }) {
             <dd>
               <span className="pass">{meta.publish_status === "current" ? "최신 게시" : meta.publish_status}</span>
             </dd>
-            <dt>게시 시각</dt>
-            <dd>{fmtDateTime(meta.published_at)}</dd>
             <dt>수집 응답률</dt>
             <dd>{meta.poll.ok_ratio}%</dd>
             <dt>품질 정상</dt>
@@ -196,7 +194,7 @@ function SupplyTeaser({ data }: { data: AppData }) {
     <section className="card">
       <CardHead
         title={<>충전기 공급 <span className="badge tone-ok">새로 추가</span></>}
-        sub={`${fmtDate(c.snapshot_date)} 첫 수집 · 분류 v3에 반영`}
+        sub="분류 v3에 반영"
         action={<More to="/supply" />}
       />
       <div className="insights">

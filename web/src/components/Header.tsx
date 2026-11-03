@@ -2,18 +2,15 @@
 import type { ReactNode } from "react";
 import type { Role } from "../auth/roles";
 import { hasRole } from "../auth/roles";
-import type { AppData } from "../data";
 import { groupOf, visibleGroups, type NavItem } from "../nav";
 import { Link } from "../router";
 import type { Theme } from "../theme";
-import { FreshnessChip } from "./Freshness";
 import { Icon } from "./Icon";
 
 interface HeaderProps {
   current?: NavItem;
   isHome: boolean;
   role?: Role | null;
-  data: AppData | null;
   theme: Theme;
   onToggleTheme: () => void;
   onOpenMenu: () => void;
@@ -33,7 +30,7 @@ export function Brand() {
   );
 }
 
-export function Header({ current, isHome, role, data, theme, onToggleTheme, onOpenMenu, right }: HeaderProps) {
+export function Header({ current, isHome, role, theme, onToggleTheme, onOpenMenu, right }: HeaderProps) {
   const groups = visibleGroups(role);
   const group = groupOf(current);
   const tabs = !isHome && group ? groups.find((g) => g.title === group.title)?.items ?? [] : [];
@@ -81,11 +78,6 @@ export function Header({ current, isHome, role, data, theme, onToggleTheme, onOp
           </nav>
 
           <div className="gnb-tools">
-            {data && (
-              <span className="gnb-fresh">
-                <FreshnessChip data={data} />
-              </span>
-            )}
             <button
               className="icon-btn"
               onClick={onToggleTheme}
