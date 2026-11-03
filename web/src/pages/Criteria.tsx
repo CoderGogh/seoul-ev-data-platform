@@ -15,7 +15,7 @@ export function Criteria({ data }: { data: AppData }) {
   return (
     <div className="page">
       <PageHead
-        tags={["지표 분석", `임계값 ${meta.threshold.ver} · 잠정`]}
+        tags={["지표 분석", "잠정 기준"]}
         title="판정 기준"
         lede={`전기차 ${fmtInt(p.a_min_ev_cnt)}대 이상, 1년 증가율 ${p.a_min_yoy_rate}% 이상을 모두 넘고(67개 동 상위 40% 경계), 충전기 1대당 전기차가 ${p.a_min_ev_per_charger}대 이상(67개 동 중앙값)이면 우선 검토입니다. 수요가 커도 충전기가 이미 충분하면 관찰 대상으로 둡니다.`}
       />

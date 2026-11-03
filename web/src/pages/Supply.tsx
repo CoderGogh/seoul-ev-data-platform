@@ -1,6 +1,6 @@
 // 충전기 공급: 구별 요약·동별 공급 표·수집 품질 (ev04, 분류 미반영)
 import { useMemo, useState } from "react";
-import { fmtDate, fmtDateTime, fmtInt, fmtPct, type AppData, type ChargerDong } from "../data";
+import { fmtInt, fmtPct, type AppData, type ChargerDong } from "../data";
 import { ClassBadge } from "../components/Badges";
 import { CardHead, PageHead } from "../components/PageHead";
 import { Link, navigate } from "../router";
@@ -58,7 +58,7 @@ export function Supply({ data }: { data: AppData }) {
   return (
     <div className="page">
       <PageHead
-        tags={["지표 분석", `수집 ${fmtDate(c.snapshot_date)}`, "ev04 · core.charger"]}
+        tags={["지표 분석", "매일 수집"]}
         title="충전기 공급"
         lede="충전기 공급을 매일 수집해서 분류 v3에 반영합니다. 전기차가 많고 빠르게 늘어도 충전기가 이미 충분하면 우선 검토에서 뺍니다. 표는 최신 수집 기준이고, 분류는 기준월 공급 기준일(첫 수집일 11월 2일) 기준입니다."
       />
@@ -177,7 +177,7 @@ export function Supply({ data }: { data: AppData }) {
 
       <div className="grid-2">
         <section className="card">
-          <CardHead title="수집 품질" sub={`${fmtDateTime(c.loaded_at)} 적재 · 등급 ${c.load.quality_grade === "ok" ? "정상" : c.load.quality_grade}`} />
+          <CardHead title="수집 품질" sub={`등급 ${c.load.quality_grade === "ok" ? "정상" : c.load.quality_grade}`} />
           <div className="table-wrap">
             <table>
               <tbody>
