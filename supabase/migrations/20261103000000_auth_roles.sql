@@ -20,8 +20,9 @@ create table public.profiles (
 
 alter table public.profiles enable row level security;
 
--- 직접 쓰기 차단 (가입 트리거·set_user_role로만 변경)
-revoke insert, update, delete on public.profiles from anon, authenticated;
+-- 권한 명시 (자동 노출 설정과 무관): 로그인 사용자 조회만, 쓰기는 트리거·set_user_role로만
+revoke all on public.profiles from anon, authenticated;
+grant select on public.profiles to authenticated;
 
 -- 가입 시 프로필 생성 (항상 pending)
 create function public.handle_new_user()
