@@ -67,6 +67,23 @@ export function FreshnessChip({ data }: { data: AppData }) {
   );
 }
 
+// 원천별 기준일 목록 (오른쪽 패널)
+export function FreshnessList({ data }: { data: AppData }) {
+  const { items } = useFresh(data);
+  return (
+    <ul className="fresh-list">
+      {items.map((i) => (
+        <li key={i.key}>
+          <span className={`dot tone-${i.level}`} aria-hidden="true" />
+          <b>{i.label}</b>
+          <span>{i.value}</span>
+          <span className="fresh-age">{i.age}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 // 주의·오래됨일 때만 본문 상단 경고
 export function FreshnessAlert({ data }: { data: AppData }) {
   const { level, msg } = useFresh(data);
