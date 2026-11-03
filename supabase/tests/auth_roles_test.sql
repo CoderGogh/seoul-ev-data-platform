@@ -2,10 +2,6 @@
 \set ON_ERROR_STOP 1
 \o /dev/null
 
--- Supabase 기본 grant 흉내 후 마이그레이션 revoke 재적용
-grant select, insert, update, delete on public.profiles to anon, authenticated;
-revoke insert, update, delete on public.profiles from anon, authenticated;
-
 insert into auth.users (id, email, raw_user_meta_data, raw_app_meta_data) values
   ('00000000-0000-0000-0000-000000000001', 'boss@x.com', '{"full_name":"Boss"}', '{"provider":"google"}'),
   ('00000000-0000-0000-0000-000000000002', 'adm@x.com', '{"name":"Adm"}', '{"provider":"kakao"}'),
@@ -55,7 +51,7 @@ select pg_temp.expect_fail($q$select public.set_user_role('00000000-0000-0000-00
 -- 비로그인
 reset role;
 set role anon;
-do $$ begin assert (select count(*) from public.profiles) = 0, '비로그인 조회 불가'; end $$;
+select pg_temp.expect_fail($q$select count(*) from public.profiles$q$, '비로그인 조회');
 
 reset role;
 do $$ begin
