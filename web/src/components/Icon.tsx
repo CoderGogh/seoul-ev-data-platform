@@ -1,7 +1,9 @@
 // 메뉴 아이콘 (24px 선 아이콘)
 import type { IconName } from "../nav";
 
-const PATHS: Record<IconName | "menu" | "close" | "moon" | "sun" | "github", string> = {
+type ExtraIcon = "menu" | "close" | "moon" | "sun" | "github" | "collapse" | "expand" | "chevron" | "lock" | "logout";
+
+const PATHS: Record<IconName | ExtraIcon, string> = {
   dashboard: "M4 4h7v7H4zM13 4h7v4h-7zM13 10h7v10h-7zM4 13h7v7H4z",
   star: "M12 3l2.8 5.7 6.2.9-4.5 4.4 1.1 6.2L12 17.3 6.4 20.2l1.1-6.2L3 9.6l6.2-.9z",
   map: "M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2zM9 4v14M15 6v14",
@@ -14,6 +16,11 @@ const PATHS: Record<IconName | "menu" | "close" | "moon" | "sun" | "github", str
   plug: "M9 3v5M15 3v5M6 8h12v3a6 6 0 0 1-12 0V8zM12 17v4",
   flag: "M5 21V4M5 4h11l-2 4 2 4H5",
   menu: "M4 6h16M4 12h16M4 18h16",
+  collapse: "M4 4h16v16H4zM9 4v16M16 9l-3 3 3 3",
+  expand: "M4 4h16v16H4zM9 4v16M13 9l3 3-3 3",
+  chevron: "M9 6l6 6-6 6",
+  lock: "M6 11h12v10H6zM8.5 11V7.5a3.5 3.5 0 0 1 7 0V11",
+  logout: "M15 4h4v16h-4M10 8l-4 4 4 4M6 12h10",
   close: "M6 6l12 12M18 6 6 18",
   moon: "M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5z",
   sun: "M12 17a5 5 0 1 0 0-10 5 5 0 0 0 0 10zM12 1v2M12 21v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M1 12h2M21 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4",
