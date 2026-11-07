@@ -16,6 +16,8 @@ const PATHS: Record<IconName | ExtraIcon, string> = {
   plug: "M9 3v5M15 3v5M6 8h12v3a6 6 0 0 1-12 0V8zM12 17v4",
   flag: "M5 21V4M5 4h11l-2 4 2 4H5",
   clock: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 7v5l3 2",
+  compare: "M4 5h6v15H4zM14 9h6v11h-6zM7 9v.01M17 13v.01",
+  history: "M3 12a9 9 0 1 0 3-6.7M3 4v5h5M12 8v4l3 2",
   users: "M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM2 21v-1a6 6 0 0 1 12 0v1M16 3.1a4 4 0 0 1 0 7.8M22 21v-1a6 6 0 0 0-4-5.6",
   menu: "M4 6h16M4 12h16M4 18h16",
   collapse: "M4 4h16v16H4zM9 4v16M16 9l-3 3 3 3",

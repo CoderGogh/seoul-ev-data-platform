@@ -2180,3 +2180,76 @@ td.up {
     padding: 6px 4px;
   }
 }
+
+/* 동 비교 */
+.compare-picked {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.compare-picked .chip button {
+  margin-left: 6px;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 15px;
+  line-height: 1;
+}
+.compare-search {
+  max-width: 360px;
+}
+.compare-search input {
+  width: 100%;
+}
+.compare-options {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+}
+.compare-options li button {
+  width: 100%;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: var(--text);
+  cursor: pointer;
+  text-align: left;
+}
+.compare-options li button:hover {
+  background: var(--surface-2);
+}
+.compare-options li.muted {
+  padding: 8px 10px;
+  color: var(--muted);
+}
+.compare-table {
+  table-layout: fixed;
+  min-width: 560px;
+}
+.compare-table th:first-child {
+  width: 150px;
+}
+.compare-table th,
+.compare-table td {
+  white-space: normal;
+  text-align: left;
+  vertical-align: top;
+}
+.compare-verdict {
+  font-size: 13px;
+  color: var(--text-2);
+}
+.history-diff .chip {
+  margin: 2px 4px 2px 0;
+  font-size: 12px;
+}
