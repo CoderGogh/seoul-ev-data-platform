@@ -84,3 +84,32 @@ def test_drop_expired_partition(cur, seed):
     assert dry.get("traffic_obs_202501") == 1 and "traffic_obs_202501" in _parts(cur)
     _drop(cur, False)
     assert "traffic_obs_202501" not in _parts(cur)
+
+
+# 데이터 있는 옛 일반 테이블 → 전환: 행 보존, 달마다 파티션, 재실행 안전 (트랜잭션 롤백으로 원복)
+def test_migration_from_plain_table(cur):
+    cur.execute("DROP TABLE core.traffic_obs CASCADE")
+    cur.execute(
+        """CREATE TABLE core.traffic_obs (
+               link_id text NOT NULL, poll_batch_id text NOT NULL, collected_at timestamptz NOT NULL,
+               source_observed_at timestamptz, prcs_spd numeric(6, 1) NOT NULL, prcs_trv_time numeric(8, 1) NOT NULL,
+               run_id text NOT NULL, PRIMARY KEY (link_id, poll_batch_id));
+           CREATE INDEX traffic_obs_collected_idx ON core.traffic_obs (collected_at);
+           INSERT INTO core.traffic_obs VALUES
+               ('L1', 'a', '2026-08-31 23:50+09', NULL, 30, 60, 'r'),
+               ('L1', 'b', '2026-09-01 00:10+09', NULL, 31, 61, 'r'),
+               ('L2', 'c', '2026-10-15 12:00+09', NULL, 32, 62, 'r');"""
+    )
+    ddl = (db.SQL_DIR / "ddl" / "15_traffic_obs_partition.sql").read_text(encoding="utf-8")
+    cur.execute(ddl)
+    cur.execute(ddl)  # 재실행
+    assert rows(cur, "SELECT relkind FROM pg_class WHERE oid = 'core.traffic_obs'::regclass")[0]["relkind"] == "p"
+    got = rows(
+        cur, "SELECT tableoid::regclass::text AS part, count(*) AS n FROM core.traffic_obs GROUP BY 1 ORDER BY 1"
+    )
+    assert [(r["part"], r["n"]) for r in got] == [
+        ("core.traffic_obs_202608", 1),
+        ("core.traffic_obs_202609", 1),
+        ("core.traffic_obs_202610", 1),
+    ]
+    assert rows(cur, "SELECT to_regclass('core.traffic_obs_old') AS t")[0]["t"] is None
