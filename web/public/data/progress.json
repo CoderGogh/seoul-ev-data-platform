@@ -95,8 +95,8 @@
   },
   "53": {
    "title": "등록 추세 예측·이상 증가 탐지",
-   "state": "OPEN",
-   "closed_at": null,
+   "state": "CLOSED",
+   "closed_at": "2026-11-07T17:57:34Z",
    "url": "https://github.com/CoderGogh/seoul-ev-data-platform/issues/53",
    "labels": [
     "area:analysis",
@@ -115,8 +115,8 @@
   },
   "51": {
    "title": "웹 동 비교·게시 이력·CSV",
-   "state": "OPEN",
-   "closed_at": null,
+   "state": "CLOSED",
+   "closed_at": "2026-11-07T17:52:01Z",
    "url": "https://github.com/CoderGogh/seoul-ev-data-platform/issues/51",
    "labels": [
     "area:web",
@@ -125,8 +125,8 @@
   },
   "50": {
    "title": "웹 충전기 지도 레이어",
-   "state": "OPEN",
-   "closed_at": null,
+   "state": "CLOSED",
+   "closed_at": "2026-11-07T17:46:52Z",
    "url": "https://github.com/CoderGogh/seoul-ev-data-platform/issues/50",
    "labels": [
     "area:web",
@@ -135,8 +135,8 @@
   },
   "49": {
    "title": "웹 판정 근거 표시",
-   "state": "OPEN",
-   "closed_at": null,
+   "state": "CLOSED",
+   "closed_at": "2026-11-07T17:42:29Z",
    "url": "https://github.com/CoderGogh/seoul-ev-data-platform/issues/49",
    "labels": [
     "area:web",
@@ -195,8 +195,8 @@
   },
   "43": {
    "title": "traffic_obs 월 파티셔닝",
-   "state": "OPEN",
-   "closed_at": null,
+   "state": "CLOSED",
+   "closed_at": "2026-11-07T18:04:22Z",
    "url": "https://github.com/CoderGogh/seoul-ev-data-platform/issues/43",
    "labels": [
     "area:pipeline",
@@ -275,6 +275,58 @@
   }
  },
  "merged": [
+  {
+   "number": 82,
+   "title": "feat: traffic_obs 월 파티셔닝",
+   "merged_at": "2026-11-07T18:04:20Z",
+   "url": "https://github.com/CoderGogh/seoul-ev-data-platform/pull/82",
+   "closes": [
+    43
+   ]
+  },
+  {
+   "number": 81,
+   "title": "feat: 등록 이상 증가 플래그·추세 예측",
+   "merged_at": "2026-11-07T17:57:32Z",
+   "url": "https://github.com/CoderGogh/seoul-ev-data-platform/pull/81",
+   "closes": [
+    53
+   ]
+  },
+  {
+   "number": 80,
+   "title": "feat: 웹 동 비교·게시 이력·CSV",
+   "merged_at": "2026-11-07T17:51:59Z",
+   "url": "https://github.com/CoderGogh/seoul-ev-data-platform/pull/80",
+   "closes": [
+    51
+   ]
+  },
+  {
+   "number": 79,
+   "title": "feat: 웹 충전기 지도 레이어",
+   "merged_at": "2026-11-07T17:46:50Z",
+   "url": "https://github.com/CoderGogh/seoul-ev-data-platform/pull/79",
+   "closes": [
+    50
+   ]
+  },
+  {
+   "number": 78,
+   "title": "feat: 웹 판정 근거 표시",
+   "merged_at": "2026-11-07T17:42:27Z",
+   "url": "https://github.com/CoderGogh/seoul-ev-data-platform/pull/78",
+   "closes": [
+    49
+   ]
+  },
+  {
+   "number": 77,
+   "title": "chore: 웹 개발 진행 데이터 갱신",
+   "merged_at": "2026-11-07T17:08:57Z",
+   "url": "https://github.com/CoderGogh/seoul-ev-data-platform/pull/77",
+   "closes": []
+  },
   {
    "number": 76,
    "title": "feat: ev03 분포 급변 경보",
@@ -461,48 +513,6 @@
    "title": "docs: 웹 결과 화면 링크·운영 절차 추가",
    "merged_at": "2026-10-30T05:05:37Z",
    "url": "https://github.com/CoderGogh/seoul-ev-data-platform/pull/30",
-   "closes": []
-  },
-  {
-   "number": 29,
-   "title": "ci: 웹 빌드 확인 작업 추가",
-   "merged_at": "2026-10-30T05:03:50Z",
-   "url": "https://github.com/CoderGogh/seoul-ev-data-platform/pull/29",
-   "closes": []
-  },
-  {
-   "number": 28,
-   "title": "fix: 관찰 대상 동 월별 차트 기준선 표시",
-   "merged_at": "2026-10-30T05:01:54Z",
-   "url": "https://github.com/CoderGogh/seoul-ev-data-platform/pull/28",
-   "closes": []
-  },
-  {
-   "number": 27,
-   "title": "feat: 웹 결과 화면 추가 (Vite·React)",
-   "merged_at": "2026-10-30T04:42:24Z",
-   "url": "https://github.com/CoderGogh/seoul-ev-data-platform/pull/27",
-   "closes": []
-  },
-  {
-   "number": 26,
-   "title": "feat: 웹 화면용 정적 데이터 내보내기",
-   "merged_at": "2026-10-30T04:30:25Z",
-   "url": "https://github.com/CoderGogh/seoul-ev-data-platform/pull/26",
-   "closes": []
-  },
-  {
-   "number": 25,
-   "title": "docs: DAG 설계서 구현 기준 정리 및 목차 추가",
-   "merged_at": "2026-10-29T09:24:49Z",
-   "url": "https://github.com/CoderGogh/seoul-ev-data-platform/pull/25",
-   "closes": []
-  },
-  {
-   "number": 24,
-   "title": "docs: README 결과·전체 구조 중심으로 재구성",
-   "merged_at": "2026-10-29T09:08:33Z",
-   "url": "https://github.com/CoderGogh/seoul-ev-data-platform/pull/24",
    "closes": []
   }
  ]
