@@ -177,6 +177,11 @@ init_poll_batch ─▶ check_run_freshness (branch)
 | API 오류 있음, 또는 일부 묶음 실패 | `partial` | 성공 |
 | 모든 묶음 실패, 또는 적재·집계·커버리지 실패 | `failed` | 실패 |
 
+`partial` 등급 (`quality_result.api_error_rate`, 잠정 기준)
+- 오류율 = (API 오류 + 미응답) / 대상 링크
+- 1% 이하 `ok`, 20% 이하 `warn`, 초과 `fatal` (묶음 1개 실패 ≈ 11%)
+- 일 호출 한도 오류(`ERROR-337`)는 `api_limit` 치명. 해당 묶음은 오류 행만 남기고 재시도 없이 실패 (당일 재호출 불가)
+
 실행 제어
 - `max_active_runs=1`: 두 회차가 같은 링크를 동시에 적재하지 않게
 - `catchup=False`: 밀린 회차를 몰아서 만들지 않음. 스케줄러는 놓친 틱을 건너뛰고 직전 틱만 실행
@@ -368,6 +373,8 @@ validate_request ─▶ register_request ─▶ route_scope (branch)
 - 기본 최근 24시간 (`params.hours`)
 - 불일치 = Airflow는 성공인데 데이터는 `partial`·`held`·`publication_delayed`·`skipped_stale`·`no_eligible_period` 등
 - `ops` 기록이 없는 실행, ev01 회차 수(기대 48회/일)도 함께 보고
+- 호출량: ev01 하루 환산 호출 수(약 4.4만 건)·한도 오류 건수 → `api_usage`. Variable `ev01_daily_call_limit` 설정 시 90% 이상 경고
+- 오류율: 회차 등급 분포와 p50·p95·최대 (기준 재조정 근거)
 - 충전기 줄: ev04 마지막 확인일(무변경 포함)·최근 적재 신규/변경/소멸·현재 대수. 기대 1회/일보다 적거나 당일 확인이 없으면 `charger_daily` 경고
 - 10/28 리포트에서 불일치 17건 탐지 (ev01 `partial`, ev03 `held`)
 
@@ -549,7 +556,7 @@ Gate 2 등급과 분류 (임계값 `mvp_v3`, provisional)
 | Pool | `seoul_traffic_api_pool`(4), `seoul_registration_api_pool`(2), `ev_charger_api_pool`(1), `github_api_pool`(1) | API 키가 데이터셋별로 따로. slots는 `.env` |
 | Celery 큐 | `default` (워커 2), `api` (워커 1) | 외부 API Task는 `queue=api`. API 지연이 적재를 막지 않게 |
 | Connection | `conn_seoul_openapi`, `conn_data_go_kr`, `conn_github_web_data`, `conn_postgis_ev`, `conn_db_postgres_airflow`, `conn_slack_airflow_bot` | `AIRFLOW_CONN_*` 환경변수. 메타DB는 ev12 조회용 |
-| Variable | `apikey_seoul_traffic`, `apikey_seoul_registration`, `apikey_ev_charger` | `AIRFLOW_VAR_*` 환경변수. 임계값은 DB 버전 테이블 |
+| Variable | `apikey_seoul_traffic`, `apikey_seoul_registration`, `apikey_ev_charger`, `ev01_daily_call_limit`(선택) | `AIRFLOW_VAR_*` 환경변수. 임계값은 DB 버전 테이블 |
 | Asset | `ev_traffic_obs`, `ev_reg_snapshot`, `ev_charger_supply`, `ev_master_version`, `ev_mart_published` | `plugins/common/assets.py`에서 한 번만 정의 |
 | 커스텀 Hook | `SeoulOpenApiHook` | XML 파싱, 결과 코드 → ok / no_data / api_error, 전수 페이지, 링크 단위 부분 실패 허용 |
 | 커스텀 Hook | `DataGoKrHook` | 공공데이터포털 공통. JSON·XML 응답, 게이트웨이 오류(XML) 판정, 전수 페이지 |
@@ -620,9 +627,9 @@ CI (PR 필수 검사, GitHub Actions)
 | 충전기 운영 상태 | 이력에서 상태값 제외 | `stat=4` 운영중지 장기 지속분 공급 제외 검토 (`getChargerStatus`) |
 | 공급 기준일 | 첫 스냅샷(11/02)을 9월 기준으로 사용 | 10월 기준월부터 말일 기준 |
 | 분포 급변 경보 | 미구현 | `verify_candidate`에 직전 게시 대비 분포 변화 검사 |
-| 완료 묶음 최소 비율 | 미구현 (API 오류 1건이라도 `partial`) | 오류율 분포 보고 경보 기준 설정 |
+| 오류율 기준 | 잠정 1%·20% (`partial` 등급) | ev12 오류율 분포 누적 후 재조정 |
 | 지각 허용 | 미구현 (확정 시간대만 사용) | 수집 지연 분포 확인 |
-| 일일 호출 한도 | 명시 없음 (1회 1,000건 제한만) | 오류 코드로 감시 |
+| 일일 호출 한도 | 한도 수치 미공개, `ERROR-337` 오류로 감시 | 한도 확인되면 `ev01_daily_call_limit` 설정 |
 | 도로 분석 기간 | MVP 고정 기간 | 원안대로 기준월과 같은 월로 전환 |
 
 ---
