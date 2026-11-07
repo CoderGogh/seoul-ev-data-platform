@@ -19,6 +19,11 @@ def test_web_bundle_from_published(cur, supply):
     assert b["meta"]["threshold"]["ver"] == "mvp_v3" and "exported_at" not in b["meta"]
     a = next(r for r in b["regions"] if r["adm_cd"] == "1168000001")
     assert a["classification"] == "A" and a["charger_cnt"] == 10 and a["supply_gap"] is True
+    assert a["valid_timebands"] == 15
+    # 충전소 점: 버스전용 제외 승용·급속 대수, 경위도
+    st = {(n, fast) for _, _, n, fast in b["chargers"]["stations"]}
+    assert st == {(10, 2), (500, 50)}
+    assert all(120 < lng < 135 and 30 < lat < 40 for lng, lat, _, _ in b["chargers"]["stations"])
 
 
 def test_web_bundle_rejects_unpublished(cur, supply):

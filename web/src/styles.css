@@ -39,6 +39,11 @@
   --hero: linear-gradient(135deg, #e8f1fc 0%, #f4f6fa 70%);
   --shadow: 0 1px 2px rgba(17, 24, 39, 0.04), 0 4px 12px rgba(17, 24, 39, 0.04);
   --shadow-hover: 0 6px 20px rgba(42, 120, 214, 0.14);
+  /* 공급 단계 (충분 → 부족 심함), 테마 따라 표면색과 섞음 */
+  --sup-0: color-mix(in srgb, var(--hint-fast) 30%, var(--surface));
+  --sup-1: color-mix(in srgb, var(--hint-slow) 30%, var(--surface));
+  --sup-2: color-mix(in srgb, var(--hint-slow) 60%, var(--surface));
+  --sup-3: var(--hint-slow);
 }
 
 /* 테마 토큰 (다크, 전환 버튼으로 선택) */
@@ -1113,6 +1118,31 @@ button.side-link {
 }
 .map-wrap {
   position: relative;
+}
+.map-dots circle {
+  pointer-events: none;
+  stroke: var(--surface);
+  stroke-width: 0.4;
+}
+.map-dots .fast {
+  fill: var(--accent);
+}
+.map-dots .slow {
+  fill: var(--text-2);
+  opacity: 0.7;
+}
+.legend .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+.legend .dot.fast {
+  background: var(--accent);
+}
+.legend .dot.slow {
+  background: var(--text-2);
+  opacity: 0.7;
 }
 
 /* 툴팁 */

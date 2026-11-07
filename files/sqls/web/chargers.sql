@@ -1,4 +1,4 @@
--- 충전기 공급 현황 (ev04 최신 상태, 대상 행정동 귀속분) + 수집 품질
+-- 충전기 공급 현황 (ev04 최신 상태, 대상 행정동 귀속분) + 수집 품질 + 충전소 점 (지도 레이어)
 WITH ld AS (SELECT * FROM ops.charger_load ORDER BY loaded_at DESC LIMIT 1),
 run AS (SELECT run_id FROM ld),
 cur AS (SELECT * FROM core.charger WHERE valid_to IS NULL),
@@ -35,6 +35,15 @@ SELECT json_build_object(
                     'ev_cnt', ev_cnt, 'chargers', chargers, 'stations', stations, 'fast', fast, 'open_cnt', open_cnt,
                     'ev_per_charger', round(ev_cnt::numeric / nullif(chargers, 0), 2),
                     'ev_per_fast', round(ev_cnt::numeric / nullif(fast, 0), 1)) ORDER BY adm_cd)
-                FROM dong)
+                FROM dong),
+    -- 충전소 단위 [경도, 위도, 승용 대수, 급속 대수] (용량 절감용 배열, 버스전용 제외)
+    'stations', (SELECT coalesce(json_agg(json_build_array(round(ST_X(p)::numeric, 5), round(ST_Y(p)::numeric, 5), n, fast)
+                                          ORDER BY stat_id), '[]')
+                 FROM (SELECT c.stat_id, ST_Transform((array_agg(c.geom ORDER BY c.chger_id))[1], 4326) AS p,
+                              count(*) AS n, count(*) FILTER (WHERE c.is_fast) AS fast
+                       FROM cur c JOIN f USING (adm_cd)
+                       LEFT JOIN core.charger_type t ON t.chger_type = c.chger_type
+                       WHERE c.assign_status = 'assigned' AND coalesce(t.passenger, true)  -- 미등록 타입은 승용
+                       GROUP BY c.stat_id) s)
 )
 FROM ld;

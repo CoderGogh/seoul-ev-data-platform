@@ -124,6 +124,7 @@ export interface Chargers {
   quality: QualityCheck[];
   by_sgg: ChargerSgg[];
   by_dong: ChargerDong[];
+  stations?: [number, number, number, number][]; // [경도, 위도, 승용 대수, 급속 대수], 이전 데이터엔 없음
 }
 
 // 개발 진행 (progress.json, scripts/export_progress.py)
