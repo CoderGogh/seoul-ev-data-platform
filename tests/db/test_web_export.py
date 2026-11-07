@@ -20,6 +20,11 @@ def test_web_bundle_from_published(cur, supply):
     a = next(r for r in b["regions"] if r["adm_cd"] == "1168000001")
     assert a["classification"] == "A" and a["charger_cnt"] == 10 and a["supply_gap"] is True
     assert a["valid_timebands"] == 15
+    # 게시 이력: A 목록·분류 분포, 재처리 요청자 미노출
+    pub = b["history"]["publishes"][-1]
+    assert pub["run_id"] == "r1" and pub["a_list"] == ["1168000001"]
+    assert pub["class_dist"] == {"A": 1, "REF": 2, "C": 1, "WITHHELD": 1}
+    assert b["history"]["reprocess"] == [] or "requested_by" not in b["history"]["reprocess"][0]
     # 충전소 점: 버스전용 제외 승용·급속 대수, 경위도
     st = {(n, fast) for _, _, n, fast in b["chargers"]["stations"]}
     assert st == {(10, 2), (500, 50)}

@@ -116,6 +116,7 @@ def _bundle():
         "timeband": {},
         "admdong": {"features": [{"properties": {"adm_cd": c, "is_target": True}} for c in ("1", "2")]},
         "chargers": {"by_dong": [{}, {}]},
+        "history": {"publishes": [{"base_month": "202609"}], "reprocess": []},
     }
 
 
@@ -139,3 +140,4 @@ def test_validate_bundle():
     b["admdong"]["features"].append({"properties": {"adm_cd": "9", "is_target": True}})
     assert any("미게시" in p for p in w.validate(b))
     assert w.validate({**_bundle(), "chargers": None}) == ["chargers: 없음"]
+    assert w.validate({**_bundle(), "history": {"publishes": []}}) == ["history: 게시 이력 없음"]
