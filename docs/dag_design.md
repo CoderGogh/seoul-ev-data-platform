@@ -2,7 +2,7 @@
 
 | 항목 | 내용 |
 |---|---|
-| 버전 | v0.8 (2026-11-02) - ev14 웹 데이터 자동 게시 |
+| 버전 | v0.9 (2026-11-08) - 운영 감시 (충전기 리포트, 오류율 등급, SLA) |
 | 대상 | 현대오토에버 데이터 플랫폼 운영 직무 과제 1 (Airflow·선후행·재처리) |
 | 환경 | Airflow 3.3.2 (CeleryExecutor), PostgreSQL 16 + PostGIS |
 | 범위 | DAG·Task 분리, 선후행, 실행 제어, 품질 게이트, 멱등성, 재처리 |
@@ -22,6 +22,7 @@
    - [ev12 품질 리포트](#47-ev12-품질-리포트)
    - [ev13 보존 정리](#48-ev13-보존-정리)
    - [ev14 웹 데이터 게시](#49-ev14-웹-데이터-게시)
+   - [ev15 SLA 감시](#410-ev15-sla-감시)
 5. [품질 게이트와 분류](#5-품질-게이트와-분류)
 6. [멱등성과 재처리](#6-멱등성과-재처리)
 7. [상태 모델](#7-상태-모델)
@@ -96,6 +97,7 @@ Task 성공과 데이터 준비 완료는 다르다. 세 가지를 따로 판단
 | `ev12_quality_monitor` | 실행 상태 × 데이터 상태 리포트 | `0 8 * * *` | - |
 | `ev13_retention_cleanup` | 조건부 보존 정리 | `0 3 * * 0` | - |
 | `ev14_web_publish` | 웹 결과 데이터를 데이터 브랜치에 게시 | `10 7 * * *` 또는 Asset | - |
+| `ev15_sla_watch` | 기한 내 수집·게시 완료 감시 | `5 6,8 * * *` | - |
 
 - 모든 DAG: `CronTriggerTimetable`(KST), `catchup=False`, `max_active_runs=1`
 - 공통 `default_args`: 재시도 2회, 지수 백오프(최대 10분), `execution_timeout` 20분, 실패 시 Slack
@@ -375,6 +377,7 @@ validate_request ─▶ register_request ─▶ route_scope (branch)
 - `ops` 기록이 없는 실행, ev01 회차 수(기대 48회/일)도 함께 보고
 - 호출량: ev01 하루 환산 호출 수(약 4.4만 건)·한도 오류 건수 → `api_usage`. Variable `ev01_daily_call_limit` 설정 시 90% 이상 경고
 - 오류율: 회차 등급 분포와 p50·p95·최대 (기준 재조정 근거)
+- 연속 보류: 마지막 게시·무변경 이후 ev03이 보류된 날 수
 - 충전기 줄: ev04 마지막 확인일(무변경 포함)·최근 적재 신규/변경/소멸·현재 대수. 기대 1회/일보다 적거나 당일 확인이 없으면 `charger_daily` 경고
 - 10/28 리포트에서 불일치 17건 탐지 (ev01 `partial`, ev03 `held`)
 
@@ -421,6 +424,22 @@ check_publish_state (branch: 게시된 기준월 있음?)
 - 실패해도 mart 게시 결과와 웹의 이전 데이터는 그대로
 - 토큰: fine-grained, 이 저장소만, Contents 읽기·쓰기만. `mask_secret` 등록, 오류에는 상태 코드·경로만
 - 쓰지 않은 대안: 봇 PR(데이터 갱신마다 PR·CI·병합, main 이력 오염), Vercel Deploy Hook(데이터가 git에 있어야 해서 결국 PR 필요)
+
+### 4.10 ev15 SLA 감시
+
+```
+check_sla (기한 도래 SLA, ops 당일 상태) ─▶ notify (미달만 Slack 1건) ─▶ record_run [all_done]
+```
+
+| 대상 | 기한 (KST) | 완료로 보는 상태 |
+|---|---|---|
+| ev04 충전기 | 06:00 | `success`, `unchanged` |
+| ev03 마트 | 08:00 | `published`, `republished`, `skipped_unchanged` |
+
+- 실패 알림과 별개. 보류·센서 대기·진행 중·미실행처럼 실패가 아닌 지연을 잡음
+- 기한 5분 뒤 실행, 그 시각 기한만 확인 (기한마다 알림 1건). 수동 실행은 지난 기한 전부
+- 결과는 `quality_result.sla` (scope = 대상 DAG)
+- Airflow 3 Deadline Alert 대신 별도 DAG: 판정 기준이 Airflow 상태가 아니라 `ops` 데이터 상태
 
 ---
 
@@ -587,7 +606,7 @@ Rshiny는 읽기 전용 계정 `rshiny_reader`로 `mart`, `ops`만 조회한다.
 
 ## 11. 테스트와 CI
 
-`tests/` 단위 30 + DB 통합 16, 웹 12 (`web/src/*.test.ts`). 외부 API를 부르지 않는다.
+`tests/` 단위·DB 통합, 웹 (`web/src/*.test.ts`). 외부 API를 부르지 않는다.
 
 | 파일 | 내용 |
 |---|---|
@@ -598,6 +617,9 @@ Rshiny는 읽기 전용 계정 `rshiny_reader`로 `mart`, `ops`만 조회한다.
 | `db/test_ev03_publish.py` | 실제 SQL로 게시 경로: 분류 결과, 파티션 교체(중복 없음), 계보, 보류(`never_published`·`stale`), 무변경 지문, 게시 중 실패 시 롤백 |
 | `db/test_ev02_load.py` | 신규 적재, 같은 내용 재공표 판정, 내용 변경 재공표(차이 기록·교체) |
 | `db/test_ev04_charger.py` | 격리 사유·동 귀속·급속 판정, SCD2 변경·삭제 표시·소멸, 시점 조회, 같은 날 재실행 |
+| `test_api_usage.py` | 오류율 계산·등급 경계, 호출 한도 판정, 한도 오류 코드 |
+| `db/test_ev12_charger.py`, `db/test_ev12_api_usage.py` | ev12 충전기 확인일(무변경 포함), 호출량·한도 오류·오류율 분포 |
+| `db/test_ev15_sla.py` | 당일 완료 판정(전날·진행 중 제외), ev03 연속 보류 일수 |
 | `db/test_web_export.py` | 게시 결과에서 웹 JSON 생성 → ev14 검증 통과 (스키마 변경으로 웹 데이터가 깨지는 것 방지), meta 에서 ev14 자기 실행 제외 |
 | `test_web_publish.py` | blob SHA(`git hash-object`와 일치), 바뀐 파일만 커밋, 브랜치 생성·fast-forward, head 변경 시 중단, 토큰 미노출, 묶음 검증 |
 | `web/src/*.test.ts` | 신선도 등급 규칙, 데이터 로더(커밋 고정 주소·대체 조건) |
@@ -675,6 +697,7 @@ Airflow 3.3.2 동작
 
 | 버전 | 날짜 | 내용 |
 |---|---|---|
+| v0.9 | 2026-11-08 | ev12 충전기 줄·호출량·오류율 분포·연속 보류, ev01 `partial` 오류율 등급·한도 초과 재시도 생략, ev15 SLA 감시 |
 | v0.8 | 2026-11-02 | ev14 웹 데이터 게시 (데이터 브랜치 원자 커밋, 웹 커밋 고정 로드·배포 스냅샷 대체) |
 | v0.7 | 2026-11-02 | 충전기 공급 지표(`compute_supply`, Gate 1 충전기 이력), 분류 `mvp_v3` 공급 부족 조건, 버스전용 제외 |
 | v0.6 | 2026-11-02 | ev04 충전기 공급 수집 (SCD2 이력, 구별 Dynamic Task Mapping, 소멸 비율 게이트) |

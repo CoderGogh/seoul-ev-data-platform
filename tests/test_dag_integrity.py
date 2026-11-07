@@ -16,6 +16,7 @@ MAX_ACTIVE_RUNS = {
     "ev10_master_refresh": 1,
     "ev11_reprocess": 1,
     "ev12_quality_monitor": 1,
+    "ev15_sla_watch": 1,
 }
 # 외부 API 호출 Task의 Pool·큐
 API_TASKS = {
@@ -82,7 +83,7 @@ def test_single_all_done_leaf(dagbag):
     for dag in dags(dagbag):
         if dag.dag_id not in (
             "ev01_traffic_collect", "ev02_registration_monthly", "ev03_mart_integration", "ev04_charger_daily",
-            "ev14_web_publish",
+            "ev14_web_publish", "ev15_sla_watch",
         ):  # fmt: skip
             continue
         leaves = [t for t in dag.tasks if not t.downstream_task_ids]
