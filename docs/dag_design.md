@@ -261,6 +261,7 @@ resolve_target_period (branch)
 | `region_quality_gate` | Gate 2. 행정동마다 품질 등급 |
 | `classify_abc` | 분류와 도로 여건 (§5) |
 | `verify_candidate` | 행 수 = 대상 행정동 수, 중복 없음, 분류 null 없음, `A`인데 도로 여건 null 없음. 실패면 게시 안 함 |
+| 분포 급변 (같은 Task) | 직전 게시(같은 기준월, 없으면 이전 최신 월) 대비 지표 4종 PSI > 0.5, 분류 바뀐 동 > 20%, A 수 변화 > 50%(차이 2 이상). 경고 기록·Slack만, 게시는 진행 |
 | `publish_mart` | 한 트랜잭션: 해당 기준월 삭제 → 후보 전체 삽입 → 게시 로그·게시 상태 `current` |
 | `record_run_result` | Task 상태로 실행 결과 확정 |
 
@@ -619,6 +620,7 @@ Rshiny는 읽기 전용 계정 `rshiny_reader`로 `mart`, `ops`만 조회한다.
 | `db/test_ev04_charger.py` | 격리 사유·동 귀속·급속 판정, SCD2 변경·삭제 표시·소멸, 시점 조회, 같은 날 재실행 |
 | `test_api_usage.py` | 오류율 계산·등급 경계, 호출 한도 판정, 한도 오류 코드 |
 | `db/test_ev12_charger.py`, `db/test_ev12_api_usage.py` | ev12 충전기 확인일(무변경 포함), 호출량·한도 오류·오류율 분포 |
+| `test_drift.py`, `db/test_ev03_drift.py` | PSI·분류 변경·A 수 변화 판정, 직전 게시 행 선택(같은 기준월 우선) |
 | `db/test_ev15_sla.py` | 당일 완료 판정(전날·진행 중 제외), ev03 연속 보류 일수 |
 | `db/test_web_export.py` | 게시 결과에서 웹 JSON 생성 → ev14 검증 통과 (스키마 변경으로 웹 데이터가 깨지는 것 방지), meta 에서 ev14 자기 실행 제외 |
 | `test_web_publish.py` | blob SHA(`git hash-object`와 일치), 바뀐 파일만 커밋, 브랜치 생성·fast-forward, head 변경 시 중단, 토큰 미노출, 묶음 검증 |
@@ -648,7 +650,7 @@ CI (PR 필수 검사, GitHub Actions)
 | 분류 임계값 | `mvp_v3` provisional (수요 p60, 공급 p50, 도로 p33·p67) | 분포 누적 후 민감도 검토 |
 | 충전기 운영 상태 | 이력에서 상태값 제외 | `stat=4` 운영중지 장기 지속분 공급 제외 검토 (`getChargerStatus`) |
 | 공급 기준일 | 첫 스냅샷(11/02)을 9월 기준으로 사용 | 10월 기준월부터 말일 기준 |
-| 분포 급변 경보 | 미구현 | `verify_candidate`에 직전 게시 대비 분포 변화 검사 |
+| 분포 급변 경보 | 경고만 (PSI 0.5는 67개 동 모의실험 기준) | 게시 이력 누적 후 치명 기준 |
 | 오류율 기준 | 잠정 1%·20% (`partial` 등급) | ev12 오류율 분포 누적 후 재조정 |
 | 지각 허용 | 미구현 (확정 시간대만 사용) | 수집 지연 분포 확인 |
 | 일일 호출 한도 | 한도 수치 미공개, `ERROR-337` 오류로 감시 | 한도 확인되면 `ev01_daily_call_limit` 설정 |
@@ -697,7 +699,7 @@ Airflow 3.3.2 동작
 
 | 버전 | 날짜 | 내용 |
 |---|---|---|
-| v0.9 | 2026-11-08 | ev12 충전기 줄·호출량·오류율 분포·연속 보류, ev01 `partial` 오류율 등급·한도 초과 재시도 생략, ev15 SLA 감시 |
+| v0.9 | 2026-11-08 | ev12 충전기 줄·호출량·오류율 분포·연속 보류, ev01 `partial` 오류율 등급·한도 초과 재시도 생략, ev15 SLA 감시, ev03 분포 급변 경고 |
 | v0.8 | 2026-11-02 | ev14 웹 데이터 게시 (데이터 브랜치 원자 커밋, 웹 커밋 고정 로드·배포 스냅샷 대체) |
 | v0.7 | 2026-11-02 | 충전기 공급 지표(`compute_supply`, Gate 1 충전기 이력), 분류 `mvp_v3` 공급 부족 조건, 버스전용 제외 |
 | v0.6 | 2026-11-02 | ev04 충전기 공급 수집 (SCD2 이력, 구별 Dynamic Task Mapping, 소멸 비율 게이트) |
