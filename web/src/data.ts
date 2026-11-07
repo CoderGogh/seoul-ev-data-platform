@@ -36,6 +36,9 @@ export interface Region {
   open_cnt: number | null;
   ev_per_charger: number | null;
   supply_gap: boolean | null;
+  growth_flags?: string[]; // concentrated / accelerating (이전 데이터엔 없음)
+  ev_fcst_3m?: number | null;
+  ev_fcst_6m?: number | null;
 }
 
 export interface MonthlyPoint {
@@ -309,6 +312,11 @@ export const REASON_LABEL: Record<string, string> = {
   low_coverage: "관측 커버리지가 기준보다 낮음",
   few_timebands: "유효 시간대가 기준보다 적음",
   no_prev_year: "전년 동월 등록 없음 (증가율 계산 불가)",
+};
+
+export const FLAG_LABEL: Record<string, string> = {
+  concentrated: "한 달 몰림",
+  accelerating: "최근 가속",
 };
 
 export const GROWTH_DESC: Record<string, string> = {

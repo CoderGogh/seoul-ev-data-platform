@@ -191,6 +191,7 @@ with DAG(
     @task
     def compute_indicators(**context):
         db.execute_file("ev03/indicators.sql", _run_args(context))
+        db.execute_file("ev03/momentum.sql", _run_args(context))  # 등록 추세 보조 (판정 미사용)
 
     # 공급 기준일 시점 동별 충전기 (버스전용 제외)
     @task

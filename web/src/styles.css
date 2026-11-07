@@ -2253,3 +2253,7 @@ td.up {
   margin: 2px 4px 2px 0;
   font-size: 12px;
 }
+.badge.flag {
+  background: var(--hint-mixed-soft);
+  color: var(--hint-mixed-text);
+}
