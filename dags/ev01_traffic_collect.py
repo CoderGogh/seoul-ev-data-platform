@@ -4,6 +4,7 @@
 → 검증 → 격리 → 적재 → 시간대 집계 → 커버리지 → 상태 확정
 - 검증 이후 단계는 "미처리 회차 전체"를 처리 (임시 수집기·실패 회차 자동 흡수)
 - 부분 실패(일부 묶음)는 partial, 적재·집계·커버리지 실패는 DAG 실패
+- partial 은 오류율 등급(ok·warn·fatal)으로 구분, 일 호출 한도 오류는 재시도 없이 실패
 """
 
 from contextlib import closing
@@ -12,10 +13,10 @@ from datetime import datetime, timedelta, timezone
 import pendulum
 from airflow.sdk import DAG, CronTriggerTimetable, Label, task
 from airflow.sdk.exceptions import AirflowFailException
-from common import db, ops
+from common import api_usage, db, ops
 from common.assets import EV_TRAFFIC_OBS
 from config.default_args import DEFAULT_ARGS
-from hooks.seoul_openapi_hook import SeoulOpenApiHook
+from hooks.seoul_openapi_hook import LIMIT, SeoulOpenApiHook
 
 KST = "Asia/Seoul"
 TARGET_SET = "mvp_3gu_v1"
@@ -82,18 +83,20 @@ with DAG(
             )
         return chunks
 
-    # 묶음 수집: 링크 오류는 행으로 기록, 묶음 전체 실패만 Task 실패 (묶음 단위 재시도)
+    # 묶음 수집: 링크 오류는 행으로 기록, 묶음 전체 실패만 Task 실패 (묶음 단위 재시도, 한도 초과는 재시도 없음)
     @task(pool=API_POOL, queue="api", retries=3)
     def extract_chunk(chunk, **context):
         hook = SeoulOpenApiHook(api_key_var="apikey_seoul_traffic", timeout=10)
-        rows = []
+        rows, limited = [], False
         for link_id in chunk["links"]:
             r = hook.call("TrafficInfo", 1, 5, link_id, raise_on_error=False)  # 링크 오류는 행으로 기록
             row = r.rows[0] if r.rows else {}
+            limited = limited or r.is_limit
             rows.append((chunk["poll_batch_id"], link_id, context["dag_run"].run_id, chunk["chunk_no"],
                          datetime.now(timezone.utc), r.code, r.status, row.get("PRCS_SPD"), row.get("PRCS_TRV_TIME"),
                          r.resp_ms))  # fmt: skip
-        if all(r[6] == "api_error" for r in rows):
+        all_failed = all(r[6] == "api_error" for r in rows)
+        if all_failed and not limited:
             raise RuntimeError(f"묶음 {chunk['chunk_no']} 전체 실패: {rows[0][5]}")
         with closing(db.get_conn()) as conn, conn, conn.cursor() as cur:
             cur.executemany(
@@ -105,10 +108,15 @@ with DAG(
                        prcs_trv_time = EXCLUDED.prcs_trv_time, resp_ms = EXCLUDED.resp_ms""",
                 rows,
             )
-            cur.execute(
-                "UPDATE ops.poll_chunk SET status = 'done', done_at = now() WHERE poll_batch_id = %s AND chunk_no = %s",
-                (chunk["poll_batch_id"], chunk["chunk_no"]),
-            )
+            if not all_failed:
+                cur.execute(
+                    "UPDATE ops.poll_chunk SET status = 'done', done_at = now() "
+                    "WHERE poll_batch_id = %s AND chunk_no = %s",
+                    (chunk["poll_batch_id"], chunk["chunk_no"]),
+                )
+        # 한도 초과: 오류 행은 남기고 재시도 없이 실패 (당일 재호출 불가)
+        if all_failed:
+            raise AirflowFailException(f"묶음 {chunk['chunk_no']} 일 호출 한도 초과 ({LIMIT})")
         return {s: sum(1 for r in rows if r[6] == s) for s in ("ok", "no_data", "api_error")}
 
     # 검증: 일부 묶음 실패해도 성공분 진행, 처리 대상은 미처리 회차 전체
@@ -162,8 +170,20 @@ with DAG(
         # 부분 실패: 이번 회차 미처리, API 오류, 또는 실패 묶음으로 응답 수 < 대상 수
         answered = (cur["ok_cnt"] + cur["no_data_cnt"] + cur["api_error_cnt"] + cur["invalid_cnt"]) if cur else 0
         partial = cur is None or cur["api_error_cnt"] > 0 or answered < cur["target_cnt"]
-        detail = {"processed_batches": [c["poll_batch_id"] for c in coverage], "current": cur}
-        ops.record_run(context, "partial" if partial else "success", poll_batch_id, detail=detail)
+        # 오류율 등급·한도 오류 (partial 구분 근거)
+        rate = api_usage.error_rate(cur)
+        grade = api_usage.grade_error_rate(rate)
+        limit_errors = db.execute(
+            "SELECT count(*) AS n FROM staging.traffic_raw WHERE poll_batch_id = %s AND result_code = %s",
+            (poll_batch_id, LIMIT),
+            fetch=True,
+        )[0]["n"]
+        ops.record_quality(context, "api_error_rate", grade, rate, api_usage.WARN_ERROR_RATE, detail=cur)
+        ops.record_quality(context, "api_limit", api_usage.grade_limit(limit_errors, 0), limit_errors, 0)
+        detail = {"processed_batches": [c["poll_batch_id"] for c in coverage], "current": cur,
+                  "error_rate": rate, "error_grade": grade, "limit_errors": limit_errors}  # fmt: skip
+        reason = f"오류율 {rate:.2%} ({grade})" + (f", 한도 오류 {limit_errors}건" if limit_errors else "")
+        ops.record_run(context, "partial" if partial else "success", poll_batch_id, reason=reason, detail=detail)
 
     poll_batch_id = init_poll_batch()
     fresh = check_run_freshness()
