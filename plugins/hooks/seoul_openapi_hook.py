@@ -10,6 +10,7 @@ from airflow.sdk.log import mask_secret
 
 OK = "INFO-000"
 NO_DATA = "INFO-200"
+LIMIT = "ERROR-337"  # 일별 트래픽 제한 초과 (당일 재호출 불가)
 
 
 @dataclass
@@ -26,6 +27,11 @@ class ApiResult:
         if self.code == OK and self.rows:
             return "ok"
         return "no_data" if self.code == NO_DATA else "api_error"
+
+    # 일 호출 한도 초과
+    @property
+    def is_limit(self):
+        return self.code == LIMIT
 
 
 class SeoulOpenApiHook(BaseHook):
