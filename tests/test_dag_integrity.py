@@ -94,4 +94,5 @@ def test_single_all_done_leaf(dagbag):
 # SLA 감시: 기한 시각 직후 실행 (기한 = cron 시)
 def test_sla_watch_schedule(dagbag):
     dag = dagbag.dags["ev15_sla_watch"]
-    assert dag.timetable.summary == "5 6,8 * * *", dag.timetable.summary
+    expr = dag.timetable.serialize()["expression"]
+    assert expr == "5 6,8 * * *", expr
