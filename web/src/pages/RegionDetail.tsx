@@ -64,6 +64,9 @@ export function RegionDetail({ data, admCd }: { data: AppData; admCd: string }) 
         <Link to="/regions" className="back">
           ← 행정동 목록
         </Link>
+        <Link to={`/compare?ids=${r.adm_cd}`} className="back" style={{ marginLeft: 16 }}>
+          다른 동과 비교 →
+        </Link>
         <div className="kicker" style={{ marginTop: 14 }}>
           <span className="chip">{r.sgg_nm}</span>
           <span className="chip">행정동 코드 {r.adm_cd}</span>

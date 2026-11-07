@@ -14,7 +14,9 @@ export type IconName =
   | "plug"
   | "flag"
   | "users"
-  | "clock";
+  | "clock"
+  | "compare"
+  | "history";
 
 export interface NavItem {
   to: string;
@@ -43,7 +45,8 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { to: "/priority", label: "우선 검토 지역", icon: "star", desc: "충전소를 먼저 늘릴 동네" },
       { to: "/map", label: "지도", icon: "map", desc: "행정동 분류·도로 여건 지도" },
-      { to: "/regions", label: "행정동 목록", icon: "list", desc: "67곳 정렬·필터 표" },
+      { to: "/regions", label: "행정동 목록", icon: "list", desc: "67곳 정렬·필터 표·CSV" },
+      { to: "/compare", label: "동 비교", icon: "compare", desc: "2~3개 동 지표 나란히" },
     ],
   },
   {
@@ -62,6 +65,7 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { to: "/quality", label: "데이터 품질", icon: "shield", desc: "게시 상태·품질 관문", minRole: "operator" },
       { to: "/pipeline", label: "파이프라인 실행", icon: "activity", desc: "DAG 실행·수집 현황", minRole: "operator" },
+      { to: "/history", label: "게시 이력", icon: "history", desc: "게시별 우선 검토 변화·재처리 요청", minRole: "operator" },
       { to: "/progress", label: "개발 진행", icon: "flag", desc: "로드맵·병합 이력", minRole: "operator" },
       { to: "/versions", label: "데이터 버전", icon: "clock", desc: "원천별 기준일·게시·배포 버전", minRole: "operator", hideLocked: true },
     ],

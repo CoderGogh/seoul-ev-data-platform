@@ -12,6 +12,7 @@ const PAGE_PARTS: Record<string, Part[]> = {
   "/trend": ["reg"],
   "/road": ["road"],
   "/supply": ["charger"],
+  "/compare": ["ver", "reg", "road"],
 };
 
 // KST 월.일 (예: 11.03)

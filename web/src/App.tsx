@@ -25,6 +25,8 @@ import { Pipeline } from "./pages/Pipeline";
 import { Supply } from "./pages/Supply";
 import { ProgressPage } from "./pages/Progress";
 import { Versions } from "./pages/Versions";
+import { Compare } from "./pages/Compare";
+import { History } from "./pages/History";
 import { VersionStamp } from "./components/VersionStamp";
 import { stampFor } from "./versions";
 import { hasRole } from "./auth/roles";
@@ -46,6 +48,8 @@ const PAGES: Record<string, (props: { data: AppData }) => JSX.Element> = {
   "/supply": Supply,
   "/progress": ProgressPage,
   "/versions": Versions,
+  "/compare": Compare,
+  "/history": History,
 };
 
 // 데이터 없이 여는 화면 (로그인·관리)

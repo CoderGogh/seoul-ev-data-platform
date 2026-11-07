@@ -5,6 +5,7 @@ import { ClassBadge, HintBadge } from "../components/Badges";
 import { PageHead } from "../components/PageHead";
 import { RegionFilterBar, useRegionFilters } from "../components/RegionFilters";
 import { Link, navigate } from "../router";
+import { downloadCsv } from "../csv";
 
 type SortKey = "adm_nm" | "ev_cnt" | "ev_yoy_rate" | "low_spd_ratio" | "classification";
 
@@ -45,8 +46,17 @@ export function Regions({ data }: { data: AppData }) {
 
       <section className="card">
         <div className="card-head">
-          <h2>목록</h2>
-          <span className="card-sub">{sorted.length}곳 · 머리글을 누르면 정렬</span>
+          <div>
+            <h2>목록</h2>
+            <span className="card-sub">{sorted.length}곳 · 머리글을 누르면 정렬</span>
+          </div>
+          <button
+            type="button"
+            className="btn btn-sm"
+            onClick={() => downloadCsv(sorted, `seoul-ev-regions-${data.meta.base_month}.csv`)}
+          >
+            CSV 내려받기
+          </button>
         </div>
         <div className="table-wrap">
           <table>

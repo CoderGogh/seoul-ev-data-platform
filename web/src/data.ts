@@ -127,6 +127,36 @@ export interface Chargers {
   stations?: [number, number, number, number][]; // [경도, 위도, 승용 대수, 급속 대수], 이전 데이터엔 없음
 }
 
+// 게시 이력·재처리 요청 (history.json, 이전 데이터엔 없음)
+export interface PublishEntry {
+  base_month: string;
+  run_id: string;
+  published_at: string;
+  threshold_ver: string;
+  region_cnt: number;
+  request_id: number | null;
+  a_list: string[] | null; // 기록 전 게시는 null
+  class_dist: Record<string, number> | null;
+}
+
+export interface ReprocessEntry {
+  request_id: number;
+  scope: "registration" | "timeband" | "mart";
+  base_months: string[] | null;
+  date_from: string | null;
+  date_to: string | null;
+  force: boolean;
+  reason: string;
+  status: "requested" | "running" | "done" | "failed";
+  requested_at: string;
+  finished_at: string | null;
+}
+
+export interface History {
+  publishes: PublishEntry[];
+  reprocess: ReprocessEntry[];
+}
+
 // 개발 진행 (progress.json, scripts/export_progress.py)
 export interface ProgressIssue {
   title: string;
@@ -155,6 +185,7 @@ export interface DataSource {
 export interface AppData {
   source: DataSource;
   chargers: Chargers | null;
+  history: History | null;
   regions: Region[];
   monthly: Record<string, MonthlyPoint[]>;
   timeband: Record<string, TimebandPoint[]>;
@@ -174,16 +205,17 @@ async function fetchJson<T>(name: string, base = "/data/", f: Fetch = fetch): Pr
 }
 
 async function loadFrom(base: string, f: Fetch, chargersOptional: boolean) {
-  const [regions, monthly, timeband, geo, meta, chargers] = await Promise.all([
+  const [regions, monthly, timeband, geo, meta, chargers, history] = await Promise.all([
     fetchJson<Region[]>("regions", base, f),
     fetchJson<Record<string, MonthlyPoint[]>>("monthly", base, f),
     fetchJson<Record<string, TimebandPoint[]>>("timeband", base, f),
     fetchJson<AdmdongGeo>("admdong", base, f),
     fetchJson<Meta>("meta", base, f),
     chargersOptional ? fetchJson<Chargers>("chargers", base, f).catch(() => null) : fetchJson<Chargers>("chargers", base, f),
+    fetchJson<History>("history", base, f).catch(() => null), // 도입 전 데이터 호환
   ]);
   if (!Array.isArray(regions) || regions.length !== meta.region_cnt) throw new Error("행정동 수 불일치");
-  return { regions, monthly, timeband, geo, meta, chargers };
+  return { regions, monthly, timeband, geo, meta, chargers, history };
 }
 
 // 데이터 브랜치 최신 커밋 → 커밋 SHA 고정 주소 (CDN 캐시로 파일 버전이 섞이지 않게)

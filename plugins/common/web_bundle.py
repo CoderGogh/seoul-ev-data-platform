@@ -1,7 +1,7 @@
 # 웹 데이터 묶음: files/sqls/web/*.sql 실행 결과 → 검증 → 데이터 브랜치 파일 (web/*.json + manifest.json)
 from common import db
 
-REQUIRED = ("meta", "regions", "monthly", "timeband", "admdong", "chargers")
+REQUIRED = ("meta", "regions", "monthly", "timeband", "admdong", "chargers", "history")
 MAX_BYTES = 2_000_000  # 파일당 상한 (웹 첫 로드 크기)
 
 
@@ -34,6 +34,8 @@ def validate(bundle, sizes=None):
         problems.append("meta: 활성 임계값 없음")
     if len(chargers.get("by_dong") or []) != len(regions):
         problems.append(f"chargers: 동 {len(chargers.get('by_dong') or [])}곳 != {len(regions)}곳")
+    if not bundle["history"].get("publishes"):
+        problems.append("history: 게시 이력 없음")
     region_cds = {r["adm_cd"] for r in regions}
     # 월별 추세: 링크 있는 동은 필수 (링크 0개 동은 판단 보류로 게시만)
     no_series = {r["adm_cd"] for r in regions if r.get("link_cnt", 1) > 0} - set(bundle["monthly"])
