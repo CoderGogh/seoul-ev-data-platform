@@ -51,6 +51,15 @@ def _error_rate_field(u):
     )
 
 
+# 연속 보류 줄: 마지막 게시·무변경 이후 보류 일수
+def _hold_line(h):
+    if not h["days"]:
+        return f"*연속 보류*: 없음 (마지막 게시·무변경 {h['last_ok_day'] or '-'})"
+    return (
+        f"*연속 보류* :warning: {h['days']}일 ({h['held_since']}부터, 마지막 게시·무변경 {h['last_ok_day'] or '없음'})"
+    )
+
+
 # 충전기 줄: 마지막 확인일·최근 적재 건수·현재 대수, 누락 시 경고 표시
 def _charger_line(c, m):
     head = "*충전기*" + (" :warning: 확인 누락" if m["charger_missed"] else "")
@@ -114,6 +123,7 @@ with DAG(
             "SELECT master_type, version FROM core.master_version WHERE status = 'active' ORDER BY 1", fetch=True
         )
         charger = db.execute_file("ev12/charger_status.sql", fetch=True)[0]
+        hold = db.execute_file("ev12/hold_streak.sql", fetch=True)[0]
         usage = db.execute_file("ev12/api_usage.sql", {"hours": h["h"], "limit_code": LIMIT}, fetch=True)[0]
         return {
             "runs": runs,
@@ -121,6 +131,7 @@ with DAG(
             "publish": publish,
             "reg": {"latest": reg["latest"], "loaded_at": str(reg["loaded_at"])},
             "masters": masters,
+            "hold": {"days": hold["held_days"], **{k: hold[k] and str(hold[k]) for k in ("held_since", "last_ok_day")}},
             "usage": {k: (float(v) if v is not None else None) for k, v in usage.items()},
             "charger": {k: (str(v) if k in ("last_check_date", "load_date") and v else v) for k, v in charger.items()},
         }
@@ -216,6 +227,7 @@ with DAG(
                 ]
             ),  # fmt: skip
             sb.section_text(_charger_line(data["charger"], mismatch)),
+            sb.section_text(_hold_line(data["hold"])),
             sb.section_text("*게시 상태*: " + ", ".join(f"{p['base_month']} {p['status']}" for p in data["publish"])),
             sb.section_text(
                 "*활성 마스터*: " + ", ".join(f"{m['master_type']}={m['version']}" for m in data["masters"])
