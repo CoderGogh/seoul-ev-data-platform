@@ -44,6 +44,16 @@
   }
  ],
  "issues": {
+  "63": {
+   "title": "웹 vite 6.4.5 보안 패치",
+   "state": "CLOSED",
+   "closed_at": "2026-11-07T16:47:20Z",
+   "url": "https://github.com/CoderGogh/seoul-ev-data-platform/issues/63",
+   "labels": [
+    "area:web",
+    "priority:medium"
+   ]
+  },
   "57": {
    "title": "서비스 고도화 로드맵",
    "state": "OPEN",
@@ -135,8 +145,8 @@
   },
   "48": {
    "title": "웹 데이터 신선도 표시",
-   "state": "OPEN",
-   "closed_at": null,
+   "state": "CLOSED",
+   "closed_at": "2026-11-02T14:16:04Z",
    "url": "https://github.com/CoderGogh/seoul-ev-data-platform/issues/48",
    "labels": [
     "area:web",
@@ -145,8 +155,8 @@
   },
   "47": {
    "title": "수집 오류율 기준과 API 호출 한도 감시",
-   "state": "OPEN",
-   "closed_at": null,
+   "state": "CLOSED",
+   "closed_at": "2026-11-07T16:55:21Z",
    "url": "https://github.com/CoderGogh/seoul-ev-data-platform/issues/47",
    "labels": [
     "area:pipeline",
@@ -155,8 +165,8 @@
   },
   "46": {
    "title": "ev12 리포트에 ev04 반영",
-   "state": "OPEN",
-   "closed_at": null,
+   "state": "CLOSED",
+   "closed_at": "2026-11-07T16:50:44Z",
    "url": "https://github.com/CoderGogh/seoul-ev-data-platform/issues/46",
    "labels": [
     "area:pipeline",
@@ -165,8 +175,8 @@
   },
   "45": {
    "title": "게시 지연(SLA) 알림",
-   "state": "OPEN",
-   "closed_at": null,
+   "state": "CLOSED",
+   "closed_at": "2026-11-07T17:02:59Z",
    "url": "https://github.com/CoderGogh/seoul-ev-data-platform/issues/45",
    "labels": [
     "area:pipeline",
@@ -175,8 +185,8 @@
   },
   "44": {
    "title": "분포 급변 경보",
-   "state": "OPEN",
-   "closed_at": null,
+   "state": "CLOSED",
+   "closed_at": "2026-11-07T17:07:00Z",
    "url": "https://github.com/CoderGogh/seoul-ev-data-platform/issues/44",
    "labels": [
     "area:pipeline",
@@ -235,8 +245,8 @@
   },
   "38": {
    "title": "웹 결과 자동 내보내기 DAG (ev14)",
-   "state": "OPEN",
-   "closed_at": null,
+   "state": "CLOSED",
+   "closed_at": "2026-11-02T14:40:15Z",
    "url": "https://github.com/CoderGogh/seoul-ev-data-platform/issues/38",
    "labels": [
     "area:pipeline",
@@ -245,8 +255,8 @@
   },
   "37": {
    "title": "ev03 충전기 공급 지표·분류 v3",
-   "state": "OPEN",
-   "closed_at": null,
+   "state": "CLOSED",
+   "closed_at": "2026-11-02T11:29:51Z",
    "url": "https://github.com/CoderGogh/seoul-ev-data-platform/issues/37",
    "labels": [
     "area:analysis",
@@ -265,6 +275,127 @@
   }
  },
  "merged": [
+  {
+   "number": 76,
+   "title": "feat: ev03 분포 급변 경보",
+   "merged_at": "2026-11-07T17:06:58Z",
+   "url": "https://github.com/CoderGogh/seoul-ev-data-platform/pull/76",
+   "closes": [
+    44
+   ]
+  },
+  {
+   "number": 75,
+   "title": "feat: ev15 게시 지연(SLA) 알림",
+   "merged_at": "2026-11-07T17:02:58Z",
+   "url": "https://github.com/CoderGogh/seoul-ev-data-platform/pull/75",
+   "closes": [
+    45
+   ]
+  },
+  {
+   "number": 74,
+   "title": "feat: ev01 오류율 등급과 호출 한도 감시",
+   "merged_at": "2026-11-07T16:55:20Z",
+   "url": "https://github.com/CoderGogh/seoul-ev-data-platform/pull/74",
+   "closes": [
+    47
+   ]
+  },
+  {
+   "number": 73,
+   "title": "feat: ev12 리포트에 ev04 충전기 반영",
+   "merged_at": "2026-11-07T16:50:43Z",
+   "url": "https://github.com/CoderGogh/seoul-ev-data-platform/pull/73",
+   "closes": [
+    46
+   ]
+  },
+  {
+   "number": 72,
+   "title": "build: 웹 vite 6.4.5 보안 패치",
+   "merged_at": "2026-11-07T16:47:19Z",
+   "url": "https://github.com/CoderGogh/seoul-ev-data-platform/pull/72",
+   "closes": [
+    63
+   ]
+  },
+  {
+   "number": 71,
+   "title": "docs: README 결과 중심 정리·DAG 관계도 갱신",
+   "merged_at": "2026-11-04T04:50:13Z",
+   "url": "https://github.com/CoderGogh/seoul-ev-data-platform/pull/71",
+   "closes": []
+  },
+  {
+   "number": 70,
+   "title": "fix: 웹 상단 메뉴 패널 클릭·이탈 시 닫힘",
+   "merged_at": "2026-11-03T05:53:00Z",
+   "url": "https://github.com/CoderGogh/seoul-ev-data-platform/pull/70",
+   "closes": []
+  },
+  {
+   "number": 69,
+   "title": "feat: 웹 상단 큰 카테고리·내려오는 메뉴·카테고리별 왼쪽 바",
+   "merged_at": "2026-11-03T05:47:06Z",
+   "url": "https://github.com/CoderGogh/seoul-ev-data-platform/pull/69",
+   "closes": []
+  },
+  {
+   "number": 68,
+   "title": "feat: 웹 데이터 버전 화면(운영 이상)·하단 버전 표시",
+   "merged_at": "2026-11-03T05:41:00Z",
+   "url": "https://github.com/CoderGogh/seoul-ev-data-platform/pull/68",
+   "closes": []
+  },
+  {
+   "number": 67,
+   "title": "feat: 웹 포털형 레이아웃(상단 바·카테고리 탭·좌우 바·바로가기)",
+   "merged_at": "2026-11-03T05:33:15Z",
+   "url": "https://github.com/CoderGogh/seoul-ev-data-platform/pull/67",
+   "closes": []
+  },
+  {
+   "number": 66,
+   "title": "feat: 웹 Google·카카오 로그인·역할 관리",
+   "merged_at": "2026-11-03T05:22:07Z",
+   "url": "https://github.com/CoderGogh/seoul-ev-data-platform/pull/66",
+   "closes": []
+  },
+  {
+   "number": 65,
+   "title": "feat: 웹 사이드바 접기·상단 바·기준일 칩",
+   "merged_at": "2026-11-03T03:31:49Z",
+   "url": "https://github.com/CoderGogh/seoul-ev-data-platform/pull/65",
+   "closes": []
+  },
+  {
+   "number": 64,
+   "title": "feat: ev14 웹 데이터 자동 게시",
+   "merged_at": "2026-11-02T14:40:13Z",
+   "url": "https://github.com/CoderGogh/seoul-ev-data-platform/pull/64",
+   "closes": [
+    38
+   ]
+  },
+  {
+   "number": 62,
+   "title": "feat: 웹 데이터 신선도 표시",
+   "merged_at": "2026-11-02T14:16:01Z",
+   "url": "https://github.com/CoderGogh/seoul-ev-data-platform/pull/62",
+   "closes": [
+    48
+   ]
+  },
+  {
+   "number": 61,
+   "title": "feat: 충전기 공급 지표·분류 v3",
+   "merged_at": "2026-11-02T11:29:49Z",
+   "url": "https://github.com/CoderGogh/seoul-ev-data-platform/pull/61",
+   "closes": [
+    37
+   ]
+  },
   {
    "number": 60,
    "title": "feat: 웹 충전기 공급·개발 진행 화면 추가",
@@ -372,111 +503,6 @@
    "title": "docs: README 결과·전체 구조 중심으로 재구성",
    "merged_at": "2026-10-29T09:08:33Z",
    "url": "https://github.com/CoderGogh/seoul-ev-data-platform/pull/24",
-   "closes": []
-  },
-  {
-   "number": 23,
-   "title": "docs: README에 RUNNING.md 링크 추가",
-   "merged_at": "2026-10-29T08:51:47Z",
-   "url": "https://github.com/CoderGogh/seoul-ev-data-platform/pull/23",
-   "closes": []
-  },
-  {
-   "number": 22,
-   "title": "docs: running.md 파일명 RUNNING.md로 변경",
-   "merged_at": "2026-10-29T08:47:09Z",
-   "url": "https://github.com/CoderGogh/seoul-ev-data-platform/pull/22",
-   "closes": []
-  },
-  {
-   "number": 21,
-   "title": "fix: 충전소 유형 표기를 도로 여건으로 변경",
-   "merged_at": "2026-10-28T07:19:24Z",
-   "url": "https://github.com/CoderGogh/seoul-ev-data-platform/pull/21",
-   "closes": []
-  },
-  {
-   "number": 20,
-   "title": "feat: 등록 13개월 백필과 월별 증가 양상 지표",
-   "merged_at": "2026-10-28T07:11:02Z",
-   "url": "https://github.com/CoderGogh/seoul-ev-data-platform/pull/20",
-   "closes": []
-  },
-  {
-   "number": 19,
-   "title": "feat: 도로 지표를 충전소 유형 참고로 재정의",
-   "merged_at": "2026-10-28T06:03:40Z",
-   "url": "https://github.com/CoderGogh/seoul-ev-data-platform/pull/19",
-   "closes": []
-  },
-  {
-   "number": 18,
-   "title": "feat: ev01·ev03 분기 Edge Label 추가",
-   "merged_at": "2026-10-27T14:01:31Z",
-   "url": "https://github.com/CoderGogh/seoul-ev-data-platform/pull/18",
-   "closes": []
-  },
-  {
-   "number": 17,
-   "title": "chore: 개인 정리 문서 gitignore 등록",
-   "merged_at": "2026-10-27T11:06:29Z",
-   "url": "https://github.com/CoderGogh/seoul-ev-data-platform/pull/17",
-   "closes": []
-  },
-  {
-   "number": 16,
-   "title": "docs: 설계서 v0.3 (구현·실행 검증 반영)",
-   "merged_at": "2026-10-27T10:52:06Z",
-   "url": "https://github.com/CoderGogh/seoul-ev-data-platform/pull/16",
-   "closes": []
-  },
-  {
-   "number": 15,
-   "title": "fix: MVP 분석 기간 끝을 제출일 정오로 조정",
-   "merged_at": "2026-10-27T10:49:12Z",
-   "url": "https://github.com/CoderGogh/seoul-ev-data-platform/pull/15",
-   "closes": []
-  },
-  {
-   "number": 14,
-   "title": "feat: ev13 조건부 보존 정리 DAG 추가",
-   "merged_at": "2026-10-27T10:47:26Z",
-   "url": "https://github.com/CoderGogh/seoul-ev-data-platform/pull/14",
-   "closes": []
-  },
-  {
-   "number": 13,
-   "title": "feat: Rshiny 대시보드 추가",
-   "merged_at": "2026-10-27T10:39:31Z",
-   "url": "https://github.com/CoderGogh/seoul-ev-data-platform/pull/13",
-   "closes": []
-  },
-  {
-   "number": 12,
-   "title": "feat: ev11 재처리 진입점 DAG 추가",
-   "merged_at": "2026-10-27T10:37:13Z",
-   "url": "https://github.com/CoderGogh/seoul-ev-data-platform/pull/12",
-   "closes": []
-  },
-  {
-   "number": 11,
-   "title": "feat: ev12 품질 리포트 DAG 추가",
-   "merged_at": "2026-10-27T10:34:31Z",
-   "url": "https://github.com/CoderGogh/seoul-ev-data-platform/pull/11",
-   "closes": []
-  },
-  {
-   "number": 10,
-   "title": "refactor: 서울 OpenAPI 커스텀 Hook·Sensor 분리",
-   "merged_at": "2026-10-27T10:32:16Z",
-   "url": "https://github.com/CoderGogh/seoul-ev-data-platform/pull/10",
-   "closes": []
-  },
-  {
-   "number": 9,
-   "title": "feat: ev03 통합 마트 DAG 추가",
-   "merged_at": "2026-10-27T10:07:32Z",
-   "url": "https://github.com/CoderGogh/seoul-ev-data-platform/pull/9",
    "closes": []
   }
  ]
