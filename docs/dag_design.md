@@ -368,6 +368,7 @@ validate_request ─▶ register_request ─▶ route_scope (branch)
 - 기본 최근 24시간 (`params.hours`)
 - 불일치 = Airflow는 성공인데 데이터는 `partial`·`held`·`publication_delayed`·`skipped_stale`·`no_eligible_period` 등
 - `ops` 기록이 없는 실행, ev01 회차 수(기대 48회/일)도 함께 보고
+- 충전기 줄: ev04 마지막 확인일(무변경 포함)·최근 적재 신규/변경/소멸·현재 대수. 기대 1회/일보다 적거나 당일 확인이 없으면 `charger_daily` 경고
 - 10/28 리포트에서 불일치 17건 탐지 (ev01 `partial`, ev03 `held`)
 
 ### 4.8 ev13 보존 정리
