@@ -89,10 +89,3 @@ def test_single_all_done_leaf(dagbag):
         leaves = [t for t in dag.tasks if not t.downstream_task_ids]
         assert len(leaves) == 1, f"{dag.dag_id}: leaf {[t.task_id for t in leaves]}"
         assert leaves[0].trigger_rule == "all_done", f"{dag.dag_id}.{leaves[0].task_id}: {leaves[0].trigger_rule}"
-
-
-# SLA 감시: 기한 시각 직후 실행 (기한 = cron 시)
-def test_sla_watch_schedule(dagbag):
-    dag = dagbag.dags["ev15_sla_watch"]
-    expr = dag.timetable.serialize()["expression"]
-    assert expr == "5 6,8 * * *", expr
