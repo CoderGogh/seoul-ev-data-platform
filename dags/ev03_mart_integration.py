@@ -12,7 +12,7 @@ from airflow.providers.slack.hooks.slack_webhook import SlackWebhookHook
 from airflow.providers.standard.operators.empty import EmptyOperator
 from airflow.sdk import DAG, AssetOrTimeSchedule, CronTriggerTimetable, Label, Param, TaskGroup, task
 from airflow.sdk.exceptions import AirflowFailException
-from common import db, ops
+from common import db, drift, ops
 from common.assets import EV_MART_PUBLISHED, EV_MASTER_VERSION, EV_REG_SNAPSHOT
 from config.default_args import DEFAULT_ARGS
 
@@ -230,6 +230,28 @@ with DAG(
         ops.record_quality(context, "candidate_complete", "ok" if ok else "fatal", r["n"], r["expected"], detail=r)
         if not ok:
             raise AirflowFailException(f"후보 불완전: {r}")
+        _check_drift(context)
+
+    # 직전 게시 대비 분포 급변: 경고 기록·알림만 (게시 차단 없음)
+    def _check_drift(context):
+        rows = db.execute_file("ev03/drift_rows.sql", _run_args(context), fetch=True)
+        prev = [r for r in rows if r["side"] == "prev"]
+        checks = drift.evaluate(prev, [r for r in rows if r["side"] == "cand"])
+        base = prev[0]["base_month"] if prev else None
+        for c in checks:
+            ops.record_quality(
+                context, c["name"], c["grade"], c["metric"], c["threshold"],
+                detail={"baseline": base, **c.get("detail", {})},
+            )  # fmt: skip
+        warned = [c for c in checks if c["grade"] != "ok"]
+        if warned:
+            msg = ", ".join(f"{c['name']}={c['metric']}" for c in warned)
+            try:
+                SlackWebhookHook(slack_webhook_conn_id="conn_slack_airflow_bot").send(
+                    text=f"[ev03] {_info(context)['base_month']} 분포 급변 경고 (직전 {base}): {msg}"
+                )
+            except Exception:  # 알림 실패는 판정에 영향 없음
+                pass
 
     # 파티션 교체 + 계보 단일 트랜잭션, 성공 시에만 Asset 이벤트
     @task(outlets=[EV_MART_PUBLISHED])
