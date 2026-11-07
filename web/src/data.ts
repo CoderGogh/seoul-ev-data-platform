@@ -20,6 +20,7 @@ export interface Region {
   link_cnt: number;
   road_len_km: number;
   coverage: number;
+  valid_timebands?: number; // 이전 데이터엔 없음
   avg_spd: number;
   speed_cv: number;
   low_spd_ratio: number;
@@ -269,6 +270,12 @@ export const REASON_LABEL: Record<string, string> = {
   b_suppressed_no_source_time: "원천에 관측 시각이 없어 B 유형 판정은 비활성",
   supply_sufficient: "전기차 대수·증가율 기준은 넘었지만 충전기가 이미 충분해 우선 검토에서 제외",
   supply_period_mismatch: "충전기 이력이 11월 2일부터라 기준월 말일 대신 첫 수집일 공급을 사용 (MVP 예외)",
+  no_registration: "등록 데이터 없음 (판단 보류)",
+  no_links: "수집 대상 도로 없음 (판단 보류)",
+  few_links: "수집 도로가 기준보다 적음",
+  low_coverage: "관측 커버리지가 기준보다 낮음",
+  few_timebands: "유효 시간대가 기준보다 적음",
+  no_prev_year: "전년 동월 등록 없음 (증가율 계산 불가)",
 };
 
 export const GROWTH_DESC: Record<string, string> = {

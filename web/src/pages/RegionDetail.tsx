@@ -17,6 +17,7 @@ import { ClassBadge, HintBadge } from "../components/Badges";
 import { RegionMap } from "../components/RegionMap";
 import { Tip, chartTipStyle } from "../components/Tip";
 import { Link, navigate } from "../router";
+import { verdict, type Verdict } from "../verdict";
 
 const axisProps = {
   stroke: "var(--axis)",
@@ -74,6 +75,8 @@ export function RegionDetail({ data, admCd }: { data: AppData; admCd: string }) 
           {r.growth_pattern && <span className="badge">{r.growth_pattern}</span>}
         </div>
       </section>
+
+      <VerdictCard v={verdict(r, p)} />
 
       <div className="grid-2">
         <section className="card">
@@ -258,6 +261,54 @@ export function RegionDetail({ data, admCd }: { data: AppData; admCd: string }) 
         </section>
       </div>
     </div>
+  );
+}
+
+const STATE_LABEL = { pass: "충족", fail: "미달", skip: "-" } as const;
+
+// 판정 근거: 단계별 기준·값·거리, 멈춘 단계에서 끝남
+function VerdictCard({ v }: { v: Verdict }) {
+  return (
+    <section className="card verdict">
+      <div className="card-head">
+        <div>
+          <h2>판정 근거</h2>
+          <p className="card-sub">{v.summary}</p>
+        </div>
+      </div>
+      <div className="verdict-steps">
+        {v.steps.map((s) => (
+          <div key={s.title} className="verdict-step">
+            <div className="verdict-title">
+              <b>{s.title}</b>
+              <span className="verdict-outcome">{s.outcome}</span>
+            </div>
+            <table className="verdict-table">
+              <colgroup>
+                <col style={{ width: "22%" }} />
+                <col style={{ width: "16%" }} />
+                <col style={{ width: "24%" }} />
+                <col style={{ width: "10%" }} />
+                <col />
+              </colgroup>
+              <tbody>
+                {s.checks.map((c) => (
+                  <tr key={c.label}>
+                    <th scope="row">{c.label}</th>
+                    <td className="num">{c.value}</td>
+                    <td className="muted rule">{c.rule}</td>
+                    <td>
+                      <span className={`pass${c.state === "pass" ? "" : " no"}`}>{c.tag ?? STATE_LABEL[c.state]}</span>
+                    </td>
+                    <td className="muted">{c.gap ?? ""}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }
 
