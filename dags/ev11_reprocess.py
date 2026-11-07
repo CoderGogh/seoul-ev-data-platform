@@ -110,8 +110,8 @@ with DAG(
         p = context["params"]
         batches = db.execute(
             """SELECT DISTINCT poll_batch_id FROM core.traffic_obs
-               WHERE (collected_at AT TIME ZONE 'Asia/Seoul')::date
-                     BETWEEN %(date_from)s::date AND %(date_to)s::date""",
+               WHERE collected_at >= (%(date_from)s::date::timestamp AT TIME ZONE 'Asia/Seoul')
+                 AND collected_at < ((%(date_to)s::date + 1)::timestamp AT TIME ZONE 'Asia/Seoul')""",  # 파티션 프루닝
             p,
             fetch=True,
         )
