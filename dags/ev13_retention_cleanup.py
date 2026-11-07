@@ -42,6 +42,13 @@ with DAG(
             protected = r["expired"] - r["deletable"]
             ops.record_quality(context, "retention", "ok" if not protected else "warn", r["deletable"], r["expired"],
                                scope_key=r["target"], detail=r)  # fmt: skip
+        # 관측 이력 월 파티션 통째 삭제 대상 (행 단위 건수와 별도 기록)
+        parts = db.execute(
+            "SELECT * FROM core.drop_expired_traffic_obs_partitions(%(d)s, true)",
+            {"d": context["params"]["retention_days"]},
+            fetch=True,
+        )
+        ops.record_quality(context, "retention_partition", "ok", len(parts), None, detail={"partitions": parts})
         return rows
 
     @task.branch

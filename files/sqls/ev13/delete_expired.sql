@@ -23,6 +23,9 @@ DELETE FROM quarantine.traffic_record WHERE created_at < now() - make_interval(d
 
 DELETE FROM quarantine.registration_record WHERE created_at < now() - make_interval(days => %(retention_days)s);
 
+-- 관측 이력: 달 전체 삭제 가능하면 파티션 삭제, 남은 달은 행 단위
+SELECT * FROM core.drop_expired_traffic_obs_partitions(%(retention_days)s, false);
+
 DELETE FROM core.traffic_obs o
 WHERE o.collected_at < now() - make_interval(days => %(retention_days)s)
   AND EXISTS (SELECT 1 FROM core.link_timeband lt
