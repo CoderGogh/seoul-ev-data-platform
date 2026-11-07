@@ -28,6 +28,7 @@ DO $$
 DECLARE
     lo timestamptz;
     hi timestamptz;
+    span interval;
 BEGIN
     IF (SELECT relkind FROM pg_class WHERE oid = 'core.traffic_obs'::regclass) = 'r' THEN
         ALTER TABLE core.traffic_obs RENAME TO traffic_obs_old;
@@ -44,9 +45,9 @@ BEGIN
             PRIMARY KEY (link_id, poll_batch_id, collected_at)
         ) PARTITION BY RANGE (collected_at);
         SELECT min(collected_at), max(collected_at) INTO lo, hi FROM core.traffic_obs_old;
+        span := age(date_trunc('month', coalesce(hi, now())), date_trunc('month', coalesce(lo, now())));
         PERFORM core.ensure_traffic_obs_partitions(coalesce(lo, now()),
-            coalesce(((extract(year FROM age(date_trunc('month', hi), date_trunc('month', lo))) * 12
-                       + extract(month FROM age(date_trunc('month', hi), date_trunc('month', lo))))::int + 1, 1));
+                                                   (extract(year FROM span) * 12 + extract(month FROM span))::int + 1);
         INSERT INTO core.traffic_obs SELECT * FROM core.traffic_obs_old;
         DROP TABLE core.traffic_obs_old;
     END IF;
