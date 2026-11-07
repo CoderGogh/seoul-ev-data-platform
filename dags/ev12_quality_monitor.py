@@ -19,6 +19,8 @@ from config.default_args import DEFAULT_ARGS
 KST = "Asia/Seoul"
 META_CONN = "conn_db_postgres_airflow"
 EXPECTED_EV01_PER_DAY = 48  # 30분 주기
+EXPECTED_EV04_PER_DAY = 1  # 05:00 일 배치
+MAX_CHARGER_LAG_DAYS = 0  # 리포트(08:00) 시점에 당일 확인 필요
 DATA_ISSUES = ("partial", "held", "failed", "publication_delayed", "skipped_stale", "no_eligible_period")
 FINAL_TASKS = ["collect_airflow_runs", "collect_data_status", "detect_mismatch", "build_report", "send_slack"]
 
@@ -28,6 +30,21 @@ def _meta_query(sql, params):
         cur.execute(sql, params)
         cols = [d[0] for d in cur.description]
         return [dict(zip(cols, r)) for r in cur.fetchall()]
+
+
+# 충전기 줄: 마지막 확인일·최근 적재 건수·현재 대수, 누락 시 경고 표시
+def _charger_line(c, m):
+    head = "*충전기*" + (" :warning: 확인 누락" if m["charger_missed"] else "")
+    check = (
+        f"마지막 확인 {c['last_check_date'] or '없음'} ({c['last_status'] or '-'}), "
+        f"실행 {m['ev04_runs']} / 기대 {m['ev04_expected']}"
+    )
+    load = (
+        f"최근 적재 {c['load_date']} 신규 {c['new_cnt']}·변경 {c['changed_cnt']}·소멸 {c['closed_cnt']} ({c['quality_grade']})"
+        if c["load_date"]
+        else "적재 이력 없음"
+    )
+    return f"{head}: {check}\n{load}, 현재 {c['current_cnt']}대"
 
 
 with DAG(
@@ -52,7 +69,7 @@ with DAG(
         )
         return [{**r, "start_date": str(r["start_date"]), "end_date": str(r["end_date"])} for r in rows]
 
-    # 데이터 상태 (ops): 실행 결과·커버리지·게시·등록 최신성·활성 마스터
+    # 데이터 상태 (ops): 실행 결과·커버리지·게시·등록 최신성·활성 마스터·충전기
     @task
     def collect_data_status(**context):
         h = {"h": context["params"]["hours"]}
@@ -77,15 +94,17 @@ with DAG(
         masters = db.execute(
             "SELECT master_type, version FROM core.master_version WHERE status = 'active' ORDER BY 1", fetch=True
         )
+        charger = db.execute_file("ev12/charger_status.sql", fetch=True)[0]
         return {
             "runs": runs,
             "coverage": {k: (float(v) if v is not None else None) for k, v in cov.items()},
             "publish": publish,
             "reg": {"latest": reg["latest"], "loaded_at": str(reg["loaded_at"])},
             "masters": masters,
+            "charger": {k: (str(v) if k in ("last_check_date", "load_date") and v else v) for k, v in charger.items()},
         }
 
-    # 불일치: Airflow 성공 + 데이터 문제 / 데이터 기록 누락 / 수집 회차 부족
+    # 불일치: Airflow 성공 + 데이터 문제 / 데이터 기록 누락 / 수집 회차 부족 / 충전기 확인 누락
     @task
     def detect_mismatch(airflow_runs, data, **context):
         data_by_run = {(r["dag_id"], r["run_id"]): r for r in data["runs"]}
@@ -103,9 +122,22 @@ with DAG(
         ]  # fmt: skip
         ev01_runs = sum(1 for a in airflow_runs if a["dag_id"] == "ev01_traffic_collect")
         expected = EXPECTED_EV01_PER_DAY * context["params"]["hours"] // 24
-        result = {"silent_issues": silent, "unrecorded": unrecorded, "ev01_runs": ev01_runs, "ev01_expected": expected}
+        # 충전기: 실행 회차 + 마지막 확인일 (무변경 포함)
+        ev04_runs = sum(1 for a in airflow_runs if a["dag_id"] == "ev04_charger_daily")
+        ev04_expected = EXPECTED_EV04_PER_DAY * context["params"]["hours"] // 24
+        lag = data["charger"]["lag_days"]
+        charger_missed = ev04_runs < ev04_expected or lag is None or lag > MAX_CHARGER_LAG_DAYS
+        result = {
+            "silent_issues": silent, "unrecorded": unrecorded, "ev01_runs": ev01_runs, "ev01_expected": expected,
+            "ev04_runs": ev04_runs, "ev04_expected": ev04_expected, "charger_lag_days": lag,
+            "charger_missed": charger_missed,
+        }  # fmt: skip
         grade = "warn" if silent or unrecorded or ev01_runs < expected else "ok"
         ops.record_quality(context, "state_mismatch", grade, len(silent) + len(unrecorded), 0, detail=result)
+        ops.record_quality(
+            context, "charger_daily", "warn" if charger_missed else "ok", lag, MAX_CHARGER_LAG_DAYS,
+            detail={"ev04_runs": ev04_runs, "ev04_expected": ev04_expected, **data["charger"]},
+        )  # fmt: skip
         return result
 
     @task
@@ -148,6 +180,7 @@ with DAG(
                     f"*등록 최신 기준월*: {data['reg']['latest']}",
                 ]
             ),  # fmt: skip
+            sb.section_text(_charger_line(data["charger"], mismatch)),
             sb.section_text("*게시 상태*: " + ", ".join(f"{p['base_month']} {p['status']}" for p in data["publish"])),
             sb.section_text(
                 "*활성 마스터*: " + ", ".join(f"{m['master_type']}={m['version']}" for m in data["masters"])
