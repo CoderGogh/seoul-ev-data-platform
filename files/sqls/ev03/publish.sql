@@ -13,11 +13,16 @@ SELECT * FROM mart.candidate_admdong_timeband WHERE run_id = %(run_id)s;
 
 INSERT INTO ops.publish_log (base_month, run_id, fingerprint, reg_load_id, prev_reg_load_id, link_ver, boundary_ver,
                              threshold_ver, target_set, traffic_window_start, traffic_window_end, period_mismatch,
-                             region_cnt, request_id)
+                             region_cnt, request_id, a_list, class_dist)
 SELECT %(base_month)s, %(run_id)s, %(fingerprint)s, %(reg_load_id)s, %(prev_load_id)s, %(link_ver)s,
        %(boundary_ver)s, %(threshold_ver)s, %(target_set)s, %(window_start)s::timestamptz,
        %(window_end)s::timestamptz, true,
-       (SELECT count(*) FROM mart.candidate_admdong_indicator WHERE run_id = %(run_id)s), %(request_id)s;
+       (SELECT count(*) FROM mart.candidate_admdong_indicator WHERE run_id = %(run_id)s), %(request_id)s,
+       (SELECT coalesce(array_agg(adm_cd ORDER BY adm_cd), '{}') FROM mart.candidate_admdong_indicator
+        WHERE run_id = %(run_id)s AND classification = 'A'),
+       (SELECT jsonb_object_agg(classification, n) FROM (
+            SELECT classification, count(*) AS n FROM mart.candidate_admdong_indicator
+            WHERE run_id = %(run_id)s GROUP BY 1) d);
 
 INSERT INTO ops.publish_status (base_month, status, last_published_run, last_published_at, reason, updated_at)
 VALUES (%(base_month)s, 'current', %(run_id)s, now(), NULL, now())
