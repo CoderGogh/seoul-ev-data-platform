@@ -16,6 +16,7 @@ MAX_ACTIVE_RUNS = {
     "ev10_master_refresh": 1,
     "ev11_reprocess": 1,
     "ev12_quality_monitor": 1,
+    "ev15_sla_watch": 1,
 }
 # 외부 API 호출 Task의 Pool·큐
 API_TASKS = {
@@ -82,9 +83,15 @@ def test_single_all_done_leaf(dagbag):
     for dag in dags(dagbag):
         if dag.dag_id not in (
             "ev01_traffic_collect", "ev02_registration_monthly", "ev03_mart_integration", "ev04_charger_daily",
-            "ev14_web_publish",
+            "ev14_web_publish", "ev15_sla_watch",
         ):  # fmt: skip
             continue
         leaves = [t for t in dag.tasks if not t.downstream_task_ids]
         assert len(leaves) == 1, f"{dag.dag_id}: leaf {[t.task_id for t in leaves]}"
         assert leaves[0].trigger_rule == "all_done", f"{dag.dag_id}.{leaves[0].task_id}: {leaves[0].trigger_rule}"
+
+
+# SLA 감시: 기한 시각 직후 실행 (기한 = cron 시)
+def test_sla_watch_schedule(dagbag):
+    dag = dagbag.dags["ev15_sla_watch"]
+    assert dag.timetable.summary == "5 6,8 * * *", dag.timetable.summary
