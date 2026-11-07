@@ -11,16 +11,18 @@ import config.slack_block_builder as sb
 import pendulum
 from airflow.providers.postgres.hooks.postgres import PostgresHook
 from airflow.providers.slack.hooks.slack_webhook import SlackWebhookHook
-from airflow.sdk import DAG, CronTriggerTimetable, Param, task
+from airflow.sdk import DAG, CronTriggerTimetable, Param, Variable, task
 from airflow.sdk.exceptions import AirflowFailException
-from common import db, ops
+from common import api_usage, db, ops
 from config.default_args import DEFAULT_ARGS
+from hooks.seoul_openapi_hook import LIMIT
 
 KST = "Asia/Seoul"
 META_CONN = "conn_db_postgres_airflow"
 EXPECTED_EV01_PER_DAY = 48  # 30분 주기
 EXPECTED_EV04_PER_DAY = 1  # 05:00 일 배치
 MAX_CHARGER_LAG_DAYS = 0  # 리포트(08:00) 시점에 당일 확인 필요
+LIMIT_VAR = "ev01_daily_call_limit"  # 일 호출 한도 (미설정 시 한도 오류만 감시)
 DATA_ISSUES = ("partial", "held", "failed", "publication_delayed", "skipped_stale", "no_eligible_period")
 FINAL_TASKS = ["collect_airflow_runs", "collect_data_status", "detect_mismatch", "build_report", "send_slack"]
 
@@ -30,6 +32,23 @@ def _meta_query(sql, params):
         cur.execute(sql, params)
         cols = [d[0] for d in cur.description]
         return [dict(zip(cols, r)) for r in cur.fetchall()]
+
+
+# 호출량 칸: 하루 환산 호출량·한도, 한도 오류
+def _usage_field(u, m):
+    limit = f" / 한도 {m['daily_limit']:,}" if m["daily_limit"] else ""
+    warn = " :warning:" if m["limit_grade"] != "ok" else ""
+    return f"*호출량*{warn}: 하루 {m['daily_calls']:,}건{limit}, 한도 오류 {int(u['limit_errors'])}건"
+
+
+# 오류율 칸: 회차 등급 분포·p50/p95/최대
+def _error_rate_field(u):
+    if not u["batches"]:
+        return "*오류율*: 기록 없음"
+    return (
+        f"*오류율 등급*: ok {int(u['ok_cnt'])}·warn {int(u['warn_cnt'])}·fatal {int(u['fatal_cnt'])}\n"
+        f"p50 {u['p50']:.1%} / p95 {u['p95']:.1%} / 최대 {u['max']:.1%}"
+    )
 
 
 # 충전기 줄: 마지막 확인일·최근 적재 건수·현재 대수, 누락 시 경고 표시
@@ -95,12 +114,14 @@ with DAG(
             "SELECT master_type, version FROM core.master_version WHERE status = 'active' ORDER BY 1", fetch=True
         )
         charger = db.execute_file("ev12/charger_status.sql", fetch=True)[0]
+        usage = db.execute_file("ev12/api_usage.sql", {"hours": h["h"], "limit_code": LIMIT}, fetch=True)[0]
         return {
             "runs": runs,
             "coverage": {k: (float(v) if v is not None else None) for k, v in cov.items()},
             "publish": publish,
             "reg": {"latest": reg["latest"], "loaded_at": str(reg["loaded_at"])},
             "masters": masters,
+            "usage": {k: (float(v) if v is not None else None) for k, v in usage.items()},
             "charger": {k: (str(v) if k in ("last_check_date", "load_date") and v else v) for k, v in charger.items()},
         }
 
@@ -132,6 +153,18 @@ with DAG(
             "ev04_runs": ev04_runs, "ev04_expected": ev04_expected, "charger_lag_days": lag,
             "charger_missed": charger_missed,
         }  # fmt: skip
+        # 호출량: 하루 환산, 한도 오류·임박 판정
+        u = data["usage"]
+        hours = context["params"]["hours"]
+        daily_calls = int(u["calls"] * 24 / hours)
+        daily_limit = Variable.get(LIMIT_VAR, default=None)
+        daily_limit = int(daily_limit) if daily_limit else None
+        limit_grade = api_usage.grade_limit(u["limit_errors"], daily_calls, daily_limit)
+        ops.record_quality(
+            context, "api_usage", limit_grade, daily_calls, daily_limit,
+            detail={**u, "daily_calls": daily_calls, "daily_limit": daily_limit},
+        )  # fmt: skip
+        result.update(daily_calls=daily_calls, daily_limit=daily_limit, limit_grade=limit_grade)
         grade = "warn" if silent or unrecorded or ev01_runs < expected else "ok"
         ops.record_quality(context, "state_mismatch", grade, len(silent) + len(unrecorded), 0, detail=result)
         ops.record_quality(
@@ -177,6 +210,8 @@ with DAG(
                     f"*수집 회차*: {mismatch['ev01_runs']} / 기대 {mismatch['ev01_expected']}",
                     f"*정상 응답률*: 평균 {cov['avg_ok_pct']}% / 최저 {cov['min_ok_pct']}%",
                     f"*API 오류*: {cov['api_errors']}건",
+                    _usage_field(data["usage"], mismatch),
+                    _error_rate_field(data["usage"]),
                     f"*등록 최신 기준월*: {data['reg']['latest']}",
                 ]
             ),  # fmt: skip
