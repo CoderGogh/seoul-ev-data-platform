@@ -7,6 +7,7 @@ FROM (
            f.link_cnt, f.road_len_km, v.coverage, f.valid_timebands, v.avg_spd, v.speed_cv, v.low_spd_ratio,
            v.charger_hint, v.charger_hint_nm,
            f.charger_asof, f.charger_cnt, f.fast_cnt, f.open_cnt, f.ev_per_charger, f.supply_gap,
+           f.growth_flags, f.ev_fcst_3m, f.ev_fcst_6m,
            m.growth_pattern, m.inc_12m, m.rate_3m, m.up_months
     FROM mart.v_admdong_result v
     JOIN mart.fact_admdong_indicator f USING (base_month, adm_cd)

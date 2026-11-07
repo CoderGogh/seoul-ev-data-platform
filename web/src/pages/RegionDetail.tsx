@@ -12,7 +12,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { GROWTH_DESC, REASON_LABEL, fmtInt, fmtMonth, fmtPct, type AppData, type Region } from "../data";
+import { FLAG_LABEL, GROWTH_DESC, REASON_LABEL, fmtInt, fmtMonth, fmtPct, type AppData, type Region } from "../data";
 import { ClassBadge, HintBadge } from "../components/Badges";
 import { RegionMap } from "../components/RegionMap";
 import { Tip, chartTipStyle } from "../components/Tip";
@@ -76,6 +76,11 @@ export function RegionDetail({ data, admCd }: { data: AppData; admCd: string }) 
           <ClassBadge value={r.classification} />
           <HintBadge value={r.charger_hint} prefix />
           {r.growth_pattern && <span className="badge">{r.growth_pattern}</span>}
+          {r.growth_flags?.map((f) => (
+            <span key={f} className="badge flag">
+              이상 증가 · {FLAG_LABEL[f] ?? f}
+            </span>
+          ))}
         </div>
       </section>
 
@@ -122,6 +127,17 @@ export function RegionDetail({ data, admCd }: { data: AppData; admCd: string }) 
                 <span className="metric-value">{fmtPct(r.ev_share)}</span>
               </div>
             </div>
+            {r.ev_fcst_3m != null && (
+              <div className="metric">
+                <div className="metric-row">
+                  <span className="metric-label">예상 전기차 (판정 미사용)</span>
+                  <span className="metric-value">
+                    3개월 {fmtInt(r.ev_fcst_3m)} · 6개월 {fmtInt(r.ev_fcst_6m)}대
+                  </span>
+                </div>
+                <span className="metric-note">최근 6개월 월 증가 중앙값으로 단순 연장</span>
+              </div>
+            )}
             <div className="metric">
               <div className="metric-row">
                 <span className="metric-label">증가 양상 (판정 미사용)</span>
