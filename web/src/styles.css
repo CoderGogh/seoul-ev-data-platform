@@ -2094,3 +2094,59 @@ td.up {
   font-weight: 800;
   line-height: 1;
 }
+
+/* 판정 근거 */
+.verdict-steps {
+  display: grid;
+  gap: 14px;
+}
+.verdict-title {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  margin-bottom: 6px;
+}
+.verdict-outcome {
+  color: var(--muted);
+  font-size: 13px;
+}
+.verdict-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 13.5px;
+}
+.verdict-table th,
+.verdict-table td {
+  padding: 6px 8px;
+  border-top: 1px solid var(--grid);
+  text-align: left;
+  white-space: nowrap;
+}
+.verdict-table th {
+  font-weight: 600;
+  background: none;
+}
+.verdict-table .num {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+.verdict-table .muted {
+  color: var(--muted);
+}
+@media (max-width: 640px) {
+  .verdict-table {
+    table-layout: auto;
+  }
+  .verdict-table col {
+    width: auto !important;
+  }
+  .verdict-table .rule {
+    display: none;
+  }
+  .verdict-table th,
+  .verdict-table td {
+    white-space: normal;
+    padding: 6px 4px;
+  }
+}
