@@ -20,6 +20,9 @@ def info():
 
 
 def test_dump_and_restore(info, tmp_path):
+    client, server = b.versions(info)
+    if client > server:
+        pytest.skip(f"pg_dump {client} > 서버 {server}")
     path = b.dump(info, tmp_path, datetime(2026, 11, 15, 2, 0))
     assert path.name == f"{info['dbname']}_20261115T0200.dump" and path.stat().st_size > 0
     res = b.restore_check(path, info, restore_db="ev_restore_test")

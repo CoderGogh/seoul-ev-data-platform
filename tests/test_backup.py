@@ -42,6 +42,17 @@ def test_toc_tables(monkeypatch):
     assert b.toc_tables("x.dump", INFO) == ["core.admdong", "core.traffic_obs_202611", "ops.pipeline_run"]
 
 
+# 클라이언트가 서버보다 새 버전이면 덤프 전 중단
+def test_newer_client_rejected(monkeypatch, tmp_path):
+    monkeypatch.setattr(b, "versions", lambda info: (18, 16))
+    with pytest.raises(RuntimeError, match="pg_dump 18"):
+        b.dump(INFO, tmp_path, datetime(2026, 11, 15, 2, 0))
+    monkeypatch.setattr(b, "versions", lambda info: (16, 16))
+    monkeypatch.setattr(b, "_run", lambda cmd, info: "")
+    with pytest.raises(FileNotFoundError):  # 버전 통과 → 덤프 단계 진입
+        b.dump(INFO, tmp_path, datetime(2026, 11, 15, 2, 0))
+
+
 # 비밀번호는 환경변수로만, 명령줄·오류 메시지 미포함
 def test_password_not_in_args(monkeypatch, tmp_path):
     seen = {}
@@ -53,6 +64,7 @@ def test_password_not_in_args(monkeypatch, tmp_path):
         seen.update(cmd=cmd, env=env)
         return Res()
 
+    monkeypatch.setattr(b, "check_versions", lambda info: None)
     monkeypatch.setattr(b.subprocess, "run", fake_run)
     with pytest.raises(RuntimeError) as e:
         b.dump(INFO, tmp_path, datetime(2026, 11, 15, 2, 0))
