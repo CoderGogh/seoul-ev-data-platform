@@ -52,6 +52,8 @@ docker compose up -d --build
 | ev12_quality_monitor | 매일 08:00 | 실행 상태 × 데이터 상태 리포트 |
 | ev13_retention_cleanup | 매주 일 03:00 | 조건부 보존 정리 (기본 dry-run) |
 | ev14_web_publish | 게시·공급 변경 시, 매일 07:10 | 웹 데이터를 `web-data` 브랜치에 게시 |
+| ev15_sla_watch | 매일 06:05·08:05 | 기한 내 수집·게시 완료 감시 |
+| ev16_db_backup | 매주 일 02:00 | 분석 DB 백업 (`files/backups`, 최근 4개)·복원 리허설 |
 
 ## 5. DB 접속 (DBeaver)
 
@@ -97,6 +99,19 @@ docker compose up -d postgis && ./scripts/test_db.sh   # DB 통합 (테스트 �
 ```
 
 운영 DB(`EV_DB_NAME`)는 건드리지 않습니다. Airflow 패키지가 설치된 가상환경에서 실행합니다.
+
+## 8. 백업 복원
+
+ev16 백업 파일은 `files/backups/`에 있습니다. 운영 DB를 덮어쓰므로 Airflow를 먼저 멈춥니다.
+
+```bash
+docker compose stop airflow-scheduler airflow-worker-default-1 airflow-worker-default-2 airflow-worker-api
+docker compose exec -T postgis sh -c 'pg_restore -U "$POSTGRES_USER" -d "$POSTGRES_DB" --clean --if-exists --no-owner' \
+  < files/backups/ev_platform_20261115T0200.dump
+docker compose start airflow-scheduler airflow-worker-default-1 airflow-worker-default-2 airflow-worker-api
+```
+
+내용만 확인하려면 `--clean` 대신 새 DB를 만들어 복원합니다 (ev16 복원 리허설과 같은 방식).
 
 ---
 
