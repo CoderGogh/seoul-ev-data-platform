@@ -276,6 +276,20 @@
  },
  "merged": [
   {
+   "number": 84,
+   "title": "feat: ev16 분석 DB 주간 백업·복원 리허설",
+   "merged_at": "2026-11-10T14:45:09Z",
+   "url": "https://github.com/CoderGogh/seoul-ev-data-platform/pull/84",
+   "closes": []
+  },
+  {
+   "number": 83,
+   "title": "chore: 웹 개발 진행 데이터 갱신",
+   "merged_at": "2026-11-07T18:06:17Z",
+   "url": "https://github.com/CoderGogh/seoul-ev-data-platform/pull/83",
+   "closes": []
+  },
+  {
    "number": 82,
    "title": "feat: traffic_obs 월 파티셔닝",
    "merged_at": "2026-11-07T18:04:20Z",
@@ -499,20 +513,6 @@
    "title": "Update README.md",
    "merged_at": "2026-10-30T05:12:50Z",
    "url": "https://github.com/CoderGogh/seoul-ev-data-platform/pull/32",
-   "closes": []
-  },
-  {
-   "number": 31,
-   "title": "Update README.md",
-   "merged_at": "2026-10-30T05:10:44Z",
-   "url": "https://github.com/CoderGogh/seoul-ev-data-platform/pull/31",
-   "closes": []
-  },
-  {
-   "number": 30,
-   "title": "docs: 웹 결과 화면 링크·운영 절차 추가",
-   "merged_at": "2026-10-30T05:05:37Z",
-   "url": "https://github.com/CoderGogh/seoul-ev-data-platform/pull/30",
    "closes": []
   }
  ]
