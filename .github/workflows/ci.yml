@@ -58,7 +58,14 @@ jobs:
       - run: pip install -r requirements-dev.txt
       # DAG 정책은 validate_dag 에서
       # 백업 테스트: 서버(16)와 같은 버전 pg_dump 우선
-      - run: test -d /usr/lib/postgresql/16/bin && echo /usr/lib/postgresql/16/bin >> "$GITHUB_PATH" || ls /usr/lib/postgresql
+      - run: |
+          sudo apt-get install -y -q postgresql-client-16 || {
+            sudo install -d /usr/share/postgresql-common/pgdg
+            sudo curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc
+            echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
+            sudo apt-get update -q && sudo apt-get install -y -q postgresql-client-16
+          }
+          echo /usr/lib/postgresql/16/bin >> "$GITHUB_PATH"
       - run: pytest -q tests --ignore=tests/test_dag_integrity.py
 
   validate_dag:
