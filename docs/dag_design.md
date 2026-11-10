@@ -23,6 +23,7 @@
    - [ev13 보존 정리](#48-ev13-보존-정리)
    - [ev14 웹 데이터 게시](#49-ev14-웹-데이터-게시)
    - [ev15 SLA 감시](#410-ev15-sla-감시)
+   - [ev16 DB 백업](#411-ev16-db-백업)
 5. [품질 게이트와 분류](#5-품질-게이트와-분류)
 6. [멱등성과 재처리](#6-멱등성과-재처리)
 7. [상태 모델](#7-상태-모델)
@@ -98,6 +99,7 @@ Task 성공과 데이터 준비 완료는 다르다. 세 가지를 따로 판단
 | `ev13_retention_cleanup` | 조건부 보존 정리 | `0 3 * * 0` | - |
 | `ev14_web_publish` | 웹 결과 데이터를 데이터 브랜치에 게시 | `10 7 * * *` 또는 Asset | - |
 | `ev15_sla_watch` | 기한 내 수집·게시 완료 감시 | `5 6,8 * * *` | - |
+| `ev16_db_backup` | 분석 DB 주간 백업·복원 리허설 | `0 2 * * 0` | - |
 
 - 모든 DAG: `CronTriggerTimetable`(KST), `catchup=False`, `max_active_runs=1`
 - 공통 `default_args`: 재시도 2회, 지수 백오프(최대 10분), `execution_timeout` 20분, 실패 시 Slack
@@ -444,6 +446,26 @@ check_sla (기한 도래 SLA, ops 당일 상태) ─▶ notify (미달만 Slack 
 - 결과는 `quality_result.sla` (scope = 대상 DAG)
 - Airflow 3 Deadline Alert 대신 별도 DAG: 판정 기준이 Airflow 상태가 아니라 `ops` 데이터 상태
 
+### 4.11 ev16 DB 백업
+
+ev13 정리(일 03:00) 1시간 전에 분석 DB를 덤프한다.
+
+```
+dump_db (pg_dump -Fc) ─▶ verify_restore (임시 DB 복원) ─▶ prune_old (보관 개수 초과분 삭제)
+ ─▶ record_run [all_done]
+```
+
+| 단계 | 내용 |
+|---|---|
+| 덤프 | `files/backups/{DB명}_{KST 시각}.dump`. `.partial`로 쓰고 끝나면 이름 확정 |
+| 복원 리허설 | `ev_restore_check` DB 생성(template0) → `pg_restore --exit-on-error` → 덤프 목차의 테이블이 모두 있는지 확인, 테이블별 행 수 기록 → DB 삭제 |
+| 정리 | 복원 확인 통과 시에만. 같은 DB 백업을 최신 `keep`개(기본 4)만 남김 |
+
+- 결과: `quality_result.backup`(크기 MB), `quality_result.backup_restore`(복원된 테이블 수 / 목차 테이블 수)
+- 비밀번호는 `PGPASSWORD` 환경변수로만 전달 (명령줄·로그 미노출)
+- Airflow 메타데이터 DB는 대상 아님 (Connection·Variable은 `.env`, 실행 이력은 `ops`에 있음)
+- 같은 호스트 보관이라 디스크 장애엔 못 버팀. 외부 저장소 업로드는 남은 과제
+
 ---
 
 ## 5. 품질 게이트와 분류
@@ -625,6 +647,7 @@ Rshiny는 읽기 전용 계정 `rshiny_reader`로 `mart`, `ops`만 조회한다.
 | `test_drift.py`, `db/test_ev03_drift.py` | PSI·분류 변경·A 수 변화 판정, 직전 게시 행 선택(같은 기준월 우선) |
 | `db/test_ev15_sla.py` | 당일 완료 판정(전날·진행 중 제외), ev03 연속 보류 일수 |
 | `db/test_web_export.py` | 게시 결과에서 웹 JSON 생성 → ev14 검증 통과 (스키마 변경으로 웹 데이터가 깨지는 것 방지), meta 에서 ev14 자기 실행 제외 |
+| `test_backup.py`, `db/test_backup_restore.py` | 보관 정리(다른 DB·임시 파일 제외), 덤프 목차 해석, 비밀번호 비노출, 실제 덤프 → 임시 DB 복원, 손상 파일 실패 |
 | `test_web_publish.py` | blob SHA(`git hash-object`와 일치), 바뀐 파일만 커밋, 브랜치 생성·fast-forward, head 변경 시 중단, 토큰 미노출, 묶음 검증 |
 | `web/src/*.test.ts` | 신선도 등급 규칙, 데이터 로더(커밋 고정 주소·대체 조건) |
 
@@ -657,6 +680,7 @@ CI (PR 필수 검사, GitHub Actions)
 | 지각 허용 | 미구현 (확정 시간대만 사용) | 수집 지연 분포 확인 |
 | 일일 호출 한도 | 한도 수치 미공개, `ERROR-337` 오류로 감시 | 한도 확인되면 `ev01_daily_call_limit` 설정 |
 | 도로 분석 기간 | MVP 고정 기간 | 원안대로 기준월과 같은 월로 전환 |
+| 백업 보관 위치 | 같은 호스트 `files/backups` | 서버·외부 저장소 정해지면 업로드 단계 추가 |
 
 ---
 
@@ -701,6 +725,7 @@ Airflow 3.3.2 동작
 
 | 버전 | 날짜 | 내용 |
 |---|---|---|
+| v0.10 | 2026-11-10 | ev16 분석 DB 주간 백업·복원 리허설 |
 | v0.9 | 2026-11-08 | ev12 충전기 줄·호출량·오류율 분포·연속 보류, ev01 `partial` 오류율 등급·한도 초과 재시도 생략, ev15 SLA 감시, ev03 분포 급변 경고, 등록 추세 플래그·예측, 게시 이력 A 목록, `traffic_obs` 월 파티션 |
 | v0.8 | 2026-11-02 | ev14 웹 데이터 게시 (데이터 브랜치 원자 커밋, 웹 커밋 고정 로드·배포 스냅샷 대체) |
 | v0.7 | 2026-11-02 | 충전기 공급 지표(`compute_supply`, Gate 1 충전기 이력), 분류 `mvp_v3` 공급 부족 조건, 버스전용 제외 |
