@@ -42,8 +42,24 @@ def backup_name(dbname, ts):
     return f"{dbname}_{ts:%Y%m%dT%H%M}.dump"
 
 
+# 클라이언트·서버 주 버전 (새 버전 pg_dump 덤프는 옛 서버에 복원 불가)
+def versions(info):
+    out = subprocess.run(["pg_dump", "--version"], capture_output=True, text=True, check=True).stdout
+    client = int(re.search(r"\(PostgreSQL\) (\d+)", out).group(1))
+    with closing(psycopg.connect(**info)) as conn:
+        server = int(conn.execute("SHOW server_version_num").fetchone()[0]) // 10000
+    return client, server
+
+
+def check_versions(info):
+    client, server = versions(info)
+    if client > server:
+        raise RuntimeError(f"pg_dump {client} > 서버 {server}: 같은 서버 복원 불가, 클라이언트 버전 맞춤 필요")
+
+
 # custom 형식 덤프, 임시 파일 → 완료 후 이름 확정
 def dump(info, out_dir, ts):
+    check_versions(info)
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     final = out_dir / backup_name(info["dbname"], ts)
