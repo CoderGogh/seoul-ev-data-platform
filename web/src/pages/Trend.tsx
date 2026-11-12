@@ -39,11 +39,11 @@ export function Trend({ data }: { data: AppData }) {
       </section>
 
       <div className="grid-2">
-        <section className="card">
+        <section className="card card-body">
           <CardHead title="3개 구 합계" sub="월별 등록 전기차" />
           <TotalTrendChart data={totals} height={280} />
         </section>
-        <section className="card">
+        <section className="card card-body">
           <CardHead
             title="자치구별"
             sub="선 끝에 구 이름 표시"
@@ -62,7 +62,7 @@ export function Trend({ data }: { data: AppData }) {
         </section>
       </div>
 
-      <section className="card">
+      <section className="card card-body">
         <CardHead title="증가 양상" sub="최근 12개월 월별 증가 모양으로 묶음" />
         <div className="patterns">
           {PATTERNS.map((pt) => {

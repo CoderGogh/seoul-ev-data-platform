@@ -20,7 +20,7 @@ export function Criteria({ data }: { data: AppData }) {
         lede={`전기차 ${fmtInt(p.a_min_ev_cnt)}대 이상, 1년 증가율 ${p.a_min_yoy_rate}% 이상을 모두 넘고(67개 동 상위 40% 경계), 충전기 1대당 전기차가 ${p.a_min_ev_per_charger}대 이상(67개 동 중앙값)이면 우선 검토입니다. 수요가 커도 충전기가 이미 충분하면 관찰 대상으로 둡니다.`}
       />
 
-      <section className="card">
+      <section className="card card-body">
         <CardHead
           title="전기차 대수 × 1년 증가율"
           sub="오른쪽 위 칸이 우선 검토. 점을 누르면 검토 카드로 이동"
@@ -45,10 +45,10 @@ export function Criteria({ data }: { data: AppData }) {
       </section>
 
       <div className="grid-2">
-        <section className="card">
+        <section className="card card-body">
           <CardHead title="기준 근접" sub="기준 하나는 넘고 다른 하나도 80% 이상 도달" />
           <div className="table-wrap">
-            <table>
+            <table className="table table-hover align-middle mb-0">
               <thead>
                 <tr>
                   <th>행정동</th>
@@ -76,10 +76,10 @@ export function Criteria({ data }: { data: AppData }) {
           </p>
         </section>
 
-        <section className="card">
+        <section className="card card-body">
           <CardHead title="분류 규칙" sub="품질 등급을 먼저 보고 수요를 판정" />
           <div className="table-wrap">
-            <table className="wrap-cells">
+            <table className="table table-hover align-middle mb-0 wrap-cells">
               <thead>
                 <tr>
                   <th>품질 등급</th>

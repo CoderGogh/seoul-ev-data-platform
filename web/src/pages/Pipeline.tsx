@@ -47,7 +47,7 @@ export function Pipeline({ data }: { data: AppData }) {
         </div>
       </section>
 
-      <section className="card">
+      <section className="card card-body">
         <CardHead title="DAG별 실행 결과" sub={`수집 ${fmtDateTime(meta.poll.first_at)} ~ ${fmtDateTime(meta.poll.last_at)}`} />
         <div className="dag-grid">
           {dags.map((dag) => {
@@ -74,7 +74,7 @@ export function Pipeline({ data }: { data: AppData }) {
       </section>
 
       <div className="grid-2">
-        <section className="card">
+        <section className="card card-body">
           <CardHead title="웹 데이터 게시 (ev14)" sub="게시·공급 변경 시, 매일 07:10 · web-data 브랜치" />
           <dl className="kv">
             <dt>지금 화면 데이터</dt>
@@ -104,7 +104,7 @@ export function Pipeline({ data }: { data: AppData }) {
           </dl>
         </section>
 
-        <section className="card">
+        <section className="card card-body">
           <CardHead title="자동 검사" sub="PR마다 통과해야 main 병합" />
           <dl className="kv">
             <dt>CI 4단계</dt>
@@ -118,7 +118,7 @@ export function Pipeline({ data }: { data: AppData }) {
           </dl>
         </section>
 
-        <section className="card">
+        <section className="card card-body">
           <CardHead title="충전기 수집 첫 실행" sub="2026년 11월 2일 · 스케줄러 없이 1회 실행 3번" />
           <ul className="todos">
             <li className="todo done">

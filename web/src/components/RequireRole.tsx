@@ -17,7 +17,7 @@ export function RequireRole({ min, path, children }: { min?: Role; path: string;
     msg = (
       <>
         로그인 후 볼 수 있는 화면입니다.{" "}
-        <Link to={`/login?next=${encodeURIComponent(path)}`} className="btn btn-sm">
+        <Link to={`/login?next=${encodeURIComponent(path)}`} className="btn btn-sm btn-primary">
           로그인
         </Link>
       </>

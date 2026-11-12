@@ -72,7 +72,7 @@ export function AdminUsers() {
         lede="Google·카카오로 가입한 사용자에게 역할을 지정합니다. 새 가입자는 승인 대기 상태로 시작합니다."
       />
 
-      <section className="card">
+      <section className="card card-body">
         <div className="role-guide">
           {ROLES.map((r) => (
             <div key={r}>
@@ -83,7 +83,7 @@ export function AdminUsers() {
         </div>
       </section>
 
-      <section className="card">
+      <section className="card card-body">
         <div className="toolbar admin-tools">
           <div className="filter-row">
             <span className="filter-label">역할</span>
@@ -95,7 +95,7 @@ export function AdminUsers() {
           </div>
           <div className="filter-row">
             <span className="filter-label">검색</span>
-            <input type="search" placeholder="이름·이메일" value={q} onChange={(e) => setQ(e.target.value)} aria-label="사용자 검색" />
+            <input type="search" className="form-control form-control-sm" placeholder="이름·이메일" value={q} onChange={(e) => setQ(e.target.value)} aria-label="사용자 검색" />
           </div>
         </div>
 
@@ -109,7 +109,7 @@ export function AdminUsers() {
 
         {users && (
           <div className="table-wrap">
-            <table className="admin-table">
+            <table className="table table-hover align-middle mb-0 admin-table">
               <thead>
                 <tr>
                   <th>사용자</th>
@@ -143,7 +143,7 @@ export function AdminUsers() {
                           <span className="role-badge role-super">최고 관리자</span>
                         ) : editable ? (
                           <select
-                            className="role-select"
+                            className="form-select form-select-sm role-select"
                             value={u.role}
                             disabled={saving === u.id}
                             onChange={(e) => change(u, e.target.value as Role)}

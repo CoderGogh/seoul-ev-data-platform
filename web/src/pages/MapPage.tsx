@@ -34,7 +34,7 @@ export function MapPage({ data }: { data: AppData }) {
 
       <RegionFilterBar regions={regions} f={f} onHint={(h) => h !== "all" && setMode("hint")} />
 
-      <section className="card">
+      <section className="card card-body">
         <CardHead
           title={`${f.filtered.length}곳 표시`}
           sub={mode === "supply" ? "충전기 1대당 전기차, 진할수록 공급 부족" : "조건에 맞는 동만 진하게"}

@@ -83,7 +83,7 @@ export function Supply({ data }: { data: AppData }) {
       </section>
 
       <div className="grid-2">
-        <section className="card">
+        <section className="card card-body">
           <CardHead title={`우선 검토 ${priority.length}곳의 공급`} sub={`충전기 1대당 전기차 기준 ${data.meta.threshold.params.a_min_ev_per_charger ?? "-"}대 이상 · 3개 구 평균 ${avg.toFixed(1)}대`} />
           <ol className="rank">
             {gap.map((d, i) => (
@@ -105,10 +105,10 @@ export function Supply({ data }: { data: AppData }) {
           </p>
         </section>
 
-        <section className="card">
+        <section className="card card-body">
           <CardHead title="구별 공급" />
           <div className="table-wrap">
-            <table>
+            <table className="table table-hover align-middle mb-0">
               <thead>
                 <tr>
                   <th>구</th>
@@ -134,13 +134,10 @@ export function Supply({ data }: { data: AppData }) {
         </section>
       </div>
 
-      <section className="card">
-        <div className="card-head">
-          <h2>행정동별 공급</h2>
-          <span className="card-sub">{sorted.length}곳 · 머리글을 누르면 정렬 · 전기차는 2026년 9월 등록 기준</span>
-        </div>
+      <section className="card card-body">
+        <CardHead title="행정동별 공급" sub={`${sorted.length}곳 · 머리글을 누르면 정렬 · 전기차는 2026년 9월 등록 기준`} />
         <div className="table-wrap">
-          <table>
+          <table className="table table-hover align-middle mb-0">
             <thead>
               <tr>
                 {COLUMNS.map((col) => (
@@ -176,10 +173,10 @@ export function Supply({ data }: { data: AppData }) {
       </section>
 
       <div className="grid-2">
-        <section className="card">
+        <section className="card card-body">
           <CardHead title="수집 품질" sub={`등급 ${c.load.quality_grade === "ok" ? "정상" : c.load.quality_grade}`} />
           <div className="table-wrap">
-            <table>
+            <table className="table table-hover align-middle mb-0">
               <tbody>
                 {c.quality.map((q) => (
                   <tr key={`${q.check}-${q.scope}`}>
@@ -199,7 +196,7 @@ export function Supply({ data }: { data: AppData }) {
           </div>
         </section>
 
-        <section className="card">
+        <section className="card card-body">
           <CardHead title="좌표 귀속" sub={`현재 충전기 ${fmtInt(statusTotal)}대`} />
           <div className="hbars">
             {Object.entries(c.status)

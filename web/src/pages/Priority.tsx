@@ -31,7 +31,7 @@ export function Priority({ data }: { data: AppData }) {
 
       <SupplyExcluded data={data} />
 
-      <section className="card">
+      <section className="card card-body">
         <CardHead title="동네 카드" sub="누르면 검토 카드로 이동" />
         <div className="region-list">
           {priority.map((r) => (
@@ -55,10 +55,10 @@ export function Priority({ data }: { data: AppData }) {
         </div>
       </section>
 
-      <section className="card">
+      <section className="card card-body">
         <CardHead title="기준 대비 여유" sub={`전기차 기준 ${fmtInt(p.a_min_ev_cnt)}대, 증가율 기준 ${p.a_min_yoy_rate}%, 공급 부족 기준 1대당 ${p.a_min_ev_per_charger}대`} />
         <div className="table-wrap">
-          <table>
+          <table className="table table-hover align-middle mb-0">
             <thead>
               <tr>
                 <th>행정동</th>
@@ -103,7 +103,7 @@ function SupplyExcluded({ data }: { data: AppData }) {
   const out = data.regions.filter((r) => r.reason_codes.includes("supply_sufficient"));
   if (out.length === 0) return null;
   return (
-    <section className="card">
+    <section className="card card-body">
       <CardHead title={`충전기가 이미 충분해 빠진 ${out.length}곳`} sub="전기차 대수·증가율 기준은 넘음 · 분류 v3부터 제외" />
       <div className="region-list">
         {out.map((r) => (

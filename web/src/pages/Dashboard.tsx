@@ -7,8 +7,7 @@ import { CardHead, PageHead } from "../components/PageHead";
 import { RegionMap } from "../components/RegionMap";
 import { TotalTrendChart } from "../components/charts";
 import { Link, navigate } from "../router";
-import { useAuth } from "../auth/AuthContext";
-import { QuickLinks } from "../components/QuickLinks";
+import { Icon } from "../components/Icon";
 
 const More = ({ to, label = "자세히" }: { to: string; label?: string }) => (
   <Link to={to} className="more">
@@ -27,7 +26,6 @@ export function Dashboard({ data }: { data: AppData }) {
   const watch = watchList(regions);
   const hints = hintCounts(regions);
   const maxHint = Math.max(...hints.map((h) => h.all));
-  const { profile } = useAuth();
 
   return (
     <div className="page">
@@ -41,31 +39,35 @@ export function Dashboard({ data }: { data: AppData }) {
         lede={`강남·서초·송파 ${regions.length}개 행정동에서 전기차가 많고 빠르게 늘면서 충전기가 부족한 곳을 골랐습니다. 동네마다 도로 여건을 함께 붙였고, 급속·완속 유형은 현장 조사에서 정합니다.`}
       />
 
-      <QuickLinks role={profile?.role} />
-
       <section id="dash-stats" className="stats" aria-label="핵심 수치">
-        <div className="stat">
-          <div className="stat-value accent-num">{priority.length}곳</div>
-          <div className="stat-label">충전소 우선 검토 지역 (분류 v3)</div>
+        <div className="stat stat-accent">
+          <div className="stat-value">{priority.length}곳</div>
+          <div className="stat-label">
+            <Icon name="star" size={15} /> 충전소 우선 검토 지역 (분류 v3)
+          </div>
         </div>
         <div className="stat">
           <div className="stat-value">+{growth.toFixed(1)}%</div>
-          <div className="stat-label">3개 구 전기차 1년 증가</div>
+          <div className="stat-label">
+            <Icon name="trend" size={15} /> 3개 구 전기차 1년 증가
+          </div>
         </div>
         <div className="stat">
           <div className="stat-value">{regions.length}개 동</div>
-          <div className="stat-label">강남·서초·송파 분석 대상</div>
+          <div className="stat-label">
+            <Icon name="list" size={15} /> 강남·서초·송파 분석 대상
+          </div>
         </div>
         <div className="stat">
           <div className="stat-value">{fmtInt(linkCnt)}곳</div>
-          <div className="stat-label">30분마다 수집한 도로 링크</div>
+          <div className="stat-label">
+            <Icon name="road" size={15} /> 30분마다 수집한 도로 링크
+          </div>
         </div>
       </section>
 
-      {data.chargers && <SupplyTeaser data={data} />}
-
       <div id="dash-rank" className="grid-dash">
-        <section className="card">
+        <section className="card card-body">
           <CardHead title="우선 검토 순위" sub="전기차 대수 순" action={<More to="/priority" />} />
           <ol className="rank">
             {priority.map((r, i) => (
@@ -85,13 +87,15 @@ export function Dashboard({ data }: { data: AppData }) {
           </ol>
         </section>
 
-        <section className="card">
+        <section className="card card-body">
           <CardHead title="한눈에 보는 위치" sub="파란 곳이 우선 검토" action={<More to="/map" label="큰 지도" />} />
           <RegionMap geo={data.geo} regions={regions} mode="class" height={420} onSelect={(cd) => navigate(`/regions/${cd}`)} />
         </section>
       </div>
 
-      <section id="dash-watch" className="card">
+      {data.chargers && <SupplyTeaser data={data} />}
+
+      <section id="dash-watch" className="card card-body">
         <CardHead title="주목할 동네" sub="다음 갱신 때 먼저 확인할 곳 (판정에는 미사용)" action={<More to="/criteria" />} />
         <div className="insights">
           <div className="insight">
@@ -140,12 +144,12 @@ export function Dashboard({ data }: { data: AppData }) {
       </section>
 
       <div id="dash-summary" className="grid-3">
-        <section className="card">
+        <section className="card card-body">
           <CardHead title="전기차 추세" sub={`${totals[0].month} → ${totals[totals.length - 1].month}`} action={<More to="/trend" />} />
           <TotalTrendChart data={totals} height={180} />
         </section>
 
-        <section className="card">
+        <section className="card card-body">
           <CardHead title="도로 여건 분포" sub={`${regions.length}개 동`} action={<More to="/road" />} />
           <div className="hbars">
             {hints.map((h) => (
@@ -163,7 +167,7 @@ export function Dashboard({ data }: { data: AppData }) {
           </p>
         </section>
 
-        <section className="card">
+        <section className="card card-body">
           <CardHead title="데이터 상태" sub="품질 관문 통과분만 공개" action={<More to="/quality" />} />
           <dl className="kv">
             <dt>게시</dt>
@@ -191,9 +195,9 @@ function SupplyTeaser({ data }: { data: AppData }) {
   const avg = c.by_sgg.reduce((s, g) => s + g.ev_cnt, 0) / chargers;
   const excluded = data.regions.filter((r) => r.reason_codes.includes("supply_sufficient"));
   return (
-    <section id="dash-supply" className="card">
+    <section id="dash-supply" className="card card-body">
       <CardHead
-        title={<>충전기 공급 <span className="badge tone-ok">새로 추가</span></>}
+        title={<>충전기 공급 <span className="badge tone-ok">v3 반영</span></>}
         sub="분류 v3에 반영"
         action={<More to="/supply" />}
       />

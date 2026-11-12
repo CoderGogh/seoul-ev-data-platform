@@ -55,7 +55,7 @@ export function Login() {
 
   return (
     <div className="login-wrap">
-      <section className="card login-card">
+      <section className="card card-body login-card">
         <span className="brand-mark login-mark" aria-hidden="true">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
             <path d="M13 2 4 14h7l-1 8 9-12h-7l1-8z" />
@@ -70,7 +70,7 @@ export function Login() {
           <div className="login-pending">
             <b>{profile.name || profile.email}</b>님, 가입됐습니다. 현재 권한은 <b>{ROLE_LABEL.pending}</b>입니다. 관리자가 역할을
             지정하면 운영 화면이 열립니다.
-            <button className="btn btn-sm" onClick={() => signOut()}>
+            <button className="btn btn-sm btn-primary" onClick={() => signOut()}>
               로그아웃
             </button>
           </div>
@@ -79,7 +79,7 @@ export function Login() {
         {enabled && session && !profile && !loading && (
           <div className="login-pending">
             로그인은 됐지만 프로필을 찾지 못했습니다. 잠시 후 다시 시도하거나 관리자에게 알려 주세요.
-            <button className="btn btn-sm" onClick={() => signOut()}>
+            <button className="btn btn-sm btn-primary" onClick={() => signOut()}>
               로그아웃
             </button>
           </div>

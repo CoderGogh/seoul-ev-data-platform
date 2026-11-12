@@ -37,10 +37,10 @@ export function History({ data }: { data: AppData }) {
     <div className="page">
       <PageHead tags={["데이터 운영"]} title="게시 이력" lede="게시마다 우선 검토 지역이 어떻게 바뀌었는지와 재처리 요청을 봅니다." />
 
-      <section className="card">
+      <section className="card card-body">
         <CardHead title={`게시 ${diffs.length}회`} sub="최신순, 직전 게시 대비 우선 검토 추가·제외" />
         <div className="table-wrap">
-          <table>
+          <table className="table table-hover align-middle mb-0">
             <thead>
               <tr>
                 <th>게시 시각</th>
@@ -81,13 +81,13 @@ export function History({ data }: { data: AppData }) {
         </div>
       </section>
 
-      <section className="card">
+      <section className="card card-body">
         <CardHead title={`재처리 요청 ${h.reprocess.length}건`} sub="ev11 요청 (요청자 비공개)" />
         {h.reprocess.length === 0 ? (
           <div className="empty">요청 없음</div>
         ) : (
           <div className="table-wrap">
-            <table>
+            <table className="table table-hover align-middle mb-0">
               <thead>
                 <tr>
                   <th>#</th>

@@ -93,7 +93,7 @@ export function ProgressPage() {
       {p.stages.map((s) => {
         const n = s.issues.filter((no) => p.issues[no]?.state === "CLOSED").length;
         return (
-          <section key={s.title} className="card">
+          <section key={s.title} className="card card-body">
             <CardHead title={s.title} sub={`${n} / ${s.issues.length} 완료`} />
             <div className="progress-track" aria-hidden="true">
               <span style={{ width: `${(100 * n) / s.issues.length}%` }} />
@@ -107,7 +107,7 @@ export function ProgressPage() {
         );
       })}
 
-      <section className="card">
+      <section className="card card-body">
         <CardHead
           title="최근 병합"
           sub="main 병합 시 이 화면도 자동 배포"
