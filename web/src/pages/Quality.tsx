@@ -35,7 +35,7 @@ export function Quality({ data }: { data: AppData }) {
       <PageHead
         tags={["데이터 운영", `기준월 ${fmtMonth(meta.base_month)}`]}
         title="데이터 품질"
-        lede="수집·실행·지역 3단계 관문을 통과한 결과만 공개합니다. 도로·등록 결과는 2026년 10월 28일 과제 제출 시점 스냅샷이고, 충전기 공급은 11월 2일부터 수집합니다."
+        lede="수집·실행·지역 3단계 관문을 통과한 결과만 공개합니다. 도로·등록은 게시 기준월 데이터이고, 충전기 공급은 11월 2일부터 수집합니다."
       />
 
       <section className="card card-body">
