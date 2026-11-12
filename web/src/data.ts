@@ -345,6 +345,7 @@ export const STATUS_LABEL: Record<string, string> = {
   held: "게시 보류",
   published: "게시",
   skipped_unchanged: "변경 없어 생략",
+  skipped_stale: "지연 회차 생략",
   failed: "실패",
 };
 
