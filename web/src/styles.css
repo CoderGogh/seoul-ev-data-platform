@@ -2443,3 +2443,33 @@ td.up {
   background: var(--hint-mixed-soft);
   color: var(--hint-mixed-text);
 }
+
+/* 도로 여건 링크 타일 */
+.link-group + .link-group {
+  margin-top: 14px;
+}
+.link-group-head {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  margin-bottom: 6px;
+}
+.link-tiles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+}
+.link-tile {
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+  cursor: pointer;
+}
+.link-tile:hover {
+  outline: 2px solid var(--text);
+  outline-offset: 1px;
+}
+.link-tile-none {
+  background: var(--outside);
+  box-shadow: inset 0 0 0 1px var(--border);
+}
