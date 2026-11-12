@@ -53,6 +53,16 @@ def test_newer_client_rejected(monkeypatch, tmp_path):
         b.dump(INFO, tmp_path, datetime(2026, 11, 15, 2, 0))
 
 
+# 서버 주 버전 디렉터리 우선, 없으면 PATH 기본
+def test_pg_bin(monkeypatch, tmp_path):
+    (tmp_path / "16" / "bin").mkdir(parents=True)
+    (tmp_path / "16" / "bin" / "pg_dump").write_text("")
+    monkeypatch.setattr(b, "PG_LIB", tmp_path)
+    assert b.pg_bin("pg_dump", 16) == str(tmp_path / "16" / "bin" / "pg_dump")
+    assert b.pg_bin("pg_dump", 15) == "pg_dump"
+    assert b.pg_bin("pg_restore", None) == "pg_restore"
+
+
 # 비밀번호는 환경변수로만, 명령줄·오류 메시지 미포함
 def test_password_not_in_args(monkeypatch, tmp_path):
     seen = {}
