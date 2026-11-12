@@ -1,5 +1,5 @@
 // 화면용 파생 지표 (판정 근접·구별 추세·도로 여건 분포)
-import { HINT_ORDER, fmtMonth, type AppData, type ChargerHint, type Region } from "./data";
+import { HINT_ORDER, fmtMonth, type AppData, type ChargerHint, type Links, type Region } from "./data";
 
 // 기준 하나는 충족, 나머지도 80% 이상 도달한 관찰 대상
 export function nearMiss(regions: Region[], minEv: number, minYoy: number) {
@@ -56,4 +56,39 @@ export function timebandAverage(data: AppData) {
   return [...acc.entries()]
     .sort(([a], [b]) => a - b)
     .map(([tb, a]) => ({ timeband: tb, label: a.label, avg_spd: Math.round((a.sum / a.n) * 10) / 10 }));
+}
+
+// 링크 도로 여건 (동 판정과 같은 경계, 관측 없으면 null)
+export function linkHint(low: number | null, fastMax: number, slowMin: number): ChargerHint | null {
+  if (low == null) return null;
+  return low < fastMax ? "fast" : low >= slowMin ? "slow" : "mixed";
+}
+
+export interface LinkTile {
+  id: string;
+  adm_cd: string;
+  adm_nm: string;
+  low: number | null;
+  n: number;
+  hint: ChargerHint | null;
+}
+
+// 자치구별 링크 타일 (동 이름·저속 비중 순), 게시 안 된 동 링크 제외
+export function linkTiles(links: Links, regions: Region[], fastMax: number, slowMin: number) {
+  const dong = new Map(regions.map((r) => [r.adm_cd, r]));
+  const groups = new Map<string, LinkTile[]>();
+  links.links.forEach(([id, cd, low, n]) => {
+    const r = dong.get(cd);
+    if (!r) return;
+    const tiles = groups.get(r.sgg_nm) ?? [];
+    tiles.push({ id, adm_cd: cd, adm_nm: r.adm_nm, low, n, hint: linkHint(low, fastMax, slowMin) });
+    groups.set(r.sgg_nm, tiles);
+  });
+  return [...groups.entries()]
+    .sort(([a], [b]) => a.localeCompare(b, "ko"))
+    .map(([sgg, tiles]) => ({
+      sgg,
+      tiles: tiles.sort((a, b) => a.adm_nm.localeCompare(b.adm_nm, "ko") || (a.low ?? -1) - (b.low ?? -1)),
+      counts: Object.fromEntries([...HINT_ORDER, "none"].map((h) => [h, tiles.filter((t) => (t.hint ?? "none") === h).length])),
+    }));
 }

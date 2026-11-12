@@ -160,6 +160,13 @@ export interface History {
   reprocess: ReprocessEntry[];
 }
 
+// 링크별 저속 비중 (links.json, 이전 데이터엔 없음)
+export interface Links {
+  base_month: string;
+  window: { start: string; end: string };
+  links: [string, string, number | null, number][]; // [링크ID, 행정동, 저속 비중(%), 관측 링크-시간]
+}
+
 // 개발 진행 (progress.json, scripts/export_progress.py)
 export interface ProgressIssue {
   title: string;
@@ -189,6 +196,7 @@ export interface AppData {
   source: DataSource;
   chargers: Chargers | null;
   history: History | null;
+  links: Links | null;
   regions: Region[];
   monthly: Record<string, MonthlyPoint[]>;
   timeband: Record<string, TimebandPoint[]>;
@@ -208,7 +216,7 @@ async function fetchJson<T>(name: string, base = "/data/", f: Fetch = fetch): Pr
 }
 
 async function loadFrom(base: string, f: Fetch, chargersOptional: boolean) {
-  const [regions, monthly, timeband, geo, meta, chargers, history] = await Promise.all([
+  const [regions, monthly, timeband, geo, meta, chargers, history, links] = await Promise.all([
     fetchJson<Region[]>("regions", base, f),
     fetchJson<Record<string, MonthlyPoint[]>>("monthly", base, f),
     fetchJson<Record<string, TimebandPoint[]>>("timeband", base, f),
@@ -216,9 +224,10 @@ async function loadFrom(base: string, f: Fetch, chargersOptional: boolean) {
     fetchJson<Meta>("meta", base, f),
     chargersOptional ? fetchJson<Chargers>("chargers", base, f).catch(() => null) : fetchJson<Chargers>("chargers", base, f),
     fetchJson<History>("history", base, f).catch(() => null), // 도입 전 데이터 호환
+    fetchJson<Links>("links", base, f).catch(() => null),
   ]);
   if (!Array.isArray(regions) || regions.length !== meta.region_cnt) throw new Error("행정동 수 불일치");
-  return { regions, monthly, timeband, geo, meta, chargers, history };
+  return { regions, monthly, timeband, geo, meta, chargers, history, links };
 }
 
 // 데이터 브랜치 최신 커밋 → 커밋 SHA 고정 주소 (CDN 캐시로 파일 버전이 섞이지 않게)
@@ -336,6 +345,9 @@ export const DAG_LABEL: Record<string, string> = {
   ev11_reprocess: "재처리",
   ev12_quality_monitor: "품질 리포트",
   ev13_retention_cleanup: "보존 정리",
+  ev14_web_publish: "웹 데이터 게시",
+  ev15_sla_watch: "기한 감시",
+  ev16_db_backup: "DB 백업 (주)",
 };
 
 export const STATUS_LABEL: Record<string, string> = {
@@ -344,6 +356,8 @@ export const STATUS_LABEL: Record<string, string> = {
   unchanged: "변경 없음",
   held: "게시 보류",
   published: "게시",
+  republished: "재게시",
+  reprocessed: "재처리",
   skipped_unchanged: "변경 없어 생략",
   skipped_stale: "지연 회차 생략",
   failed: "실패",
