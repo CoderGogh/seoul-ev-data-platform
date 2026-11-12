@@ -11,6 +11,7 @@ BACKUP_DIR = Path(os.environ.get("EV_BACKUP_DIR", "/opt/airflow/files/backups"))
 FILE_RE = re.compile(r"^(?P<db>[A-Za-z0-9_]+)_(?P<ts>\d{8}T\d{4})\.dump$")
 TOC_DATA_RE = re.compile(r"^\d+; \d+ \d+ TABLE DATA (?P<schema>\S+) (?P<table>\S+) ")
 RESTORE_DB = "ev_restore_check"
+PG_LIB = Path(os.environ.get("EV_PG_LIB", "/usr/lib/postgresql"))
 
 
 # 접속 정보 (Airflow Connection → dict)
@@ -42,12 +43,23 @@ def backup_name(dbname, ts):
     return f"{dbname}_{ts:%Y%m%dT%H%M}.dump"
 
 
+# 서버 주 버전
+def server_major(info):
+    with closing(psycopg.connect(**info)) as conn:
+        return int(conn.execute("SHOW server_version_num").fetchone()[0]) // 10000
+
+
+# 서버 주 버전 맞춤 클라이언트 (Debian 다중 설치, 없으면 PATH 기본)
+def pg_bin(name, major):
+    path = PG_LIB / str(major) / "bin" / name
+    return str(path) if major and path.exists() else name
+
+
 # 클라이언트·서버 주 버전 (새 버전 pg_dump 덤프는 옛 서버에 복원 불가)
 def versions(info):
-    out = subprocess.run(["pg_dump", "--version"], capture_output=True, text=True, check=True).stdout
+    server = server_major(info)
+    out = subprocess.run([pg_bin("pg_dump", server), "--version"], capture_output=True, text=True, check=True).stdout
     client = int(re.search(r"\(PostgreSQL\) (\d+)", out).group(1))
-    with closing(psycopg.connect(**info)) as conn:
-        server = int(conn.execute("SHOW server_version_num").fetchone()[0]) // 10000
     return client, server
 
 
@@ -55,17 +67,18 @@ def check_versions(info):
     client, server = versions(info)
     if client > server:
         raise RuntimeError(f"pg_dump {client} > 서버 {server}: 같은 서버 복원 불가, 클라이언트 버전 맞춤 필요")
+    return server
 
 
 # custom 형식 덤프, 임시 파일 → 완료 후 이름 확정
 def dump(info, out_dir, ts):
-    check_versions(info)
+    major = check_versions(info)
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     final = out_dir / backup_name(info["dbname"], ts)
     tmp = final.with_suffix(".dump.partial")
     try:
-        _run(["pg_dump", *_base_args(info), "-Fc", "-f", str(tmp)], info)
+        _run([pg_bin("pg_dump", major), *_base_args(info), "-Fc", "-f", str(tmp)], info)
         tmp.rename(final)
     finally:
         tmp.unlink(missing_ok=True)
@@ -73,8 +86,8 @@ def dump(info, out_dir, ts):
 
 
 # 덤프 목차의 데이터 테이블 (schema.table)
-def toc_tables(path, info):
-    out = _run(["pg_restore", "-l", str(path)], info)
+def toc_tables(path, info, major=None):
+    out = _run([pg_bin("pg_restore", major), "-l", str(path)], info)
     return sorted({f"{m['schema']}.{m['table']}" for line in out.splitlines() if (m := TOC_DATA_RE.match(line))})
 
 
@@ -85,11 +98,15 @@ def _admin(info, sql):
 
 # 임시 DB 복원 → 목차 테이블 존재·행 수 확인 → 임시 DB 삭제
 def restore_check(path, info, restore_db=RESTORE_DB):
-    expected = toc_tables(path, info)
+    major = server_major(info)
+    expected = toc_tables(path, info, major)
     _admin(info, f"DROP DATABASE IF EXISTS {restore_db}")
     _admin(info, f"CREATE DATABASE {restore_db} TEMPLATE template0")
     try:
-        _run(["pg_restore", *_base_args(info, restore_db), "--exit-on-error", "--no-owner", str(path)], info)
+        _run(
+            [pg_bin("pg_restore", major), *_base_args(info, restore_db), "--exit-on-error", "--no-owner", str(path)],
+            info,
+        )
         counts, missing = {}, []
         with closing(psycopg.connect(**{**info, "dbname": restore_db})) as conn:
             for name in expected:
