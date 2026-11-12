@@ -32,6 +32,7 @@ import { stampFor } from "./versions";
 import { hasRole } from "./auth/roles";
 import { Login } from "./pages/Login";
 import { AdminUsers } from "./pages/AdminUsers";
+import { MyPage } from "./pages/MyPage";
 
 const SITE = "서울 전동화 입지 인사이트";
 
@@ -50,6 +51,7 @@ const PAGES: Record<string, (props: { data: AppData }) => JSX.Element> = {
   "/versions": Versions,
   "/compare": Compare,
   "/history": History,
+  "/me": MyPage,
 };
 
 // 데이터 없이 여는 화면 (로그인·관리)

@@ -81,11 +81,15 @@ export const NAV_GROUPS: NavGroup[] = [
 export function activeItem(path: string): NavItem | undefined {
   const all = NAV_GROUPS.flatMap((g) => g.items);
   if (path.startsWith("/regions/")) return all.find((i) => i.to === "/regions");
+  if (path === ME_ITEM.to) return ME_ITEM;
   return all.find((i) => i.to === path);
 }
 
 // 로그인 화면 (메뉴 외 항목)
 export const LOGIN_ITEM: NavItem = { to: "/login", label: "로그인", icon: "users", desc: "Google·Kakao 로그인" };
+
+// 마이페이지 (메뉴 외 항목, 로그인 필요)
+export const ME_ITEM: NavItem = { to: "/me", label: "마이페이지", icon: "users", desc: "내 업무·보고·권한", minRole: "pending" };
 
 // 역할별 노출 메뉴 (hideLocked 항목은 권한 있을 때만)
 export function visibleGroups(role?: Role | null): NavGroup[] {
