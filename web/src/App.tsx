@@ -1,4 +1,4 @@
-// 레이아웃 (사이드바 + 본문)·경로 분기
+// 레이아웃 (사이드바 + 상단 바 + 본문)·경로 분기
 import { useEffect, useState } from "react";
 import { loadData, type AppData } from "./data";
 import { LOGIN_ITEM, activeItem } from "./nav";
@@ -8,7 +8,6 @@ import { useTheme } from "./theme";
 import { useCollapsed } from "./sidebar";
 import { Sidebar } from "./components/Sidebar";
 import { Header } from "./components/Header";
-import { Aside } from "./components/Aside";
 import { FreshnessAlert } from "./components/Freshness";
 import { RequireRole } from "./components/RequireRole";
 import { UserMenu } from "./components/UserMenu";
@@ -91,36 +90,40 @@ export function App() {
     document.title = current && path !== "/" ? `${current.label} · ${SITE}` : SITE;
   }, [path, current]);
 
-  const isHome = path === "/";
-
   return (
-    <div className="app">
-      <Header
-        current={current}
+    <div className={`shell${collapsed ? " rail" : ""}`}>
+      <Sidebar
+        path={path}
+        open={menuOpen}
+        collapsed={collapsed}
+        onClose={() => setMenuOpen(false)}
+        onToggleCollapsed={toggleCollapsed}
         role={profile?.role}
-        theme={theme}
-        onToggleTheme={toggle}
-        onOpenMenu={() => setMenuOpen(true)}
-        right={<UserMenu />}
       />
-      <div className={`frame${collapsed ? " rail" : ""}${isHome ? " home" : ""}`}>
-        <Sidebar
-          path={path}
-          open={menuOpen}
-          collapsed={collapsed}
-          onClose={() => setMenuOpen(false)}
-          onToggleCollapsed={toggleCollapsed}
+      <div className="shell-main">
+        <Header
+          current={current}
+          data={data}
           role={profile?.role}
+          theme={theme}
+          onToggleTheme={toggle}
+          onOpenMenu={() => setMenuOpen(true)}
+          right={<UserMenu />}
         />
-        <main className="main">
+        <main className="content">
           {Standalone ? (
             <RequireRole min={current?.minRole} path={path}>
               <Standalone />
             </RequireRole>
           ) : (
             <>
-              {error && <div className="empty">데이터를 불러오지 못했습니다. {error}</div>}
-              {!error && !data && <div className="empty">불러오는 중…</div>}
+              {error && <div className="alert alert-danger">데이터를 불러오지 못했습니다. {error}</div>}
+              {!error && !data && (
+                <div className="empty">
+                  <span className="spinner-border spinner-border-sm me-2" aria-hidden="true" />
+                  불러오는 중…
+                </div>
+              )}
               {data && hasRole(profile?.role, "operator") && <FreshnessAlert data={data} />}
               {data && (
                 <RequireRole min={current?.minRole} path={path}>
@@ -131,13 +134,10 @@ export function App() {
             </>
           )}
         </main>
-        <Aside data={data} current={current} isHome={isHome} />
+        <footer className="footer">
+          데이터: 서울 열린데이터광장 실시간 도로소통정보 · 자동차 등록현황 · 한국환경공단 전기자동차 충전소 정보
+        </footer>
       </div>
-      <footer className="footer">
-        <div className="footer-inner">
-          <span>데이터: 서울 열린데이터광장 실시간 도로소통정보 · 자동차 등록현황 · 한국환경공단 전기자동차 충전소 정보</span>
-        </div>
-      </footer>
     </div>
   );
 }

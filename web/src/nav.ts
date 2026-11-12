@@ -84,16 +84,6 @@ export function activeItem(path: string): NavItem | undefined {
   return all.find((i) => i.to === path);
 }
 
-// 첫 화면 왼쪽 바: 대시보드 구역 바로가기
-export const HOME_SECTIONS: { id: string; label: string; icon: IconName }[] = [
-  { id: "dash-quick", label: "화면 바로가기", icon: "dashboard" },
-  { id: "dash-stats", label: "핵심 수치", icon: "target" },
-  { id: "dash-supply", label: "충전기 공급", icon: "plug" },
-  { id: "dash-rank", label: "우선 검토 순위·위치", icon: "star" },
-  { id: "dash-watch", label: "주목할 동네", icon: "flag" },
-  { id: "dash-summary", label: "추세·도로·상태", icon: "trend" },
-];
-
 // 로그인 화면 (메뉴 외 항목)
 export const LOGIN_ITEM: NavItem = { to: "/login", label: "로그인", icon: "users", desc: "Google·Kakao 로그인" };
 
@@ -105,7 +95,7 @@ export function visibleGroups(role?: Role | null): NavGroup[] {
   })).filter((g) => g.items.length > 0);
 }
 
-// 메뉴 항목의 카테고리 (상단 탭 표시)
+// 메뉴 항목의 카테고리 (상단 경로 표시)
 export function groupOf(item: NavItem | undefined): NavGroup | undefined {
   return item && NAV_GROUPS.find((g) => g.items.includes(item));
 }
