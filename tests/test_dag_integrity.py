@@ -26,6 +26,8 @@ API_TASKS = {
     ("ev04_charger_daily", "extract_sgg"): "ev_charger_api_pool",
     ("ev14_web_publish", "compare_remote"): "github_api_pool",
     ("ev14_web_publish", "commit_bundle"): "github_api_pool",
+    ("ev16_db_backup", "upload_offsite"): "supabase_storage_pool",
+    ("ev16_db_backup", "prune_old"): "supabase_storage_pool",
 }
 
 

@@ -452,20 +452,22 @@ check_sla (기한 도래 SLA, ops 당일 상태) ─▶ notify (미달만 Slack 
 ev13 정리(일 03:00) 1시간 전에 분석 DB를 덤프한다.
 
 ```
-dump_db (pg_dump -Fc) ─▶ verify_restore (임시 DB 복원) ─▶ prune_old (보관 개수 초과분 삭제)
- ─▶ record_run [all_done]
+dump_db (pg_dump -Fc) ─▶ verify_restore (임시 DB 복원) ─▶ upload_offsite (Supabase Storage)
+ ─▶ prune_old (보관 개수 초과분 삭제) ─▶ record_run [all_done]
 ```
 
 | 단계 | 내용 |
 |---|---|
 | 덤프 | `files/backups/{DB명}_{KST 시각}.dump`. `.partial`로 쓰고 끝나면 이름 확정 |
 | 복원 리허설 | `ev_restore_check` DB 생성(template0) → `pg_restore --exit-on-error` → 덤프 목차의 테이블이 모두 있는지 확인, 테이블별 행 수 기록 → DB 삭제 |
-| 정리 | 복원 확인 통과 시에만. 같은 DB 백업을 최신 `keep`개(기본 4)만 남김 |
+| 외부 업로드 | 복원 확인 통과 시에만. 비공개 버킷 `db-backups`, 파일당 50MB 한도. `SUPABASE_URL`·`SUPABASE_SECRET_KEY` 비우면 생략 |
+| 정리 | 업로드까지 통과 시에만. 로컬·외부 각각 최신 `keep`개(기본 4)만 남김 |
 
-- 결과: `quality_result.backup`(크기 MB), `quality_result.backup_restore`(복원된 테이블 수 / 목차 테이블 수)
+- 결과: `quality_result.backup`(크기 MB), `quality_result.backup_restore`(복원된 테이블 수 / 목차 테이블 수), `quality_result.backup_offsite`(업로드 MB)
 - 비밀번호는 `PGPASSWORD` 환경변수로만 전달 (명령줄·로그 미노출)
 - Airflow 메타데이터 DB는 대상 아님 (Connection·Variable은 `.env`, 실행 이력은 `ops`에 있음)
-- 같은 호스트 보관이라 디스크 장애엔 못 버팀. 외부 저장소 업로드는 남은 과제
+- 업로드·정리는 `supabase_storage_pool`(1)·api 큐. 업로드 실패 시 정리 안 함 (기존 보관분 유지)
+- 서버 주 버전 맞춤 `pg_dump` 사용 (`/usr/lib/postgresql/<주버전>/bin`)
 
 ---
 

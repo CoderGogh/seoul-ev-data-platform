@@ -53,7 +53,7 @@ docker compose up -d --build
 | ev13_retention_cleanup | 매주 일 03:00 | 조건부 보존 정리 (기본 dry-run) |
 | ev14_web_publish | 게시·공급 변경 시, 매일 07:10 | 웹 데이터를 `web-data` 브랜치에 게시 |
 | ev15_sla_watch | 매일 06:05·08:05 | 기한 내 수집·게시 완료 감시 |
-| ev16_db_backup | 매주 일 02:00 | 분석 DB 백업 (`files/backups`, 최근 4개)·복원 리허설 |
+| ev16_db_backup | 매주 일 02:00 | 분석 DB 백업 (`files/backups`·Supabase Storage, 최근 4개)·복원 리허설 |
 
 ## 5. DB 접속 (DBeaver)
 
@@ -112,6 +112,16 @@ docker compose start airflow-scheduler airflow-worker-default-1 airflow-worker-d
 ```
 
 내용만 확인하려면 `--clean` 대신 새 DB를 만들어 복원합니다 (ev16 복원 리허설과 같은 방식).
+
+로컬 파일이 없으면 Supabase Storage `db-backups` 버킷에서 받습니다 (대시보드 Storage 또는 아래 명령).
+
+```bash
+set -a; . ./.env; set +a
+curl -fsS -H "apikey: $SUPABASE_SECRET_KEY" -o files/backups/ev_platform_20261115T0200.dump \
+  "$SUPABASE_URL/storage/v1/object/db-backups/ev_platform_20261115T0200.dump"
+```
+
+외부 보관 설정: Supabase SQL Editor에서 `supabase/migrations/20261113000000_db_backups_bucket.sql` 실행 → `.env`에 `SUPABASE_URL`·`SUPABASE_SECRET_KEY`(Project Settings → API Keys의 secret 키) → `docker compose up -d`.
 
 ---
 
