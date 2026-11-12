@@ -11,6 +11,7 @@ const files = (regionCnt: number, regions = 2) => ({
   meta: { region_cnt: regionCnt },
   chargers: { by_dong: [] },
   history: { publishes: [], reprocess: [] },
+  links: { base_month: "202609", window: { start: "", end: "" }, links: [] },
 });
 
 // 가짜 fetch: 주소별 응답, 요청 기록
@@ -39,7 +40,7 @@ describe("loadData", () => {
     const d = await loadData(f);
     expect(d.source).toMatchObject({ kind: "remote", sha: SHA });
     const raw = calls.filter((u) => u.startsWith("https://raw.githubusercontent.com/"));
-    expect(raw).toHaveLength(7);
+    expect(raw).toHaveLength(8);
     expect(raw.every((u) => u.startsWith(`https://raw.githubusercontent.com/${REMOTE.repo}/${SHA}/web/`))).toBe(true);
     expect(calls.some((u) => u.startsWith("/data/"))).toBe(false);
   });
@@ -64,15 +65,17 @@ describe("loadData", () => {
     const { f, calls } = fakeFetch({ remote: remote as ReturnType<typeof files>, local: files(2) });
     const d = await loadData(f);
     expect(d.source.kind).toBe("bundle");
-    expect(calls.filter((u) => u.startsWith("/data/"))).toHaveLength(7);
+    expect(calls.filter((u) => u.startsWith("/data/"))).toHaveLength(8);
   });
 
-  it("게시 이력은 선택: 원격에 없어도 원격 사용, history null", async () => {
+  it("게시 이력·링크는 선택: 원격에 없어도 원격 사용, null", async () => {
     const remote = files(2) as Record<string, unknown>;
     delete remote.history;
+    delete remote.links;
     const { f } = fakeFetch({ remote: remote as ReturnType<typeof files>, local: files(2) });
     const d = await loadData(f);
     expect(d.source.kind).toBe("remote");
     expect(d.history).toBeNull();
+    expect(d.links).toBeNull();
   });
 });
