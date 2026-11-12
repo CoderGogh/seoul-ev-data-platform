@@ -443,6 +443,7 @@ check_sla (기한 도래 SLA, ops 당일 상태) ─▶ notify (미달만 Slack 
 
 - 실패 알림과 별개. 보류·센서 대기·진행 중·미실행처럼 실패가 아닌 지연을 잡음
 - 기한 5분 뒤 실행, 그 시각 기한만 확인 (기한마다 알림 1건). 수동 실행은 지난 기한 전부
+- 달성 = 기한 전 종료. 기한 뒤 완료는 미달로 보고 완료 시각 표시 (확인이 늦게 돌아도 판정 유지)
 - 결과는 `quality_result.sla` (scope = 대상 DAG)
 - Airflow 3 Deadline Alert 대신 별도 DAG: 판정 기준이 Airflow 상태가 아니라 `ops` 데이터 상태
 

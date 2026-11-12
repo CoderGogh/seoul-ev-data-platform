@@ -66,7 +66,12 @@ with DAG(
             return 0
         blocks = [sb.section_text("*기한 내 완료 안 됨*")]
         for r in missed:
-            last = f"{r['last_status']} {r['last_reason'] or ''}" if r["runs"] else "당일 실행 없음"
+            if r["done_at"]:
+                last = f"기한 후 완료 {r['done_at']}"
+            elif r["runs"]:
+                last = f"{r['last_status']} {r['last_reason'] or ''}"
+            else:
+                last = "당일 실행 없음"
             blocks.append(sb.section_text(f"• `{r['dag_id']}` 기한 {r['deadline_hour']:02d}:00 → {last}"))
         SlackWebhookHook(slack_webhook_conn_id="conn_slack_airflow_bot").send(text="SLA 미달", blocks=blocks)
         return len(missed)
