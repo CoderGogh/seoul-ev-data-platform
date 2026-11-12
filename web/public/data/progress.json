@@ -276,6 +276,27 @@
  },
  "merged": [
   {
+   "number": 87,
+   "title": "feat: 오른쪽 바 화면별 알림·담당·메모",
+   "merged_at": "2026-11-12T08:27:58Z",
+   "url": "https://github.com/CoderGogh/seoul-ev-data-platform/pull/87",
+   "closes": []
+  },
+  {
+   "number": 86,
+   "title": "feat: 웹 Bootstrap 스타일·대시보드 바로가기 구성",
+   "merged_at": "2026-11-12T08:09:27Z",
+   "url": "https://github.com/CoderGogh/seoul-ev-data-platform/pull/86",
+   "closes": []
+  },
+  {
+   "number": 85,
+   "title": "chore: 웹 개발 진행 데이터 갱신 (#84)",
+   "merged_at": "2026-11-10T14:49:39Z",
+   "url": "https://github.com/CoderGogh/seoul-ev-data-platform/pull/85",
+   "closes": []
+  },
+  {
    "number": 84,
    "title": "feat: ev16 분석 DB 주간 백업·복원 리허설",
    "merged_at": "2026-11-10T14:45:09Z",
@@ -493,27 +514,6 @@
    "closes": [
     39
    ]
-  },
-  {
-   "number": 34,
-   "title": "feat: 사이드바 내비게이션·대시보드·세부 페이지 구성",
-   "merged_at": "2026-10-30T05:35:13Z",
-   "url": "https://github.com/CoderGogh/seoul-ev-data-platform/pull/34",
-   "closes": []
-  },
-  {
-   "number": 33,
-   "title": "feat: 웹 화면 밝은 테마·카테고리 구분 개선",
-   "merged_at": "2026-10-30T05:23:51Z",
-   "url": "https://github.com/CoderGogh/seoul-ev-data-platform/pull/33",
-   "closes": []
-  },
-  {
-   "number": 32,
-   "title": "Update README.md",
-   "merged_at": "2026-10-30T05:12:50Z",
-   "url": "https://github.com/CoderGogh/seoul-ev-data-platform/pull/32",
-   "closes": []
   }
  ]
 }
