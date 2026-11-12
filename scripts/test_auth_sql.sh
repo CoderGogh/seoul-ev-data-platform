@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 웹 로그인 권한 SQL 검증 (일회용 postgres 컨테이너, 프로젝트 DB 무관)
+# 웹 로그인 권한·담당 메모 SQL 검증 (일회용 postgres 컨테이너, 프로젝트 DB 무관)
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -19,3 +19,4 @@ run() { docker exec -i "$NAME" psql -q -U postgres -v ON_ERROR_STOP=1 < "$1"; }
 run supabase/tests/auth_stub.sql
 for f in supabase/migrations/*.sql; do run "$f"; done
 run supabase/tests/auth_roles_test.sql
+run supabase/tests/work_notes_test.sql
