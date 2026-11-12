@@ -37,6 +37,16 @@ export interface Note {
   created_at: string;
 }
 
+export interface Report {
+  id: number;
+  target: string;
+  body: string;
+  base_month: string | null;
+  author: string;
+  created_at: string;
+  read_at: string | null;
+}
+
 export interface WorkStore {
   staff(): Promise<Staff[]>;
   item(target: string): Promise<WorkItem | null>;
@@ -46,6 +56,12 @@ export interface WorkStore {
   notes(target: string): Promise<Note[]>;
   addNote(target: string, body: string, baseMonth: string): Promise<Note>;
   deleteNote(id: number): Promise<void>;
+  sendReport(target: string, body: string, baseMonth: string): Promise<Report>;
+  notifyReport(id: number, label: string): Promise<boolean>;
+  sentReports(uid: string): Promise<Report[]>;
+  inbox(): Promise<Report[]>;
+  markRead(id: number): Promise<string>;
+  deleteReport(id: number): Promise<void>;
 }
 
 // 화면 경로 → 대상 키 (동 상세는 동 단위, 대시보드는 없음)
@@ -61,6 +77,8 @@ export const pathOf = (target: string) => (target.startsWith("region:") ? `/regi
 
 const MAX_NOTE = 1000;
 export const cleanNote = (body: string) => body.trim().slice(0, MAX_NOTE);
+const MAX_REPORT = 2000;
+export const cleanReport = (body: string) => body.trim().slice(0, MAX_REPORT);
 
 // 오류 → 예외
 function must<T>(res: { data: T | null; error: { message: string } | null }): T {
@@ -70,6 +88,7 @@ function must<T>(res: { data: T | null; error: { message: string } | null }): T 
 
 const ITEM_COLS = "target,assignee,status,base_month,updated_by,updated_at";
 const NOTE_COLS = "id,target,body,base_month,author,created_at";
+const REPORT_COLS = "id,target,body,base_month,author,created_at,read_at";
 
 function supabaseStore(): WorkStore {
   const db = supabase!;
@@ -94,6 +113,21 @@ function supabaseStore(): WorkStore {
     deleteNote: async (id) => {
       must(await db.from("notes").delete().eq("id", id));
     },
+    sendReport: async (target, body, baseMonth) =>
+      must(await db.from("reports").insert({ target, body: cleanReport(body), base_month: baseMonth }).select(REPORT_COLS).single()) as Report,
+    // Slack 알림 (실패해도 보고는 저장됨)
+    notifyReport: async (id, label) => {
+      const { data, error } = await db.functions.invoke("report-notify", { body: { id, label } });
+      return !error && Boolean((data as { sent?: boolean } | null)?.sent);
+    },
+    sentReports: async (uid) =>
+      must(await db.from("reports").select(REPORT_COLS).eq("author", uid).order("created_at", { ascending: false }).limit(10)) as Report[],
+    inbox: async () =>
+      must(await db.from("reports").select(REPORT_COLS).order("read_at", { ascending: false, nullsFirst: true }).order("created_at", { ascending: false }).limit(30)) as Report[],
+    markRead: async (id) => must(await db.rpc("mark_report_read", { report_id: id })) as string,
+    deleteReport: async (id) => {
+      must(await db.from("reports").delete().eq("id", id));
+    },
   };
 }
 
@@ -106,6 +140,7 @@ export function memoryStore(): WorkStore {
   ];
   const items = new Map<string, WorkItem>();
   let notes: Note[] = [];
+  let reports: Report[] = [];
   let seq = 0;
   return {
     staff: async () => staff,
@@ -126,6 +161,22 @@ export function memoryStore(): WorkStore {
     },
     deleteNote: async (id) => {
       notes = notes.filter((n) => n.id !== id);
+    },
+    sendReport: async (target, body, baseMonth) => {
+      const r = { id: ++seq, target, body: cleanReport(body), base_month: baseMonth, author: "dev", created_at: new Date().toISOString(), read_at: null };
+      reports = [r, ...reports];
+      return r;
+    },
+    notifyReport: async () => false,
+    sentReports: async (uid) => reports.filter((r) => r.author === uid),
+    inbox: async () => [...reports].sort((a, b) => Number(a.read_at !== null) - Number(b.read_at !== null)),
+    markRead: async (id) => {
+      const at = new Date().toISOString();
+      reports = reports.map((r) => (r.id === id ? { ...r, read_at: r.read_at ?? at } : r));
+      return at;
+    },
+    deleteReport: async (id) => {
+      reports = reports.filter((r) => r.id !== id);
     },
   };
 }
