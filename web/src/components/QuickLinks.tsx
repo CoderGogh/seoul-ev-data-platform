@@ -6,8 +6,9 @@ import { Link } from "../router";
 import { CardHead } from "./PageHead";
 import { Icon } from "./Icon";
 
-export function QuickLinks({ role }: { role?: Role | null }) {
-  const groups = visibleGroups(role).filter((g) => g.title !== "개요");
+// only: 표시할 카테고리 (마이페이지 역할별)
+export function QuickLinks({ role, only }: { role?: Role | null; only?: string[] }) {
+  const groups = visibleGroups(role).filter((g) => g.title !== "개요" && (!only || only.includes(g.title)));
   return (
     <div className="quick" aria-label="화면 바로가기">
       {groups.map((g) => (

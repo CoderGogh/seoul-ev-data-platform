@@ -73,6 +73,9 @@ export function UserMenu() {
           </div>
           {profile?.role === "pending" && <p className="user-note">관리자가 역할을 지정하면 운영 화면을 볼 수 있습니다.</p>}
           <div className="dropdown-divider" />
+          <Link to="/me" className="dropdown-item">
+            <Icon name="dashboard" size={16} /> 마이페이지
+          </Link>
           {hasRole(profile?.role, "operator") && (
             <Link to="/versions" className="dropdown-item">
               <Icon name="clock" size={16} /> 데이터 버전

@@ -2484,3 +2484,67 @@ td.up {
 .work-notes li.report-read {
   opacity: 0.7;
 }
+
+/* 마이페이지 */
+.card.me-profile {
+  flex-direction: row;
+  gap: 16px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+.me-profile .avatar {
+  border-radius: 50%;
+}
+.me-profile-main {
+  flex: 1 1 220px;
+  min-width: 0;
+}
+.me-profile-name {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  font-size: 1.1rem;
+}
+.me-profile-main small,
+.me-can small {
+  color: var(--muted);
+}
+.me-can {
+  flex: 1 1 260px;
+}
+.me-can ul {
+  margin: 4px 0 0;
+  padding-left: 18px;
+}
+.me-text {
+  margin: 0;
+}
+.me-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.me-list li {
+  padding: 10px 0;
+  border-top: 1px solid var(--border);
+}
+.me-list li:first-child {
+  border-top: 0;
+}
+.me-list p {
+  margin: 4px 0 0;
+  white-space: pre-wrap;
+}
+.me-row-head {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.me-row-head small {
+  color: var(--muted);
+}
+.me-team .num {
+  text-align: right;
+}

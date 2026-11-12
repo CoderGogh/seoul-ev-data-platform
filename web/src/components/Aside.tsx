@@ -70,6 +70,9 @@ export function Aside({ data, current, isHome }: { data: AppData | null; current
           {session && profile ? (
             <p className="aside-text">
               <b>{profile.name || profile.email}</b> · <span className={`role-badge role-${profile.role}`}>{ROLE_LABEL[profile.role]}</span>
+              <Link to="/me" className="aside-link">
+                마이페이지 →
+              </Link>
               {hasRole(profile.role, "operator") && (
                 <Link to="/versions" className="aside-link">
                   데이터 버전 확인 →
