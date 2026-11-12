@@ -1,7 +1,8 @@
-// 왼쪽 사이드바: 전체 메뉴 (접으면 아이콘 레일, 모바일은 서랍)
+// 왼쪽 바: 현재 카테고리의 하위 화면만 (첫 화면은 구역 바로가기), 모바일 서랍은 전체 카테고리
 import { hasRole, type Role } from "../auth/roles";
-import { activeItem, visibleGroups } from "../nav";
+import { HOME_SECTIONS, activeItem, groupOf, visibleGroups } from "../nav";
 import { Link } from "../router";
+import { Brand } from "./Header";
 import { Icon } from "./Icon";
 
 const REPO_URL = "https://github.com/CoderGogh/seoul-ev-data-platform";
@@ -15,82 +16,80 @@ interface SidebarProps {
   role?: Role | null;
 }
 
-export function Brand() {
-  return (
-    <Link to="/" className="brand" title="서울 전동화 입지 인사이트">
-      <span className="brand-mark" aria-hidden="true">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M13 2 4 14h7l-1 8 9-12h-7l1-8z" />
-        </svg>
-      </span>
-      <span className="brand-text">
-        서울 전동화 입지
-        <small>EV Insight Console</small>
-      </span>
-    </Link>
-  );
-}
+// 구역으로 스크롤
+const jump = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
 
 export function Sidebar({ path, open, collapsed, onClose, onToggleCollapsed, role }: SidebarProps) {
   const current = activeItem(path);
+  const group = groupOf(current);
+  const isHome = path === "/";
+  const showAll = !isHome && !group; // 로그인 등 분류 없는 화면
   const cls = ["sidebar", open && "open", collapsed && "collapsed"].filter(Boolean).join(" ");
 
   return (
     <>
-      <aside className={cls} data-bs-theme="dark" aria-label="메뉴">
+      <aside className={cls} aria-label={group ? `${group.title} 메뉴` : "메뉴"}>
         <div className="side-head">
           <Brand />
-          <button className="btn btn-link side-close" onClick={onClose} aria-label="메뉴 닫기">
+          <button className="icon-btn side-close" onClick={onClose} aria-label="메뉴 닫기">
             <Icon name="close" />
           </button>
         </div>
 
+        {isHome && (
+          <div className="side-group side-current side-home">
+            <div className="side-title">개요</div>
+            {HOME_SECTIONS.map((s) => (
+              <button key={s.id} className="side-link" title={s.label} onClick={() => jump(s.id)}>
+                <Icon name={s.icon} />
+                <span className="side-label">{s.label}</span>
+              </button>
+            ))}
+          </div>
+        )}
+
         <nav className="side-nav">
           {visibleGroups(role).map((g) => (
-            <div key={g.title} className="side-group">
+            <div key={g.title} className={`side-group${showAll || (!isHome && g.title === group?.title) ? " side-current" : " side-other"}`}>
               <div className="side-title">{g.title}</div>
-              <ul className="nav nav-pills flex-column">
-                {g.items.map((item) => {
-                  const locked = !hasRole(role, item.minRole);
-                  return (
-                    <li key={item.to} className="nav-item">
-                      <Link
-                        to={item.to}
-                        className={`nav-link side-link${current?.to === item.to ? " active" : ""}`}
-                        title={collapsed ? item.label : item.desc}
-                        aria-current={current?.to === item.to ? "page" : undefined}
-                      >
-                        <Icon name={item.icon} />
-                        <span className="side-label">{item.label}</span>
-                        {locked && (
-                          <span className="side-lock" title="운영 권한 필요">
-                            <Icon name="lock" size={13} />
-                          </span>
-                        )}
-                      </Link>
-                    </li>
-                  );
-                })}
-              </ul>
+              {g.items.map((item) => (
+                <Link
+                  key={item.to}
+                  to={item.to}
+                  className="side-link"
+                  title={collapsed ? item.label : item.desc}
+                  aria-current={current?.to === item.to ? "page" : undefined}
+                >
+                  <Icon name={item.icon} />
+                  <span className="side-label">{item.label}</span>
+                  {!hasRole(role, item.minRole) && (
+                    <span className="side-lock" title="운영 권한 필요">
+                      <Icon name="lock" size={14} />
+                    </span>
+                  )}
+                </Link>
+              ))}
             </div>
           ))}
         </nav>
 
         <div className="side-foot">
-          <a className="btn btn-link side-tool" href={REPO_URL} title="GitHub 저장소" aria-label="GitHub 저장소">
-            <Icon name="github" />
-          </a>
-          <button
-            className="btn btn-link side-tool side-collapse"
-            onClick={onToggleCollapsed}
-            title={collapsed ? "메뉴 펼치기" : "메뉴 접기"}
-            aria-label={collapsed ? "메뉴 펼치기" : "메뉴 접기"}
-          >
-            <Icon name={collapsed ? "expand" : "collapse"} />
-          </button>
+          <div className="side-tools">
+            <a className="icon-btn" href={REPO_URL} title="GitHub 저장소" aria-label="GitHub 저장소">
+              <Icon name="github" />
+            </a>
+            <button
+              className="icon-btn side-collapse"
+              onClick={onToggleCollapsed}
+              title={collapsed ? "메뉴 펼치기" : "메뉴 접기"}
+              aria-label={collapsed ? "메뉴 펼치기" : "메뉴 접기"}
+            >
+              <Icon name={collapsed ? "expand" : "collapse"} />
+            </button>
+          </div>
         </div>
       </aside>
-      {open && <div className="side-backdrop" onClick={onClose} aria-hidden="true" />}
+      {open && <div className="backdrop" onClick={onClose} aria-hidden="true" />}
     </>
   );
 }

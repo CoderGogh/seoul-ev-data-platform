@@ -1,17 +1,14 @@
-// 상단 바: 메뉴 버튼·현재 위치·데이터 상태·테마·사용자
-import { useMemo, type ReactNode } from "react";
+// 상단 바: 로고·큰 카테고리(마우스 올리면 하위 화면 패널이 내려옴)·테마·사용자
+import { useEffect, useState, type FocusEvent, type ReactNode } from "react";
 import type { Role } from "../auth/roles";
 import { hasRole } from "../auth/roles";
-import type { AppData } from "../data";
-import { freshness, worst } from "../freshness";
-import { groupOf, type NavItem } from "../nav";
-import { Link } from "../router";
+import { groupOf, visibleGroups, type NavItem } from "../nav";
+import { Link, usePath } from "../router";
 import type { Theme } from "../theme";
 import { Icon } from "./Icon";
 
 interface HeaderProps {
   current?: NavItem;
-  data: AppData | null;
   role?: Role | null;
   theme: Theme;
   onToggleTheme: () => void;
@@ -19,58 +16,109 @@ interface HeaderProps {
   right?: ReactNode;
 }
 
-const LEVEL = {
-  ok: { text: "데이터 정상", cls: "text-bg-success" },
-  warn: { text: "데이터 주의", cls: "text-bg-warning" },
-  bad: { text: "데이터 오래됨", cls: "text-bg-danger" },
-} as const;
+const ROW_H = 40; // 하위 화면 한 줄 높이
 
-// 데이터 신선도 (운영 이상, 누르면 데이터 버전)
-function FreshPill({ data }: { data: AppData }) {
-  const level = useMemo(() => worst(freshness(data.meta, data.chargers)), [data]);
-  const l = LEVEL[level];
+export function Brand() {
   return (
-    <Link to="/versions" className={`badge rounded-pill fresh-pill ${l.cls}`} title="원천별 기준일 보기">
-      {l.text}
+    <Link to="/" className="brand" title="서울 전동화 입지 인사이트">
+      <span className="brand-mark" aria-hidden="true">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M13 2 4 14h7l-1 8 9-12h-7l1-8z" />
+        </svg>
+      </span>
+      <span className="brand-text">서울 전동화 입지 인사이트</span>
     </Link>
   );
 }
 
-export function Header({ current, data, role, theme, onToggleTheme, onOpenMenu, right }: HeaderProps) {
+export function Header({ current, role, theme, onToggleTheme, onOpenMenu, right }: HeaderProps) {
+  const groups = visibleGroups(role);
   const group = groupOf(current);
-  const isHome = current?.to === "/";
+  const rows = Math.max(...groups.map((g) => g.items.length));
+  const path = usePath();
+  const [open, setOpen] = useState(false);
+
+  // 화면 이동 시 패널 닫기
+  useEffect(() => setOpen(false), [path]);
+
+  // 열린 동안 Esc 닫기 (마우스로만 연 경우 포함)
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      setOpen(false);
+      (document.activeElement as HTMLElement | null)?.blur();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [open]);
+
+  // 클릭·Esc 시 닫고 포커스 해제 (포커스가 남아 다시 열리는 것 방지)
+  const close = () => {
+    setOpen(false);
+    (document.activeElement as HTMLElement | null)?.blur();
+  };
+  // 키보드 포커스만 패널 열기 (마우스 클릭 포커스 제외)
+  const onFocus = (e: FocusEvent<HTMLElement>) => {
+    if (e.target.matches(":focus-visible")) setOpen(true);
+  };
+  const onBlur = (e: FocusEvent<HTMLElement>) => {
+    if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setOpen(false);
+  };
 
   return (
-    <header className="topbar">
-      <button className="btn btn-link topbar-menu" onClick={onOpenMenu} aria-label="메뉴 열기">
-        <Icon name="menu" size={22} />
-      </button>
-
-      <nav aria-label="현재 위치" className="topbar-crumb">
-        <ol className="breadcrumb mb-0">
-          {!isHome && (
-            <li className="breadcrumb-item">
-              <Link to="/">홈</Link>
-            </li>
-          )}
-          {group && !isHome && <li className="breadcrumb-item">{group.title}</li>}
-          <li className="breadcrumb-item active" aria-current="page">
-            {current?.label ?? "대시보드"}
-          </li>
-        </ol>
-      </nav>
-
-      <div className="topbar-tools">
-        {data && hasRole(role, "operator") && <FreshPill data={data} />}
-        <button
-          className="btn btn-link topbar-icon"
-          onClick={onToggleTheme}
-          title={theme === "light" ? "다크 모드" : "라이트 모드"}
-          aria-label={theme === "light" ? "다크 모드" : "라이트 모드"}
-        >
-          <Icon name={theme === "light" ? "moon" : "sun"} size={19} />
+    <header className="gnb">
+      <div className="gnb-inner">
+        <button className="icon-btn gnb-menu" onClick={onOpenMenu} aria-label="메뉴 열기">
+          <Icon name="menu" size={22} />
         </button>
-        {right}
+        <Brand />
+
+        <nav
+          className={`gnb-nav${open ? " open" : ""}`}
+          aria-label="카테고리"
+          style={{ ["--mega-h" as string]: `${rows * ROW_H + 28}px` }}
+          onMouseEnter={() => setOpen(true)}
+          onMouseLeave={() => setOpen(false)}
+          onFocus={onFocus}
+          onBlur={onBlur}
+          onClick={(e) => (e.target as HTMLElement).closest("a") && close()}
+        >
+          {groups.map((g) => (
+            <div key={g.title} className="gnb-item">
+              <Link to={g.items[0].to} className="gnb-link" aria-current={group?.title === g.title ? "page" : undefined}>
+                {g.title}
+              </Link>
+              <div className="gnb-drop">
+                {g.items.map((i) => (
+                  <Link
+                    key={i.to}
+                    to={i.to}
+                    className="gnb-drop-link"
+                    title={i.desc}
+                    aria-current={current?.to === i.to ? "page" : undefined}
+                  >
+                    {i.label}
+                    {!hasRole(role, i.minRole) && <Icon name="lock" size={12} />}
+                  </Link>
+                ))}
+              </div>
+            </div>
+          ))}
+          <div className="mega-bg" aria-hidden="true" />
+        </nav>
+
+        <div className="gnb-tools">
+          <button
+            className="icon-btn"
+            onClick={onToggleTheme}
+            title={theme === "light" ? "다크 모드" : "라이트 모드"}
+            aria-label={theme === "light" ? "다크 모드" : "라이트 모드"}
+          >
+            <Icon name={theme === "light" ? "moon" : "sun"} size={20} />
+          </button>
+          {right}
+        </div>
       </div>
     </header>
   );
