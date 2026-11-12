@@ -32,9 +32,15 @@ const AuthCtx = createContext<AuthState | null>(null);
 
 export const PROFILE_COLS = "id,email,name,avatar_url,provider,role,is_super,created_at,role_updated_at";
 
+// 로컬 개발 미리보기 역할 (로그인 미설정·개발 서버 한정)
+const DEV_ROLE = import.meta.env.DEV && !supabase ? (import.meta.env.VITE_DEV_ROLE as Role | undefined) : undefined;
+const DEV_PROFILE: Profile | null = DEV_ROLE
+  ? { id: "dev", email: null, name: "로컬 미리보기", avatar_url: null, provider: null, role: DEV_ROLE, is_super: false, created_at: "", role_updated_at: null }
+  : null;
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
-  const [profile, setProfile] = useState<Profile | null>(null);
+  const [profile, setProfile] = useState<Profile | null>(DEV_PROFILE);
   const [loading, setLoading] = useState(!!supabase);
 
   // 세션 변화 구독
