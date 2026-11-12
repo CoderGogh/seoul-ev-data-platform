@@ -20,3 +20,4 @@ run supabase/tests/auth_stub.sql
 for f in supabase/migrations/*.sql; do run "$f"; done
 run supabase/tests/auth_roles_test.sql
 run supabase/tests/work_notes_test.sql
+run supabase/tests/reports_test.sql

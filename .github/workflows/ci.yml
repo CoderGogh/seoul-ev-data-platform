@@ -115,5 +115,6 @@ jobs:
           for f in supabase/migrations/*.sql; do psql -v ON_ERROR_STOP=1 -q -f "$f"; done
           psql -v ON_ERROR_STOP=1 -q -f supabase/tests/auth_roles_test.sql
           psql -v ON_ERROR_STOP=1 -q -f supabase/tests/work_notes_test.sql
+          psql -v ON_ERROR_STOP=1 -q -f supabase/tests/reports_test.sql
         env:
           PGDATABASE: auth_test
