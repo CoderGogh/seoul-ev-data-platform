@@ -8,6 +8,7 @@ import { groupOf, type NavItem } from "../nav";
 import { Link, usePath } from "../router";
 import { targetFor } from "../work";
 import { Icon } from "./Icon";
+import { ReportForm, ReportInbox, SentReports, useTargetLabel } from "./ReportPanel";
 import { MyWork, WorkPanel } from "./WorkPanel";
 
 export function Aside({ data, current, isHome }: { data: AppData | null; current?: NavItem; isHome: boolean }) {
@@ -17,6 +18,7 @@ export function Aside({ data, current, isHome }: { data: AppData | null; current
   const operator = hasRole(profile?.role, "operator");
   const alerts = useMemo(() => (data ? pageAlerts(path, data, operator) : []), [path, data, operator]);
   const target = targetFor(path);
+  const labelOf = useTargetLabel(data?.regions ?? []);
 
   return (
     <aside className="aside" aria-label="보조 정보">
@@ -55,7 +57,12 @@ export function Aside({ data, current, isHome }: { data: AppData | null; current
       )}
 
       {data && operator && profile && target && <WorkPanel key={target} target={target} baseMonth={data.meta.base_month} me={profile} />}
+      {data && profile?.role === "operator" && target && (
+        <ReportForm key={target} target={target} label={labelOf(target)} baseMonth={data.meta.base_month} />
+      )}
       {data && operator && profile && isHome && <MyWork me={profile} regions={data.regions} />}
+      {data && profile?.role === "admin" && isHome && <ReportInbox regions={data.regions} />}
+      {data && profile?.role === "operator" && isHome && <SentReports me={profile} regions={data.regions} />}
 
       {enabled && (
         <section className="aside-card">

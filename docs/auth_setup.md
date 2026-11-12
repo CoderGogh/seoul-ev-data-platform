@@ -26,6 +26,7 @@
 2. SQL Editor에서 `supabase/migrations/` 파일을 이름 순서대로 실행
    - `20261103000000_auth_roles.sql` 역할
    - `20261112000000_work_notes.sql` 담당·메모
+   - `20261113010000_reports.sql` 팀장 보고
 3. Authentication → URL Configuration
    - Site URL: `https://seoul-ev-insight.vercel.app`
    - Redirect URLs: `https://seoul-ev-insight.vercel.app/**`, `http://localhost:5173/**`
@@ -82,6 +83,30 @@ update public.profiles set role = 'admin', is_super = true where email = '<내 �
 - 담당자 후보는 `list_staff()`로 이름·역할만 받음 (이메일 미노출)
 - 비로그인·조회 역할은 오른쪽 바에서 화면 알림만 봄
 - 로컬 미리보기(`VITE_DEV_ROLE`)는 브라우저 메모리에 저장, 새로고침하면 초기화
+
+## 팀장 보고
+
+| 기능 | 운영 | 팀장(`admin`) |
+|---|---|---|
+| 보고 보내기 (오른쪽 바) | O | X |
+| 보낸 보고·읽음 여부 (첫 화면) | 본인 것 | - |
+| 받은 보고함·읽음 처리 (첫 화면) | X | O |
+| 보고 삭제 | 읽기 전 본인 것 | 전부 |
+
+- 읽음 처리는 `mark_report_read()`로만 (테이블 직접 수정 권한 없음)
+- 보내면 Edge Function `report-notify`가 Slack에 한 번 알림. 보고당 1회는 `claim_report_notify()`로 보장
+- Slack 실패·미설정이어도 보고는 저장되고 받은 보고함에 뜸
+
+Slack 알림 켜기 (Supabase CLI, 한 번):
+
+```bash
+supabase login
+supabase link --project-ref <project-ref>
+supabase secrets set SLACK_REPORT_WEBHOOK_URL=<Slack Incoming Webhook URL> SITE_URL=https://seoul-ev-insight.vercel.app
+supabase functions deploy report-notify --no-verify-jwt
+```
+
+`--no-verify-jwt`는 게이트웨이 검사만 끄는 것. 함수는 호출자 토큰으로 DB를 조회하므로 비로그인·남의 보고는 RLS에서 막힌다.
 
 ## 검증
 

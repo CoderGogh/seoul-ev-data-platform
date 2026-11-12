@@ -17,7 +17,7 @@ import {
 
 // 담당자 후보 (한 번 조회 후 공유)
 let staffCache: Promise<Staff[]> | null = null;
-function useStaff() {
+export function useStaff() {
   const [staff, setStaff] = useState<Staff[]>([]);
   useEffect(() => {
     if (!workStore) return;
