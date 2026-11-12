@@ -12,7 +12,7 @@
     <!-- 저장된 테마 선적용 (깜빡임 방지) -->
     <script>
       try {
-        if (localStorage.getItem("theme") === "dark") document.documentElement.dataset.theme = "dark";
+        if (localStorage.getItem("theme") === "dark") document.documentElement.dataset.theme = document.documentElement.dataset.bsTheme = "dark";
       } catch (e) {}
     </script>
   </head>

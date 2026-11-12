@@ -49,7 +49,7 @@
 | 웹 | 결과 데이터 자동 게시(web-data 브랜치) → Vercel, Google·카카오 로그인·역할별 운영 화면 |
 | CI/CD | `lint` → `test` → `validate_dag` → `validate_ddl` 통과해야 main 병합, 웹 빌드 별도 확인 |
 
-Airflow 3.3.2 (CeleryExecutor) · PostgreSQL 16 + PostGIS · React + Vite · Supabase · Vercel · Rshiny
+Airflow 3.3.2 (CeleryExecutor) · PostgreSQL 16 + PostGIS · React + Vite + Bootstrap 5 · Supabase · Vercel · Rshiny
 
 ### DAG 관계도
 

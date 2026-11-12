@@ -55,7 +55,7 @@ export function RegionFilterBar({ regions, f, onHint }: { regions: Region[]; f: 
   };
 
   return (
-    <section className="card toolbar" aria-label="필터">
+    <section className="card card-body toolbar" aria-label="필터">
       <div className="filter-row">
         <span className="filter-label">자치구</span>
         <Chip on={f.sgg === "all"} onClick={() => f.setSgg("all")} count={regions.length}>
@@ -92,7 +92,7 @@ export function RegionFilterBar({ regions, f, onHint }: { regions: Region[]; f: 
       </div>
       <div className="filter-row">
         <span className="filter-label">검색</span>
-        <input type="search" placeholder="동 이름 (예: 잠실)" value={f.q} onChange={(e) => f.setQ(e.target.value)} aria-label="동 이름 검색" />
+        <input type="search" className="form-control form-control-sm" placeholder="동 이름 (예: 잠실)" value={f.q} onChange={(e) => f.setQ(e.target.value)} aria-label="동 이름 검색" />
       </div>
     </section>
   );

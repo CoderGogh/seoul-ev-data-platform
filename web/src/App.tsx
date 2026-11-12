@@ -119,8 +119,13 @@ export function App() {
             </RequireRole>
           ) : (
             <>
-              {error && <div className="empty">데이터를 불러오지 못했습니다. {error}</div>}
-              {!error && !data && <div className="empty">불러오는 중…</div>}
+              {error && <div className="alert alert-danger">데이터를 불러오지 못했습니다. {error}</div>}
+              {!error && !data && (
+                <div className="empty">
+                  <span className="spinner-border spinner-border-sm me-2" aria-hidden="true" />
+                  불러오는 중…
+                </div>
+              )}
               {data && hasRole(profile?.role, "operator") && <FreshnessAlert data={data} />}
               {data && (
                 <RequireRole min={current?.minRole} path={path}>

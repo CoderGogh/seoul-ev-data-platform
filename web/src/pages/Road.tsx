@@ -36,7 +36,7 @@ export function Road({ data }: { data: AppData }) {
       </section>
 
       <div className="grid-2">
-        <section className="card">
+        <section className="card card-body">
           <CardHead
             title="우선 검토 지역 저속 비중"
             sub="점선은 13%·22% 경계, 막대를 누르면 검토 카드"
@@ -54,7 +54,7 @@ export function Road({ data }: { data: AppData }) {
           <LowSpeedBars regions={priority} fastMax={p.hint_fast_max_low} slowMin={p.hint_slow_min_low} height={360} />
         </section>
 
-        <section className="card">
+        <section className="card card-body">
           <CardHead title="시간대별 평균 속도" sub={`${regions.length}개 동 평균, km/h (확정된 주간 시간대)`} />
           <TimebandBars data={avg} height={360} />
         </section>

@@ -9,7 +9,7 @@ export function FreshnessAlert({ data }: { data: AppData }) {
   const msg = summary(items);
   if (level === "ok" || !msg) return null;
   return (
-    <p className={`fresh-alert fresh-${level}`} role="status">
+    <p className={`alert alert-${level === "bad" ? "danger" : "warning"} py-2`} role="status">
       {msg}
     </p>
   );

@@ -50,7 +50,7 @@ export function Compare({ data }: { data: AppData }) {
     <div className="page">
       <PageHead tags={["지역 분석"]} title="동 비교" lede={`최대 ${MAX}곳까지 골라 지표와 판정을 나란히 봅니다.`} />
 
-      <section className="card">
+      <section className="card card-body">
         <CardHead title={`선택 ${picked.length} / ${MAX}`} sub="이름으로 찾아 추가" />
         <div className="compare-picked">
           {picked.map((r) => (
@@ -66,6 +66,7 @@ export function Compare({ data }: { data: AppData }) {
           <div className="compare-search">
             <input
               type="search"
+              className="form-control form-control-sm"
               placeholder="동 이름 (예: 잠실)"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
@@ -94,10 +95,10 @@ export function Compare({ data }: { data: AppData }) {
       </section>
 
       {picked.length >= 2 ? (
-        <section className="card">
+        <section className="card card-body">
           <CardHead title="지표 비교" />
           <div className="table-wrap">
-            <table className="compare-table">
+            <table className="table table-hover align-middle mb-0 compare-table">
               <thead>
                 <tr>
                   <th />

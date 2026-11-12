@@ -18,6 +18,7 @@ export function useTheme() {
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
+    document.documentElement.dataset.bsTheme = theme; // Bootstrap 색 모드
     try {
       localStorage.setItem(KEY, theme);
     } catch {

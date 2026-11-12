@@ -16,6 +16,7 @@ import { FLAG_LABEL, GROWTH_DESC, REASON_LABEL, fmtInt, fmtMonth, fmtPct, type A
 import { ClassBadge, HintBadge } from "../components/Badges";
 import { RegionMap } from "../components/RegionMap";
 import { Tip, chartTipStyle } from "../components/Tip";
+import { CardHead } from "../components/PageHead";
 import { Link, navigate } from "../router";
 import { verdict, type Verdict } from "../verdict";
 
@@ -60,19 +61,25 @@ export function RegionDetail({ data, admCd }: { data: AppData; admCd: string }) 
 
   return (
     <div className="page">
-      <section className="hero">
-        <Link to="/regions" className="back">
-          ← 행정동 목록
-        </Link>
-        <Link to={`/compare?ids=${r.adm_cd}`} className="back" style={{ marginLeft: 16 }}>
-          다른 동과 비교 →
-        </Link>
-        <div className="kicker" style={{ marginTop: 14 }}>
-          <span className="chip">{r.sgg_nm}</span>
-          <span className="chip">행정동 코드 {r.adm_cd}</span>
+      <section className="page-head">
+        <div className="page-head-row">
+          <div className="page-head-main">
+            <div className="page-tags">
+              <span className="page-tag">{r.sgg_nm}</span>
+              <span className="page-tag">행정동 코드 {r.adm_cd}</span>
+            </div>
+            <h1>{r.adm_nm}</h1>
+          </div>
+          <div className="page-actions">
+            <Link to="/regions" className="btn btn-sm btn-outline-secondary">
+              ← 행정동 목록
+            </Link>
+            <Link to={`/compare?ids=${r.adm_cd}`} className="btn btn-sm btn-outline-primary">
+              다른 동과 비교
+            </Link>
+          </div>
         </div>
-        <h1>{r.adm_nm}</h1>
-        <div className="badges" style={{ marginTop: 10 }}>
+        <div className="badges">
           <ClassBadge value={r.classification} />
           <HintBadge value={r.charger_hint} prefix />
           {r.growth_pattern && <span className="badge">{r.growth_pattern}</span>}
@@ -87,7 +94,7 @@ export function RegionDetail({ data, admCd }: { data: AppData; admCd: string }) 
       <VerdictCard v={verdict(r, p)} />
 
       <div className="grid-2">
-        <section className="card">
+        <section className="card card-body">
           <div className="card-head">
             <div>
               <h2>수요</h2>
@@ -148,7 +155,7 @@ export function RegionDetail({ data, admCd }: { data: AppData; admCd: string }) 
           </div>
         </section>
 
-        <section className="card">
+        <section className="card card-body">
           <div className="card-head">
             <div>
               <h2>도로 여건</h2>
@@ -189,7 +196,7 @@ export function RegionDetail({ data, admCd }: { data: AppData; admCd: string }) 
       </div>
 
       <div className="grid-2">
-        <section className="card">
+        <section className="card card-body">
           <div className="card-head">
             <div>
               <h2>월별 전기차 대수</h2>
@@ -215,7 +222,7 @@ export function RegionDetail({ data, admCd }: { data: AppData; admCd: string }) 
           </ResponsiveContainer>
         </section>
 
-        <section className="card">
+        <section className="card card-body">
           <div className="card-head">
             <div>
               <h2>시간대별 평균 속도</h2>
@@ -249,8 +256,8 @@ export function RegionDetail({ data, admCd }: { data: AppData; admCd: string }) 
       </div>
 
       <div className="grid-2">
-        <section className="card">
-          <h2 style={{ marginBottom: 12 }}>현장 체크포인트</h2>
+        <section className="card card-body">
+          <CardHead title="현장 체크포인트" />
           <ul className="checklist">
             {checkpoints(r, p.hint_fast_max_low, p.hint_slow_min_low).map((c) => (
               <li key={c}>{c}</li>
@@ -268,8 +275,8 @@ export function RegionDetail({ data, admCd }: { data: AppData; admCd: string }) 
           )}
         </section>
 
-        <section className="card">
-          <h2 style={{ marginBottom: 12 }}>위치</h2>
+        <section className="card card-body">
+          <CardHead title="위치" sub={`${r.sgg_nm} 안 위치`} />
           <RegionMap
             geo={data.geo}
             regions={data.regions.filter((x) => x.sgg_nm === r.sgg_nm)}
@@ -288,7 +295,7 @@ const STATE_LABEL = { pass: "충족", fail: "미달", skip: "-" } as const;
 // 판정 근거: 단계별 기준·값·거리, 멈춘 단계에서 끝남
 function VerdictCard({ v }: { v: Verdict }) {
   return (
-    <section className="card verdict">
+    <section className="card card-body verdict">
       <div className="card-head">
         <div>
           <h2>판정 근거</h2>

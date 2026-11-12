@@ -23,12 +23,12 @@ export function Versions({ data }: { data: AppData }) {
         lede="화면에 쓰인 데이터의 원천별 기준일, 게시 버전, 데이터·웹 배포 커밋입니다. 일반 화면에는 필요한 기준만 하단에 작게 표시합니다."
       />
 
-      {msg && <p className={`fresh-alert fresh-${level}`}>{msg}</p>}
+      {msg && <p className={`alert alert-${level === "bad" ? "danger" : "warning"} py-2`}>{msg}</p>}
 
-      <section className="card">
+      <section className="card card-body">
         <CardHead title="원천별 기준일" sub="화면을 연 시각 기준 경과" />
         <div className="table-wrap">
-          <table>
+          <table className="table table-hover align-middle mb-0">
             <thead>
               <tr>
                 <th>원천</th>
@@ -58,7 +58,7 @@ export function Versions({ data }: { data: AppData }) {
       </section>
 
       <div className="grid-2">
-        <section className="card">
+        <section className="card card-body">
           <CardHead title="게시 버전" sub="ev03 품질 관문 통과분" />
           <dl className="kv">
             <dt>분류 기준</dt>
@@ -96,7 +96,7 @@ export function Versions({ data }: { data: AppData }) {
           </dl>
         </section>
 
-        <section className="card">
+        <section className="card card-body">
           <CardHead title="배포 버전" sub="데이터 커밋(ev14)과 웹 빌드" />
           <dl className="kv">
             <dt>데이터 출처</dt>

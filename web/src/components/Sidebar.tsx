@@ -1,6 +1,6 @@
-// 왼쪽 바: 현재 카테고리의 하위 화면만 (첫 화면은 구역 바로가기), 모바일 서랍은 전체 카테고리
+// 왼쪽 바: 현재 카테고리의 하위 화면만 (첫 화면은 전체 카테고리), 모바일 서랍은 전체 카테고리
 import { hasRole, type Role } from "../auth/roles";
-import { HOME_SECTIONS, activeItem, groupOf, visibleGroups } from "../nav";
+import { activeItem, groupOf, visibleGroups } from "../nav";
 import { Link } from "../router";
 import { Brand } from "./Header";
 import { Icon } from "./Icon";
@@ -16,14 +16,11 @@ interface SidebarProps {
   role?: Role | null;
 }
 
-// 구역으로 스크롤
-const jump = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
-
 export function Sidebar({ path, open, collapsed, onClose, onToggleCollapsed, role }: SidebarProps) {
   const current = activeItem(path);
   const group = groupOf(current);
   const isHome = path === "/";
-  const showAll = !isHome && !group; // 로그인 등 분류 없는 화면
+  const showAll = isHome || !group; // 첫 화면·로그인 등 분류 없는 화면
   const cls = ["sidebar", open && "open", collapsed && "collapsed"].filter(Boolean).join(" ");
 
   return (
@@ -36,21 +33,9 @@ export function Sidebar({ path, open, collapsed, onClose, onToggleCollapsed, rol
           </button>
         </div>
 
-        {isHome && (
-          <div className="side-group side-current side-home">
-            <div className="side-title">개요</div>
-            {HOME_SECTIONS.map((s) => (
-              <button key={s.id} className="side-link" title={s.label} onClick={() => jump(s.id)}>
-                <Icon name={s.icon} />
-                <span className="side-label">{s.label}</span>
-              </button>
-            ))}
-          </div>
-        )}
-
         <nav className="side-nav">
           {visibleGroups(role).map((g) => (
-            <div key={g.title} className={`side-group${showAll || (!isHome && g.title === group?.title) ? " side-current" : " side-other"}`}>
+            <div key={g.title} className={`side-group${showAll || g.title === group?.title ? " side-current" : " side-other"}`}>
               <div className="side-title">{g.title}</div>
               {g.items.map((item) => (
                 <Link

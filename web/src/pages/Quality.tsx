@@ -38,7 +38,7 @@ export function Quality({ data }: { data: AppData }) {
         lede="수집·실행·지역 3단계 관문을 통과한 결과만 공개합니다. 도로·등록 결과는 2026년 10월 28일 과제 제출 시점 스냅샷이고, 충전기 공급은 11월 2일부터 수집합니다."
       />
 
-      <section className="card">
+      <section className="card card-body">
         <CardHead title="품질 관문" sub="하나라도 미달이면 공개하지 않거나 지역 분류를 낮춤" />
         <div className="gates">
           <div className="gate">
@@ -60,7 +60,7 @@ export function Quality({ data }: { data: AppData }) {
       </section>
 
       {data.chargers && (
-        <section className="card">
+        <section className="card card-body">
           <CardHead
             title="충전기 수집 관문"
             sub={`${fmtDate(data.chargers.snapshot_date)} 수집 · 하나라도 미달이면 반영 안 함`}
@@ -94,7 +94,7 @@ export function Quality({ data }: { data: AppData }) {
       )}
 
       <div className="grid-2">
-        <section className="card">
+        <section className="card card-body">
           <CardHead title="게시 상태" />
           <dl className="kv">
             <dt>상태</dt>
@@ -124,7 +124,7 @@ export function Quality({ data }: { data: AppData }) {
           )}
         </section>
 
-        <section className="card">
+        <section className="card card-body">
           <CardHead title="지역 품질 등급" sub={`${regions.length}개 동`} />
           <div className="hbars">
             {GRADE_LABEL.map(([k, label]) => (
@@ -143,10 +143,10 @@ export function Quality({ data }: { data: AppData }) {
         </section>
       </div>
 
-      <section className="card">
+      <section className="card card-body">
         <CardHead title="임계값" sub={`${meta.threshold.ver} · ${meta.threshold.basis === "provisional" ? "잠정" : meta.threshold.basis}`} />
         <div className="table-wrap">
-          <table>
+          <table className="table table-hover align-middle mb-0">
             <tbody>
               {Object.entries(PARAM_LABEL).map(([k, label]) => (
                 <tr key={k}>

@@ -44,22 +44,22 @@ export function Regions({ data }: { data: AppData }) {
 
       <RegionFilterBar regions={regions} f={f} />
 
-      <section className="card">
+      <section className="card card-body">
         <div className="card-head">
           <div>
             <h2>목록</h2>
-            <span className="card-sub">{sorted.length}곳 · 머리글을 누르면 정렬</span>
+            <p className="card-sub">{sorted.length}곳 · 머리글을 누르면 정렬</p>
           </div>
           <button
             type="button"
-            className="btn btn-sm"
+            className="btn btn-sm btn-outline-primary"
             onClick={() => downloadCsv(sorted, `seoul-ev-regions-${data.meta.base_month}.csv`)}
           >
             CSV 내려받기
           </button>
         </div>
         <div className="table-wrap">
-          <table>
+          <table className="table table-hover align-middle mb-0">
             <thead>
               <tr>
                 {COLUMNS.map((c) => (

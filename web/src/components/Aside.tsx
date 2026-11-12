@@ -73,7 +73,7 @@ export function Aside({ data, current, isHome }: { data: AppData | null; current
           ) : (
             <p className="aside-text">
               데이터 운영 화면은 로그인 후 역할을 받으면 열립니다.
-              <Link to={`/login?next=${encodeURIComponent(path)}`} className="btn btn-sm">
+              <Link to={`/login?next=${encodeURIComponent(path)}`} className="btn btn-sm btn-primary">
                 로그인
               </Link>
             </p>
