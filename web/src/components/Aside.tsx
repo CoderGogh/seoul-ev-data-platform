@@ -1,17 +1,22 @@
-// 오른쪽 바: 현재 화면 안내·데이터 기준일·우선 검토 바로가기·계정
+// 오른쪽 바: 현재 화면 안내·화면별 알림·담당·메모(운영 이상)·계정
 import { useAuth } from "../auth/AuthContext";
 import { ROLE_LABEL, hasRole } from "../auth/roles";
-import { fmtInt, type AppData } from "../data";
+import { useMemo } from "react";
+import { pageAlerts } from "../alerts";
+import type { AppData } from "../data";
 import { groupOf, type NavItem } from "../nav";
 import { Link, usePath } from "../router";
-import { HintBadge } from "./Badges";
+import { targetFor } from "../work";
 import { Icon } from "./Icon";
+import { MyWork, WorkPanel } from "./WorkPanel";
 
 export function Aside({ data, current, isHome }: { data: AppData | null; current?: NavItem; isHome: boolean }) {
   const { enabled, session, profile } = useAuth();
   const path = usePath();
   const group = groupOf(current);
-  const top = data ? data.regions.filter((r) => r.classification === "A").slice(0, 5) : [];
+  const operator = hasRole(profile?.role, "operator");
+  const alerts = useMemo(() => (data ? pageAlerts(path, data, operator) : []), [path, data, operator]);
+  const target = targetFor(path);
 
   return (
     <aside className="aside" aria-label="보조 정보">
@@ -29,29 +34,28 @@ export function Aside({ data, current, isHome }: { data: AppData | null; current
       )}
 
 
-      {top.length > 0 && (
-        <section className="aside-card">
+      {data && (
+        <section className="aside-card" aria-label="이 화면 알림">
           <h3>
-            우선 검토 지역 <Link to="/priority">전체</Link>
+            이 화면 알림 <span className="aside-count">{alerts.length}</span>
           </h3>
-          <ol className="aside-rank">
-            {top.map((r, i) => (
-              <li key={r.adm_cd}>
-                <Link to={`/regions/${r.adm_cd}`}>
-                  <span className="aside-no">{i + 1}</span>
-                  <span className="aside-name">
-                    {r.adm_nm}
-                    <small>
-                      {r.sgg_nm} · {fmtInt(r.ev_cnt)}대
-                    </small>
-                  </span>
-                  <HintBadge value={r.charger_hint} />
-                </Link>
-              </li>
-            ))}
-          </ol>
+          {alerts.length === 0 ? (
+            <p className="work-empty">특이 사항 없음</p>
+          ) : (
+            <ul className="alert-list">
+              {alerts.map((a) => (
+                <li key={a.text} className={`alert-item al-${a.tone}`}>
+                  <i className="dot" aria-hidden="true" />
+                  {a.to && a.to !== path ? <Link to={a.to}>{a.text}</Link> : <span>{a.text}</span>}
+                </li>
+              ))}
+            </ul>
+          )}
         </section>
       )}
+
+      {data && operator && profile && target && <WorkPanel key={target} target={target} baseMonth={data.meta.base_month} me={profile} />}
+      {data && operator && profile && isHome && <MyWork me={profile} regions={data.regions} />}
 
       {enabled && (
         <section className="aside-card">

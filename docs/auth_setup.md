@@ -23,7 +23,9 @@
 ### 1. Supabase 프로젝트
 
 1. supabase.com에서 새 프로젝트 생성 (리전 Northeast Asia (Seoul))
-2. SQL Editor에서 `supabase/migrations/20261103000000_auth_roles.sql` 실행
+2. SQL Editor에서 `supabase/migrations/` 파일을 이름 순서대로 실행
+   - `20261103000000_auth_roles.sql` 역할
+   - `20261112000000_work_notes.sql` 담당·메모
 3. Authentication → URL Configuration
    - Site URL: `https://seoul-ev-insight.vercel.app`
    - Redirect URLs: `https://seoul-ev-insight.vercel.app/**`, `http://localhost:5173/**`
@@ -65,6 +67,21 @@ update public.profiles set role = 'admin', is_super = true where email = '<내 �
 ```
 
 새로고침하면 사이드바에 `관리 → 사용자 권한`이 생긴다.
+
+## 담당·메모 (오른쪽 바)
+
+| 기능 | 운영 | 팀장(`admin`) |
+|---|---|---|
+| 담당자 지정·진행 상태 변경 | O | O |
+| 메모 조회·작성 | O | O |
+| 메모 삭제 | 본인 것만 | 전부 |
+| 담당 기록 삭제 | X | O |
+
+- 대상은 동(`region:<행정동 코드>`) 또는 화면(`page:<경로>`) 단위
+- 메모에 작성 당시 등록 기준월을 같이 저장. 다시 게시되면 메모에 `YYYY.MM 기준` 표시
+- 담당자 후보는 `list_staff()`로 이름·역할만 받음 (이메일 미노출)
+- 비로그인·조회 역할은 오른쪽 바에서 화면 알림만 봄
+- 로컬 미리보기(`VITE_DEV_ROLE`)는 브라우저 메모리에 저장, 새로고침하면 초기화
 
 ## 검증
 

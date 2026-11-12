@@ -1,5 +1,9 @@
 // 우선 검토 지역: 동네 카드·기준 대비 여유·공급 충분 제외 동
-import type { CSSProperties } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
+import { useAuth } from "../auth/AuthContext";
+import { hasRole } from "../auth/roles";
+import { StatusBadge } from "../components/WorkPanel";
+import { workStore, type WorkStatus } from "../work";
 import { HINT_LABEL, HINT_ORDER, fmtInt, fmtPct, type AppData } from "../data";
 import { HintBadge } from "../components/Badges";
 import { CardHead, PageHead } from "../components/PageHead";
@@ -8,6 +12,7 @@ import { Link, navigate } from "../router";
 export function Priority({ data }: { data: AppData }) {
   const p = data.meta.threshold.params;
   const priority = data.regions.filter((r) => r.classification === "A");
+  const status = useRegionStatus();
 
   return (
     <div className="page">
@@ -47,8 +52,9 @@ export function Priority({ data }: { data: AppData }) {
               <span className="meta">
                 전기차 <b>{fmtInt(r.ev_cnt)}대</b> · 1년 <b>+{fmtPct(r.ev_yoy_rate)}</b> · 충전기 1대당 <b>{r.ev_per_charger?.toFixed(1)}대</b>
               </span>
-              <span>
+              <span className="badges">
                 <HintBadge value={r.charger_hint} prefix />
+                {status && <StatusBadge status={status.get(r.adm_cd) ?? "todo"} />}
               </span>
             </Link>
           ))}
@@ -119,4 +125,19 @@ function SupplyExcluded({ data }: { data: AppData }) {
       </div>
     </section>
   );
+}
+
+// 동별 진행 상태 (운영 이상, 없으면 null)
+function useRegionStatus(): Map<string, WorkStatus> | null {
+  const { profile } = useAuth();
+  const operator = hasRole(profile?.role, "operator");
+  const [map, setMap] = useState<Map<string, WorkStatus> | null>(null);
+  useEffect(() => {
+    if (!operator || !workStore) return;
+    workStore.items("region:").then(
+      (items) => setMap(new Map(items.map((i) => [i.target.slice(7), i.status]))),
+      () => setMap(null),
+    );
+  }, [operator]);
+  return map;
 }
