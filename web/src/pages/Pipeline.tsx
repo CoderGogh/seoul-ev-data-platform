@@ -6,7 +6,9 @@ import { CardHead, PageHead } from "../components/PageHead";
 const STATUS_TONE: Record<string, string> = {
   success: "ok",
   published: "ok",
+  republished: "ok",
   skipped_unchanged: "skip",
+  skipped_stale: "skip",
   unchanged: "skip",
   partial: "warn",
   held: "warn",
@@ -23,7 +25,7 @@ export function Pipeline({ data }: { data: AppData }) {
       <PageHead
         tags={["데이터 운영", "ops.pipeline_run"]}
         title="파이프라인 실행"
-        lede="Airflow DAG 실행 결과와 수집 현황입니다. 결과가 성공이어도 데이터가 부족하면 일부 수집·게시 보류로 따로 기록합니다. 도로 수집은 10월 28일 제출 뒤 멈춘 상태입니다."
+        lede="Airflow DAG 실행 결과와 수집 현황입니다. 결과가 성공이어도 데이터가 부족하면 일부 수집·게시 보류로 따로 기록합니다. 도로 수집은 로컬에서 돌려 중간에 빈 기간이 있습니다."
       />
 
       <section className="stats" aria-label="수집 현황">

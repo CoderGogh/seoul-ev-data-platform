@@ -336,6 +336,9 @@ export const DAG_LABEL: Record<string, string> = {
   ev11_reprocess: "재처리",
   ev12_quality_monitor: "품질 리포트",
   ev13_retention_cleanup: "보존 정리",
+  ev14_web_publish: "웹 데이터 게시",
+  ev15_sla_watch: "기한 감시",
+  ev16_db_backup: "DB 백업 (주)",
 };
 
 export const STATUS_LABEL: Record<string, string> = {
@@ -344,6 +347,8 @@ export const STATUS_LABEL: Record<string, string> = {
   unchanged: "변경 없음",
   held: "게시 보류",
   published: "게시",
+  republished: "재게시",
+  reprocessed: "재처리",
   skipped_unchanged: "변경 없어 생략",
   skipped_stale: "지연 회차 생략",
   failed: "실패",
