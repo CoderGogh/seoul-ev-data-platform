@@ -166,6 +166,7 @@ button {
   grid-template-columns: var(--side-w) minmax(0, 1fr) var(--aside-w);
   gap: 24px;
   align-items: start;
+  align-content: start;
 }
 .frame.rail {
   --side-w: 68px;
@@ -601,6 +602,191 @@ button.side-link {
   text-decoration: none;
 }
 
+/* 오른쪽 바: 화면 알림 */
+.aside-count {
+  margin-left: auto;
+  margin-right: 0;
+  min-width: 22px;
+  padding: 0 7px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--text-2);
+  font-size: 12px;
+  text-align: center;
+}
+.alert-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+.alert-item {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--text-2);
+}
+.alert-item .dot {
+  transform: translateY(-1px);
+}
+.alert-item a {
+  color: inherit;
+  text-decoration: none;
+}
+.alert-item a:hover {
+  color: var(--accent-ink);
+  text-decoration: underline;
+}
+.al-info {
+  --dot: var(--accent);
+}
+.al-ok {
+  --dot: var(--good);
+}
+.al-warn {
+  --dot: var(--hint-mixed);
+}
+.al-bad {
+  --dot: var(--bad-text);
+}
+.al-bad,
+.al-warn {
+  color: var(--text);
+}
+
+/* 오른쪽 바: 담당·메모 */
+.work-field {
+  display: grid;
+  gap: 4px;
+  font-size: 12.5px;
+  color: var(--text-2);
+}
+.work-field > span {
+  font-weight: 600;
+}
+.work-status {
+  display: flex;
+}
+.work-status .btn {
+  flex: 1;
+  padding-left: 0;
+  padding-right: 0;
+  font-size: 12.5px;
+}
+.work-meta,
+.work-empty {
+  color: var(--muted);
+  font-size: 12.5px;
+}
+.work-note-form {
+  display: grid;
+  gap: 6px;
+}
+.work-note-form .btn {
+  justify-self: end;
+}
+.work-err {
+  color: var(--bad-text);
+  font-size: 12.5px;
+}
+.work-notes {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+  max-height: 320px;
+  overflow-y: auto;
+}
+.work-notes li {
+  border-top: 1px solid var(--border);
+  padding-top: 8px;
+}
+.work-notes p {
+  font-size: 13.5px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  margin-top: 2px;
+}
+.work-note-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+}
+.work-note-head small {
+  color: var(--muted);
+}
+.work-stale {
+  font-size: 11.5px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--warn-soft);
+  color: var(--warn-text);
+}
+.work-del {
+  margin-left: auto;
+  border: 0;
+  background: none;
+  padding: 0;
+  font-size: 12px;
+  color: var(--muted);
+  cursor: pointer;
+}
+.work-del:hover {
+  color: var(--bad-text);
+}
+.work-mine {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+}
+.work-mine a {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  margin: 0 -8px;
+  border-radius: 8px;
+  color: var(--text);
+  text-decoration: none;
+  font-size: 13.5px;
+  font-weight: 600;
+}
+.work-mine a:hover {
+  background: var(--surface-2);
+}
+.work-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 2px 9px;
+  border-radius: 999px;
+  white-space: nowrap;
+  background: var(--surface-2);
+  color: var(--text-2);
+}
+.work-doing {
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+}
+.work-done {
+  background: var(--good-soft);
+  color: var(--good);
+}
+.work-hold {
+  background: var(--warn-soft);
+  color: var(--warn-text);
+}
+
 /* 카테고리 색 */
 .tone-blue {
   --tone: var(--accent);
@@ -725,13 +911,26 @@ button.side-link {
   color: var(--tone, var(--accent));
 }
 
-/* 중간 화면: 오른쪽 바 숨김 */
+/* 중간 화면: 오른쪽 바는 본문 아래 */
 @media (max-width: 1280px) {
   .frame {
     grid-template-columns: var(--side-w) minmax(0, 1fr);
   }
   .aside {
+    grid-column: 2;
+    position: static;
+    max-height: none;
+    overflow: visible;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    align-items: start;
+  }
+  .aside-page {
     display: none;
+  }
+}
+@media (max-width: 960px) {
+  .aside {
+    grid-column: auto;
   }
 }
 @media (max-width: 1120px) {
