@@ -6,3 +6,6 @@ create table auth.users (id uuid primary key, email text, raw_user_meta_data jso
 create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
 grant usage on schema auth to anon, authenticated;
 grant usage on schema public to anon, authenticated;
+-- Storage 버킷 목록 (백업 버킷 마이그레이션용)
+create schema storage;
+create table storage.buckets (id text primary key, name text not null, public boolean default false, file_size_limit bigint);
