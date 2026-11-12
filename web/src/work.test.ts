@@ -3,12 +3,13 @@ import { describe, expect, it } from "vitest";
 import { cleanNote, cleanReport, memoryStore, pathOf, targetFor } from "./work";
 
 describe("대상 키", () => {
-  it("동 상세는 동 단위, 화면은 경로, 대시보드·로그인·관리는 없음", () => {
+  it("동 상세는 동 단위, 화면은 경로, 대시보드·로그인·관리·마이페이지는 없음", () => {
     expect(targetFor("/regions/1168058000")).toBe("region:1168058000");
     expect(targetFor("/pipeline")).toBe("page:/pipeline");
     expect(targetFor("/")).toBeNull();
     expect(targetFor("/login")).toBeNull();
     expect(targetFor("/admin/users")).toBeNull();
+    expect(targetFor("/me")).toBeNull();
   });
 
   it("대상 키 → 경로 왕복", () => {
@@ -53,5 +54,17 @@ describe("보고", () => {
     await s.deleteReport(a.id);
     expect(await s.inbox()).toHaveLength(1);
     expect(await s.notifyReport(b.id, "품질")).toBe(false);
+  });
+});
+
+describe("마이페이지 조회", () => {
+  it("내 메모만, 전체 담당", async () => {
+    const s = memoryStore();
+    await s.addNote("region:1", "내 메모", "202609");
+    await s.saveItem("region:1", { assignee: "op" }, "202609");
+    await s.saveItem("page:/quality", { assignee: "dev", status: "doing" }, "202609");
+    expect((await s.myNotes("dev")).map((n) => n.body)).toEqual(["내 메모"]);
+    expect(await s.myNotes("op")).toEqual([]);
+    expect(await s.allItems()).toHaveLength(2);
   });
 });

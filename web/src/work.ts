@@ -58,17 +58,20 @@ export interface WorkStore {
   deleteNote(id: number): Promise<void>;
   sendReport(target: string, body: string, baseMonth: string): Promise<Report>;
   notifyReport(id: number, label: string): Promise<boolean>;
-  sentReports(uid: string): Promise<Report[]>;
-  inbox(): Promise<Report[]>;
+  sentReports(uid: string, limit?: number): Promise<Report[]>;
+  inbox(limit?: number): Promise<Report[]>;
   markRead(id: number): Promise<string>;
   deleteReport(id: number): Promise<void>;
+  myNotes(uid: string): Promise<Note[]>;
+  allItems(): Promise<WorkItem[]>;
+  pendingUsers(): Promise<number>;
 }
 
 // 화면 경로 → 대상 키 (동 상세는 동 단위, 대시보드는 없음)
 export function targetFor(path: string): string | null {
   const m = path.match(/^\/regions\/(\d{10})$/);
   if (m) return `region:${m[1]}`;
-  if (path === "/" || path === "/login" || path.startsWith("/admin")) return null;
+  if (path === "/" || path === "/login" || path === "/me" || path.startsWith("/admin")) return null;
   return /^\/[a-z-]+$/.test(path) ? `page:${path}` : null;
 }
 
@@ -120,13 +123,22 @@ function supabaseStore(): WorkStore {
       const { data, error } = await db.functions.invoke("report-notify", { body: { id, label } });
       return !error && Boolean((data as { sent?: boolean } | null)?.sent);
     },
-    sentReports: async (uid) =>
-      must(await db.from("reports").select(REPORT_COLS).eq("author", uid).order("created_at", { ascending: false }).limit(10)) as Report[],
-    inbox: async () =>
-      must(await db.from("reports").select(REPORT_COLS).order("read_at", { ascending: false, nullsFirst: true }).order("created_at", { ascending: false }).limit(30)) as Report[],
+    sentReports: async (uid, limit = 10) =>
+      must(await db.from("reports").select(REPORT_COLS).eq("author", uid).order("created_at", { ascending: false }).limit(limit)) as Report[],
+    inbox: async (limit = 30) =>
+      must(await db.from("reports").select(REPORT_COLS).order("read_at", { ascending: false, nullsFirst: true }).order("created_at", { ascending: false }).limit(limit)) as Report[],
     markRead: async (id) => must(await db.rpc("mark_report_read", { report_id: id })) as string,
     deleteReport: async (id) => {
       must(await db.from("reports").delete().eq("id", id));
+    },
+    myNotes: async (uid) =>
+      must(await db.from("notes").select(NOTE_COLS).eq("author", uid).order("created_at", { ascending: false }).limit(20)) as Note[],
+    allItems: async () => must(await db.from("work_items").select(ITEM_COLS).order("updated_at", { ascending: false })) as WorkItem[],
+    // 승인 대기 가입자 수 (RLS: 관리자만 전체 조회)
+    pendingUsers: async () => {
+      const { count, error } = await db.from("profiles").select("id", { count: "exact", head: true }).eq("role", "pending");
+      if (error) throw new Error(error.message);
+      return count ?? 0;
     },
   };
 }
@@ -178,6 +190,9 @@ export function memoryStore(): WorkStore {
     deleteReport: async (id) => {
       reports = reports.filter((r) => r.id !== id);
     },
+    myNotes: async (uid) => notes.filter((n) => n.author === uid),
+    allItems: async () => [...items.values()],
+    pendingUsers: async () => 2,
   };
 }
 
