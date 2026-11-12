@@ -15,11 +15,6 @@ export function nearMiss(regions: Region[], minEv: number, minYoy: number) {
     }));
 }
 
-// 증가 양상 주의 대상 (판정 미사용 보조 지표)
-export function watchList(regions: Region[]) {
-  return regions.filter((r) => r.growth_pattern === "한 달 몰림" || r.growth_pattern === "최근 가속");
-}
-
 // 월별 합계 (전체·자치구별)
 export function monthlyTotals(data: AppData) {
   const sggOf = new Map(data.regions.map((r) => [r.adm_cd, r.sgg_nm]));
