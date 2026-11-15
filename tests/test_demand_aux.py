@@ -59,3 +59,20 @@ def test_locate_all_order_and_memo():
         calls.append((addr_type, addr))
         return found.get((addr_type, addr))
 
+    targets = [
+        {"src": "parking", "src_key": "P1", "lng": 127.2, "lat": 37.4, "parcel_addr": "강남구 압구정동 428-0"},
+        {"src": "apt", "src_key": "A1", "lng": None, "road_addr": "서울특별시 강남구 도곡로21길 15",
+         "parcel_addr": "서울특별시 강남구 역삼동 795-41 단지"},
+        {"src": "apt", "src_key": "A2", "lng": None, "road_addr": "서울특별시 강남구 없는로 1",
+         "parcel_addr": "서울특별시 강남구 압구정동 428 단지"},
+        {"src": "parking", "src_key": "P2", "lng": None, "parcel_addr": "강남구 압구정동 428-0"},
+        {"src": "apt", "src_key": "A3", "lng": None, "road_addr": None, "parcel_addr": None},
+    ]  # fmt: skip
+    points, n = locate.locate_all(targets, geocode)
+    src = {p["src_key"]: p["loc_source"] for p in points}
+    assert src == {"P1": "source_coord", "A1": "geocoded_road", "A2": "geocoded_parcel", "P2": "geocoded_parcel",
+                   "A3": "none"}  # fmt: skip
+    assert points[0]["lng"] == 127.2 and points[4]["lng"] is None
+    assert n == len(calls) == 3  # P2 지번은 A2 결과 재사용
+
+
