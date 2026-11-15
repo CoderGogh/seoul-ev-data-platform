@@ -141,3 +141,21 @@ def test_go_kr_429_limit_error(monkeypatch):
     with pytest.raises(GoKrLimitError) as e:
         hook.call("p", kaptCode="A1")
     assert "SECRETKEY" not in str(e.value)
+
+
+# 간헐 오류 04: 재호출로 성공, 횟수 넘으면 예외
+def test_go_kr_transient_retry(monkeypatch):
+    import hooks.data_go_kr_hook as m
+
+    seq = [GATEWAY_JSON, GATEWAY_JSON, BASIS_OK]
+    res = lambda c: type("R", (), {"ok": True, "status_code": 200, "content": c})()  # noqa: E731
+    hook = DataGoKrHook(api_key_var="k", transient_retries=2)
+    hook._base, hook._key = "https://x", "K"
+    hook._session = type("S", (), {"get": lambda self, *a, **k: res(seq.pop(0))})()
+    monkeypatch.setattr(hook, "get_conn", lambda: hook._base)
+    monkeypatch.setattr(m.time, "sleep", lambda s: None)
+    assert hook.call("p", kaptCode="A1").rows[0]["kaptCode"] == "A1"
+    seq[:] = [GATEWAY_JSON] * 3
+    with pytest.raises(RuntimeError) as e:
+        hook.call("p", kaptCode="A1")
+    assert "04" in str(e.value) and not seq
