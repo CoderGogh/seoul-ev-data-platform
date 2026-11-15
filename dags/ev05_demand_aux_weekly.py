@@ -1,0 +1,242 @@
+"""ev05 수요 보조 주간 배치 (설계서 §4.5)
+
+대상 구 결정 → [공동주택 구별 수집(동적 매핑) | 공영주차장 수집] → 격리 → 위치 판정 → 정제·동 귀속 → 품질 게이트 → 스냅샷 반영
+- 공동주택: 단지 목록(국토부) → 단지별 기본 정보(세대수). 공영주차장: 서울시 안내 정보(서울 전체 → 대상 구)
+- 원천에 좌표 없음(주차장 일부만) → 브이월드 지오코더로 실행 중 행정동 판정. 좌표는 약관상 저장 금지라 행정동 코드만 기록
+- 원천은 현재 상태만 제공 → 수집일(KST) 스냅샷, 같은 날 재실행은 교체
+- ev03 은 이 결과를 참고 지표로만 붙임 (분류 미사용)
+"""
+
+import json
+from contextlib import closing
+
+import pendulum
+from airflow.sdk import DAG, CronTriggerTimetable, Param, task
+from airflow.sdk.exceptions import AirflowFailException
+from common import db, locate, ops
+from common.assets import EV_DEMAND_AUX
+from config.default_args import DEFAULT_ARGS
+from hooks.data_go_kr_hook import DataGoKrHook
+from hooks.seoul_openapi_hook import SeoulOpenApiHook
+from hooks.vworld_hook import VWorldGeocoderHook
+
+KST = "Asia/Seoul"
+APT_LIST_SERVICE = "1613000/AptListService4/getSigunguAptList4"
+APT_BASIS_SERVICE = "1613000/AptBasisInfoServiceV5/getAphusBassInfoV5"
+PARKING_SERVICE = "GetParkInfo"  # 서울시 공영주차장 안내 정보 (OA-13122)
+APT_LIST_KEY_VAR = "apikey_apt_list"
+APT_BASIS_KEY_VAR = "apikey_apt_basis"
+PARKING_KEY_VAR = "apikey_seoul_parking"
+VWORLD_KEY_VAR = "apikey_vworld"
+APT_POOL = "apt_api_pool"
+PARKING_POOL = "seoul_parking_api_pool"
+VWORLD_POOL = "vworld_api_pool"
+PAGE_SIZE = 1000
+
+# 품질 게이트 기준
+MIN_APT_COLLECT = 0.95  # 원천 단지 대비 정제 단지 (미만 치명, 기본 정보 대량 실패)
+MIN_APT_HH_ASSIGN = 0.90  # 세대 가중 행정동 귀속률 (미만 치명)
+MIN_PARKING_ASSIGN = 0.50  # 주차장 귀속률 (미만 치명)
+WARN_PARKING_ASSIGN = 0.90  # 주차장 귀속률 (미만 경고)
+MAX_DROP_RATIO = 0.10  # 직전 적재 대비 단지·주차장 감소 비율 (초과 치명, 원천 일부 누락 의심)
+
+FINAL_TASKS = ["init_run", "list_sgg", "extract_apt", "extract_parking", "quarantine_invalid", "locate_targets",
+               "normalize_assign", "aux_gate", "load_snapshot"]  # fmt: skip
+
+INSERT_APT = """INSERT INTO staging.apt_raw (run_id, sgg_cd, row_no, list_payload, basis_payload)
+                VALUES (%s, %s, %s, %s, %s)"""
+INSERT_PARKING = "INSERT INTO staging.parking_raw (run_id, row_no, payload) VALUES (%s, %s, %s)"
+
+
+def _info(context):
+    return context["ti"].xcom_pull(task_ids="init_run")
+
+
+def _dumps(v):
+    return json.dumps(v, ensure_ascii=False) if v is not None else None
+
+
+with DAG(
+    dag_id="ev05_demand_aux_weekly",
+    description="공동주택 세대수·공영주차장 주간 스냅샷 (수요 보조 지표)",
+    schedule=CronTriggerTimetable("30 4 * * 1", timezone=KST),  # 월 04:30, ev04 05:00 이전
+    start_date=pendulum.datetime(2026, 11, 16, tz=KST),
+    catchup=False,
+    max_active_runs=1,
+    default_args=DEFAULT_ARGS,
+    params={
+        "target_set": Param("mvp_3gu_v1", type="string", description="대상 링크 세트 (대상 구 결정)"),
+        "allow_mass_drop": Param(False, type="boolean", description="감소 비율 게이트 생략 (원천 정비 확인 후만)"),
+    },
+    tags=["ev", "collect", "demand"],
+) as dag:
+
+    # 수집일·대상 구 결정, 과거 날짜 재적재 차단
+    @task
+    def init_run(**context):
+        p = context["params"]
+        snapshot_date = pendulum.now(KST).date()
+        sggs = db.execute_file("ev04/target_sgg.sql", {"target_set": p["target_set"]}, fetch=True)
+        if not sggs:
+            raise AirflowFailException(f"대상 구 없음: {p['target_set']}")
+        last = db.execute("SELECT max(snapshot_date) AS d FROM ops.aux_load", fetch=True)[0]["d"]
+        if last and snapshot_date < last:
+            raise AirflowFailException(f"수집일 {snapshot_date} < 최근 적재 {last}: 과거 날짜 재적재 불가")
+        info = {
+            "snapshot_date": snapshot_date.isoformat(),
+            "sgg_cds": [r["sgg_cd"] for r in sggs],
+            "sgg_map": {r["sgg_nm"]: r["sgg_cd"] for r in sggs},
+        }
+        ops.record_run(context, "running", partition_key=info["snapshot_date"], detail=info)
+        return info
+
+    @task
+    def list_sgg(info):
+        return info["sgg_cds"]
+
+    # 구별 단지 목록 → 단지별 기본 정보 → staging (재시도 멱등: 같은 run·구 삭제 후 적재)
+    # 단지 하나 기본 정보 실패는 NULL 로 두고 격리 (대량 실패는 게이트 치명)
+    @task(pool=APT_POOL, queue="api", retries=3)
+    def extract_apt(sgg_cd, **context):
+        run_id = context["dag_run"].run_id
+        total, items = DataGoKrHook(api_key_var=APT_LIST_KEY_VAR).fetch_all(
+            APT_LIST_SERVICE, PAGE_SIZE, sigunguCode=sgg_cd, _type="json"
+        )
+        if len(items) != total:
+            raise RuntimeError(f"{sgg_cd} 수신 {len(items)} != totalCount {total}")
+        basis_hook = DataGoKrHook(api_key_var=APT_BASIS_KEY_VAR)
+        rows, missing = [], 0
+        for i, it in enumerate(items, 1):
+            basis = None
+            if it.get("kaptCode"):
+                try:
+                    res = basis_hook.call(APT_BASIS_SERVICE, kaptCode=it["kaptCode"], _type="json")
+                    basis = next((r for r in res.rows if r.get("kaptCode")), None)  # 없는 단지는 빈 item
+                except RuntimeError:  # 메시지에 인증키 없음 (Hook 처리)
+                    basis = None
+            missing += basis is None
+            rows.append((run_id, sgg_cd, i, _dumps(it), _dumps(basis)))
+        with closing(db.get_conn()) as conn, conn, conn.cursor() as cur:
+            cur.execute("DELETE FROM staging.apt_raw WHERE run_id = %s AND sgg_cd = %s", (run_id, sgg_cd))
+            cur.executemany(INSERT_APT, rows)
+        ops.record_quality(context, "apt_basis_missing", "warn" if missing else "ok", missing, scope_key=sgg_cd)
+        return {"sgg_cd": sgg_cd, "total": total, "basis_missing": missing}
+
+    # 서울 전체 공영주차장 → staging (대상 구 필터는 SQL)
+    @task(pool=PARKING_POOL, queue="api", retries=3)
+    def extract_parking(**context):
+        run_id = context["dag_run"].run_id
+        total, items = SeoulOpenApiHook(api_key_var=PARKING_KEY_VAR).fetch_all(PARKING_SERVICE, PAGE_SIZE)
+        if len(items) != total:
+            raise RuntimeError(f"주차장 수신 {len(items)} != list_total_count {total}")
+        with closing(db.get_conn()) as conn, conn, conn.cursor() as cur:
+            cur.execute("DELETE FROM staging.parking_raw WHERE run_id = %s", (run_id,))
+            cur.executemany(INSERT_PARKING, [(run_id, i, _dumps(r)) for i, r in enumerate(items, 1)])
+        return {"total": total}
+
+    @task
+    def quarantine_invalid(**context):
+        info = _info(context)
+        db.execute_file("ev05/quarantine.sql", {"run_id": context["dag_run"].run_id, "sgg_nms": list(info["sgg_map"])})
+
+    # 위치 판정: 원천 좌표 → 도로명 → 지번 지오코딩 → 행정동 (좌표는 이 Task 메모리에서만)
+    @task(pool=VWORLD_POOL, queue="api", retries=2)
+    def locate_targets(**context):
+        run_id = context["dag_run"].run_id
+        info = _info(context)
+        targets = db.execute_file(
+            "ev05/locate_targets.sql", {"run_id": run_id, "sgg_nms": list(info["sgg_map"])}, fetch=True
+        )
+        hook = VWorldGeocoderHook(api_key_var=VWORLD_KEY_VAR)
+        need = [t for t in targets if t["lng"] is None]
+        if need and not hook.has_key():
+            raise AirflowFailException(f"브이월드 키 미설정: 위치 판정 대상 {len(need)}건")
+
+        def geocode(addr, addr_type):
+            r = hook.geocode(addr, addr_type)
+            return (r.lng, r.lat) if r.found else None
+
+        points, calls = locate.locate_all(targets, geocode)
+        db.execute_file("ev05/assign_points.sql", {"run_id": run_id, "points": json.dumps(points)})
+        stats = {s: sum(1 for p in points if p["loc_source"] == s)
+                 for s in ("source_coord", "geocoded_road", "geocoded_parcel", "none")}  # fmt: skip
+        ops.record_quality(context, "geocode_calls", "ok", calls, detail=stats)
+        return {"targets": len(points), "calls": calls, **stats}
+
+    @task
+    def normalize_assign(**context):
+        info = _info(context)
+        db.execute_file(
+            "ev05/normalize.sql", {"run_id": context["dag_run"].run_id, "sgg_map": json.dumps(info["sgg_map"])}
+        )
+
+    # 품질 게이트: 수집률·세대 가중 귀속률·주차장 귀속률·직전 대비 감소
+    @task
+    def aux_gate(**context):
+        info = _info(context)
+        m = db.execute_file(
+            "ev05/gate_metrics.sql",
+            {"run_id": context["dag_run"].run_id, "snapshot_date": info["snapshot_date"]},
+            fetch=True,
+        )[0]
+        collect = m["apt_norm"] / m["apt_raw"] if m["apt_raw"] else 0
+        hh_assign = m["apt_hh_assigned"] / m["apt_hh"] if m["apt_hh"] else 0
+        pk_assign = m["parking_assigned"] / m["parking_norm"] if m["parking_norm"] else 0
+        drops = {
+            k: 1 - m[f"{k}_norm"] / m[f"prev_{k}_cnt"]
+            for k in ("apt", "parking")
+            if m[f"prev_{k}_cnt"] and not context["params"]["allow_mass_drop"]
+        }
+        checks = [
+            ("apt_collect_rate", collect, MIN_APT_COLLECT, collect < MIN_APT_COLLECT),
+            ("apt_hh_assign_rate", hh_assign, MIN_APT_HH_ASSIGN, hh_assign < MIN_APT_HH_ASSIGN),
+            ("parking_assign_rate", pk_assign, MIN_PARKING_ASSIGN, pk_assign < MIN_PARKING_ASSIGN),
+            *[(f"{k}_drop_ratio", v, MAX_DROP_RATIO, v > MAX_DROP_RATIO) for k, v in drops.items()],
+        ]
+        fatal = [name for name, _, _, bad in checks if bad] + (["parking_empty"] if not m["parking_norm"] else [])
+        for name, metric, threshold, bad in checks:
+            ops.record_quality(context, name, "fatal" if bad else "ok", round(metric, 4), threshold, detail=m)
+        if fatal:
+            raise AirflowFailException(f"품질 치명: {fatal} {m}")
+        warn = pk_assign < WARN_PARKING_ASSIGN or m["apt_quarantine"] or m["apt_mismatch"]
+        return "warn" if warn else "ok"
+
+    # 적재 이력 + 스냅샷 교체 단일 트랜잭션, 성공 시에만 Asset 이벤트
+    @task(outlets=[EV_DEMAND_AUX])
+    def load_snapshot(grade, **context):
+        info = _info(context)
+        params = {"run_id": context["dag_run"].run_id, "snapshot_date": info["snapshot_date"],
+                  "sgg_cds": info["sgg_cds"], "quality_grade": grade}  # fmt: skip
+        res = db.run_in_transaction([("ev05/load_log.sql", params, True), ("ev05/apply_snapshot.sql", params, False)])
+        context["outlet_events"][EV_DEMAND_AUX].extra = {
+            "snapshot_date": info["snapshot_date"], "load_id": res["load_id"],
+        }  # fmt: skip
+        return res
+
+    # 최종 상태 확정: 어떤 경로든 실행, 핵심 실패면 DAG 실패
+    @task(trigger_rule="all_done")
+    def record_run(**context):
+        states = ops.task_states(context, FINAL_TASKS)
+        failed = [t for t, s in states.items() if s in ("failed", "upstream_failed")]
+        snapshot_date = (_info(context) or {}).get("snapshot_date")
+        if failed:
+            ops.record_run(context, "failed", snapshot_date, reason=f"실패 Task: {failed}")
+            raise AirflowFailException(f"핵심 처리 실패: {failed}")
+        r = context["ti"].xcom_pull(task_ids="load_snapshot") or {}
+        reason = (f"load_id={r.get('load_id')} 단지 {r.get('apt_cnt')}·세대 {r.get('apt_hh_cnt')}·"
+                  f"주차장 {r.get('parking_cnt')}·주차면 {r.get('parking_space_cnt')}")  # fmt: skip
+        ops.record_run(context, "success", snapshot_date, reason=reason, detail=r)
+
+    info = init_run()
+    apts = extract_apt.expand(sgg_cd=list_sgg(info))
+    parking = extract_parking()
+    quarantined = quarantine_invalid()
+    located = locate_targets()
+    normalized = normalize_assign()
+    grade = aux_gate()
+    loaded = load_snapshot(grade)
+    done = record_run()
+
+    info >> parking
+    [apts, parking] >> quarantined >> located >> normalized >> grade
+    loaded >> done
