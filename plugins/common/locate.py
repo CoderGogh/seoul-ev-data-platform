@@ -29,3 +29,13 @@ def parcel_address(addr):
     return None
 
 
+# 도로명 주소 정리: 공백 정리, 시도 보정
+def road_address(addr):
+    if not addr or not addr.strip():
+        return None
+    tokens = addr.split()
+    if not tokens[0].startswith("서울"):
+        tokens = [SIDO, *tokens]
+    return " ".join(tokens)
+
+
