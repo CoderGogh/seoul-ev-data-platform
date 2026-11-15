@@ -57,3 +57,18 @@ SELECT run_id, row_no, payload, pklt_cd, addr, split_part(addr, ' ', 1) AS sgg_n
        CASE WHEN lat ~ '^[0-9]+(\.[0-9]+)?$' AND lng ~ '^[0-9]+(\.[0-9]+)?$'
              AND lat::numeric BETWEEN 33 AND 39 AND lng::numeric BETWEEN 124 AND 132
             THEN lng::numeric END AS lng,
+       CASE WHEN pklt_cd IS NULL THEN 'missing_key'
+            WHEN tpkct IS NULL OR tpkct !~ '^[0-9]+(\.[0-9]+)?$' THEN 'invalid_space'
+       END AS reason_code
+FROM r;
+
+-- 위치 판정 결과 (실행 단위, 행정동 코드만. 좌표 미보관)
+CREATE TABLE IF NOT EXISTS staging.aux_locate (
+    run_id          text        NOT NULL,
+    src             text        NOT NULL CHECK (src IN ('apt', 'parking')),
+    src_key         text        NOT NULL,               -- kaptCode / PKLT_CD
+    adm_cd          char(10),
+    loc_source      text        NOT NULL CHECK (loc_source IN ('source_coord', 'geocoded_road', 'geocoded_parcel', 'none')),
+    PRIMARY KEY (run_id, src, src_key)
+);
+
