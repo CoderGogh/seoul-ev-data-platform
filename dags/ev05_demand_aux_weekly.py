@@ -115,3 +115,22 @@ with DAG(
                 fetch=True,
             )
         }
+        basis_hook = DataGoKrHook(api_key_var=APT_BASIS_KEY_VAR, min_interval=API_INTERVAL, transient_retries=3)
+        fetched = dict(done)
+        try:
+            for it in items:
+                code = it.get("kaptCode")
+                if not code or code in fetched:
+                    continue
+                try:
+                    res = basis_hook.call(APT_BASIS_SERVICE, kaptCode=code, _type="json")
+                    fetched[code] = next((r for r in res.rows if r.get("kaptCode")), None)  # 없는 단지는 빈 item
+                except GoKrLimitError:
+                    raise
+                except RuntimeError:  # 메시지에 인증키 없음 (Hook 처리)
+                    fetched[code] = None
+        finally:
+            rows = [(run_id, sgg_cd, i, _dumps(it), _dumps(fetched.get(it.get("kaptCode"))))
+                    for i, it in enumerate(items, 1)]  # fmt: skip
+            with closing(db.get_conn()) as conn, conn, conn.cursor() as cur:
+                cur.execute("DELETE FROM staging.apt_raw WHERE run_id = %s AND sgg_cd = %s", (run_id, sgg_cd))
