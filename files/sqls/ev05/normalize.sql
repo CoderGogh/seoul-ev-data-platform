@@ -18,3 +18,11 @@ SELECT c.run_id, c.kapt_code, c.sgg_cd,
        nullif(btrim(c.basis_payload->>'doroJuso'), ''),
        b.version, l.adm_cd, coalesce(l.loc_source, 'none'),
        CASE WHEN l.adm_cd IS NULL THEN CASE WHEN coalesce(l.loc_source, 'none') = 'none' THEN 'unlocated' ELSE 'outside' END
+            WHEN left(l.adm_cd, 5) <> c.sgg_cd THEN 'sgg_mismatch' ELSE 'assigned' END
+FROM staging.v_apt_check c
+CROSS JOIN b
+LEFT JOIN staging.aux_locate l ON l.run_id = c.run_id AND l.src = 'apt' AND l.src_key = c.kapt_code
+WHERE c.run_id = %(run_id)s AND c.reason_code IS NULL;
+
+DELETE FROM staging.parking_norm WHERE run_id = %(run_id)s;
+
