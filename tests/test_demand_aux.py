@@ -47,3 +47,15 @@ def test_road_address():
     assert locate.road_address("  ") is None
 
 
+# 원천 좌표 우선 → 도로명 → 지번, 같은 주소는 실행 안에서 1회 호출
+def test_locate_all_order_and_memo():
+    found = {
+        ("road", "서울특별시 강남구 도곡로21길 15"): (127.0, 37.5),
+        ("parcel", "서울특별시 강남구 압구정동 428"): (127.1, 37.6),
+    }
+    calls = []
+
+    def geocode(addr, addr_type):
+        calls.append((addr_type, addr))
+        return found.get((addr_type, addr))
+
