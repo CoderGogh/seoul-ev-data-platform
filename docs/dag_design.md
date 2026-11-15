@@ -671,7 +671,7 @@ DDL은 `files/sqls/ddl/`, 적용은 `scripts/apply_ddl.sh`. 모두 `IF NOT EXIST
 | `mart` | `fact_admdong_indicator`, `fact_admdong_timeband` | 운영 마트 (`base_month`, `adm_cd`) |
 | | `candidate_admdong_indicator`, `candidate_admdong_timeband` | 실행별 후보, 검증 후 교체 |
 | | `v_admdong_result`, `v_reg_trend`, `v_reg_monthly`, `v_reg_momentum`, `v_timeband_profile`, `v_active_threshold` | Rshiny 조회 뷰 |
-| `quarantine` | `traffic_record`, `registration_record`, `charger_record` | 사유 코드와 원문 |
+| `quarantine` | `traffic_record`, `registration_record`, `charger_record`, `aux_record` | 사유 코드와 원문 |
 
 Rshiny는 읽기 전용 계정 `rshiny_reader`로 `mart`, `ops`만 조회한다.
 
@@ -690,6 +690,7 @@ Rshiny는 읽기 전용 계정 `rshiny_reader`로 `mart`, `ops`만 조회한다.
 | `db/test_ev03_publish.py` | 실제 SQL로 게시 경로: 분류 결과, 파티션 교체(중복 없음), 계보, 보류(`never_published`·`stale`), 무변경 지문, 게시 중 실패 시 롤백 |
 | `db/test_ev02_load.py` | 신규 적재, 같은 내용 재공표 판정, 내용 변경 재공표(차이 기록·교체) |
 | `db/test_ev04_charger.py` | 격리 사유·동 귀속·급속 판정, SCD2 변경·삭제 표시·소멸, 시점 조회, 같은 날 재실행 |
+| `test_demand_aux.py`, `db/test_ev05_aux.py` | 주소 정리·판정 순서, 지오코더 오류 키 비노출, 격리·주차면 합산·귀속, 좌표 컬럼 없음, 같은 날 교체, ev03 참고 지표·지문 |
 | `test_api_usage.py` | 오류율 계산·등급 경계, 호출 한도 판정, 한도 오류 코드 |
 | `db/test_ev12_charger.py`, `db/test_ev12_api_usage.py` | ev12 충전기 확인일(무변경 포함), 호출량·한도 오류·오류율 분포 |
 | `test_drift.py`, `db/test_ev03_drift.py` | PSI·분류 변경·A 수 변화 판정, 직전 게시 행 선택(같은 기준월 우선) |
@@ -728,6 +729,7 @@ CI (PR 필수 검사, GitHub Actions)
 | 지각 허용 | 미구현 (확정 시간대만 사용) | 수집 지연 분포 확인 |
 | 일일 호출 한도 | 한도 수치 미공개, `ERROR-337` 오류로 감시 | 한도 확인되면 `ev01_daily_call_limit` 설정 |
 | 도로 분석 기간 | MVP 고정 기간 | 원안대로 기준월과 같은 월로 전환 |
+| 수요 보조 지표 | 마트 참고 지표만 | 웹 동 상세 표시, 세대 대비 전기차 같은 비율 지표·분류 반영 검토 |
 | 백업 보관 위치 | 같은 호스트 `files/backups` | 서버·외부 저장소 정해지면 업로드 단계 추가 |
 
 ---
@@ -773,6 +775,7 @@ Airflow 3.3.2 동작
 
 | 버전 | 날짜 | 내용 |
 |---|---|---|
+| v0.11 | 2026-11-15 | ev05 수요 보조 (공동주택 세대수·공영주차장, 지오코딩 행정동 귀속·좌표 미보관), ev03 참고 지표 |
 | v0.10 | 2026-11-10 | ev16 분석 DB 주간 백업·복원 리허설 |
 | v0.9 | 2026-11-08 | ev12 충전기 줄·호출량·오류율 분포·연속 보류, ev01 `partial` 오류율 등급·한도 초과 재시도 생략, ev15 SLA 감시, ev03 분포 급변 경고, 등록 추세 플래그·예측, 게시 이력 A 목록, `traffic_obs` 월 파티션 |
 | v0.8 | 2026-11-02 | ev14 웹 데이터 게시 (데이터 브랜치 원자 커밋, 웹 커밋 고정 로드·배포 스냅샷 대체) |
