@@ -18,3 +18,32 @@ GEO_NONE = b'{"response":{"status":"NOT_FOUND"}}'
 GEO_ERR = b'{"response":{"status":"ERROR","error":{"level":"2","code":"INVALID_KEY","text":"SECRETKEY invalid"}}}'
 
 
+# 단건 조회 body.item, 목록 body.items 배열
+def test_go_kr_parse_basis_item_and_list():
+    r = DataGoKrHook.parse(BASIS_OK)
+    assert r.ok and r.rows == [{"kaptCode": "A1", "kaptdaCnt": 93.0, "doroJuso": "x"}]
+    r = DataGoKrHook.parse(LIST_OK)
+    assert (r.total, [x["kaptCode"] for x in r.rows]) == (2, ["A1", "A2"])
+
+
+@pytest.mark.parametrize(
+    "addr, expected",
+    [
+        ("서울특별시 강남구 역삼동 795-41 역삼동월드메르디앙아파트", "서울특별시 강남구 역삼동 795-41"),
+        ("강남구 압구정동 428-0", "서울특별시 강남구 압구정동 428"),
+        ("서울시 송파구 잠실동 27", "서울특별시 송파구 잠실동 27"),
+        ("서울특별시 서초구 내곡동 산 12-3 단지", "서울특별시 서초구 내곡동 산12-3"),
+        ("서울특별시 강남구 역삼동", None),
+        ("", None),
+    ],
+)
+def test_parcel_address(addr, expected):
+    assert locate.parcel_address(addr) == expected
+
+
+def test_road_address():
+    assert locate.road_address(" 강남구 도곡로21길 15 ") == "서울특별시 강남구 도곡로21길 15"
+    assert locate.road_address("서울특별시 강남구 도곡로21길 15") == "서울특별시 강남구 도곡로21길 15"
+    assert locate.road_address("  ") is None
+
+
