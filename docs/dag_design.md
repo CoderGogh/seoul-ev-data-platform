@@ -651,6 +651,7 @@ Gate 2 등급과 분류 (임계값 `mvp_v3`, provisional)
 | Asset | `ev_traffic_obs`, `ev_reg_snapshot`, `ev_charger_supply`, `ev_demand_aux`, `ev_master_version`, `ev_mart_published` | `plugins/common/assets.py`에서 한 번만 정의 |
 | 커스텀 Hook | `SeoulOpenApiHook` | XML 파싱, 결과 코드 → ok / no_data / api_error, 전수 페이지, 링크 단위 부분 실패 허용 |
 | 커스텀 Hook | `DataGoKrHook` | 공공데이터포털 공통. JSON·XML 응답, 게이트웨이 오류(XML) 판정, 전수 페이지 |
+| 커스텀 Hook | `VWorldGeocoderHook` | 주소 → 좌표. 결과 없음은 정상, 키·한도 오류는 코드만 예외. 결과 저장 금지 |
 | 커스텀 Hook | `GitHubDataHook` | Git Data API. 바뀐 파일만 커밋 하나로, fast-forward 만 |
 | 커스텀 Sensor | `SeoulApiBaseMonthSensor` | 원천 최신 기준월 = 대상 월이면 통과, `reschedule`, 파일 경로는 즉시 통과 |
 
@@ -662,11 +663,11 @@ DDL은 `files/sqls/ddl/`, 적용은 `scripts/apply_ddl.sh`. 모두 `IF NOT EXIST
 
 | 스키마 | 주요 테이블 | 비고 |
 |---|---|---|
-| `staging` | `traffic_raw`, `registration_raw`, `registration_norm`, `charger_raw`, `charger_norm` | 원천 그대로. 등록은 API·파일 공통 |
-| `core` | `traffic_obs`, `link_timeband`, `reg_snapshot`, `charger` | 관측, 시간대 대표값, 월 스냅샷, 충전기 이력(SCD2) |
+| `staging` | `traffic_raw`, `registration_raw`, `registration_norm`, `charger_raw`, `charger_norm`, `apt_raw`, `parking_raw`, `aux_locate`, `apt_norm`, `parking_norm` | 원천 그대로. 등록은 API·파일 공통 |
+| `core` | `traffic_obs`, `link_timeband`, `reg_snapshot`, `charger`, `apt_complex`, `public_parking` | 관측, 시간대 대표값, 월 스냅샷, 충전기 이력(SCD2), 수요 보조 주간 스냅샷 |
 | | `master_version`, `admdong`, `service_link_map`, `std_link`, `service_link`, `link_admdong`, `target_link`, `fuel_code` | 마스터. 대상 링크는 `mvp_3gu_v1` 914개, 전기차는 `fuel_code.is_ev` |
 | `ops` | `pipeline_run`, `poll_chunk`, `poll_coverage`, `reg_load`, `quality_result` | 실행 상태, 수집·품질 근거 |
-| | `threshold_version`, `mart_eval`, `publish_log`, `publish_status`, `reprocess_request`, `charger_load` | 임계값 버전, fingerprint, 게시 계보, 재처리 요청 |
+| | `threshold_version`, `mart_eval`, `publish_log`, `publish_status`, `reprocess_request`, `charger_load`, `aux_load` | 임계값 버전, fingerprint, 게시 계보, 재처리 요청 |
 | `mart` | `fact_admdong_indicator`, `fact_admdong_timeband` | 운영 마트 (`base_month`, `adm_cd`) |
 | | `candidate_admdong_indicator`, `candidate_admdong_timeband` | 실행별 후보, 검증 후 교체 |
 | | `v_admdong_result`, `v_reg_trend`, `v_reg_monthly`, `v_reg_momentum`, `v_timeband_profile`, `v_active_threshold` | Rshiny 조회 뷰 |
