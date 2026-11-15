@@ -44,3 +44,16 @@ def _raw(cur, run_id, pts, hh0=100):
     park = [  # 노상 구획 2행(원천 좌표), 노외 30면(좌표 0 → 지오코딩), 다른 구, 코드 누락
         {"PKLT_CD": "P1", "PKLT_NM": "노상", "ADDR": f"{SGG_NM} 가동 1-0", "TPKCT": "1", "LAT": str(p0["lat"]),
          "LOT": str(p0["lng"]), "PKLT_KND_NM": "노상 주차장"},
+        {"PKLT_CD": "P1", "PKLT_NM": "노상", "ADDR": f"{SGG_NM} 가동 1-0", "TPKCT": "1", "LAT": str(p0["lat"]),
+         "LOT": str(p0["lng"]), "PKLT_KND_NM": "노상 주차장"},
+        {"PKLT_CD": "P2", "PKLT_NM": "노외", "ADDR": f"{SGG_NM} 마동 5-0", "TPKCT": "30", "LAT": "0", "LOT": "0",
+         "PKLT_KND_NM": "노외 주차장"},
+        {"PKLT_CD": "P9", "PKLT_NM": "다른구", "ADDR": "중구 을지로3가 1", "TPKCT": "10", "LAT": "0", "LOT": "0"},
+        {"PKLT_CD": "", "PKLT_NM": "코드없음", "ADDR": f"{SGG_NM} 가동 2", "TPKCT": "3", "LAT": "0", "LOT": "0"},
+    ]  # fmt: skip
+    cur.executemany(
+        "INSERT INTO staging.parking_raw (run_id, row_no, payload) VALUES (%s, %s, %s)",
+        [(run_id, i, json.dumps(r, ensure_ascii=False)) for i, r in enumerate(park, 1)],
+    )
+
+
