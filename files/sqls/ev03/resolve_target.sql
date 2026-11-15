@@ -1,15 +1,20 @@
 -- 대상 기준월: 지정값 또는 최신 스냅샷. 전년 동월 스냅샷 존재 여부와 입력 fingerprint
 -- 공급 기준일: 기준월 말일, 충전기 이력 시작 전이면 첫 스냅샷일 (이후 일별 적재에 지문 흔들리지 않음)
+-- 보조 기준일: 같은 규칙 (수요 보조 주간 스냅샷), 없으면 NULL → 지문 불변
 -- 파라미터: base_month(NULL 가능), window_start, window_end, target_set
 WITH m AS (
     SELECT coalesce(%(base_month)s::text, (SELECT max(base_month) FROM core.reg_snapshot)) AS base_month
 ), ch AS (
     SELECT m.base_month,
            greatest((to_date(m.base_month, 'YYYYMM') + interval '1 month - 1 day')::date,
-                    (SELECT min(valid_from) FROM core.charger)) AS charger_asof
+                    (SELECT min(valid_from) FROM core.charger)) AS charger_asof,
+           greatest((to_date(m.base_month, 'YYYYMM') + interval '1 month - 1 day')::date,
+                    (SELECT min(snapshot_date) FROM ops.aux_load)) AS aux_asof
     FROM m
 ), v AS (
     SELECT m.base_month, ch.charger_asof,
+           (SELECT load_id FROM ops.aux_load a WHERE a.snapshot_date <= ch.aux_asof
+             ORDER BY a.snapshot_date DESC, a.load_id DESC LIMIT 1) AS aux_load_id,
            (SELECT max(load_id) FROM core.charger c
              WHERE c.valid_from <= ch.charger_asof AND (c.valid_to IS NULL OR c.valid_to > ch.charger_asof)) AS charger_load_id,
            to_char(to_date(m.base_month, 'YYYYMM') - interval '1 year', 'YYYYMM') AS prev_month,
@@ -30,7 +35,7 @@ WITH m AS (
 SELECT v.*,
        md5(concat_ws('|', v.base_month, v.reg_load_id, v.prev_load_id, v.traffic_watermark, v.link_ver,
                      v.boundary_ver, v.threshold_ver, %(window_start)s::text, %(window_end)s::text, %(target_set)s::text,
-                     v.charger_asof, v.charger_load_id)) AS fingerprint,
+                     v.charger_asof, v.charger_load_id, v.aux_load_id)) AS fingerprint,
        (SELECT fingerprint FROM ops.mart_eval e WHERE e.base_month = v.base_month
          ORDER BY evaluated_at DESC LIMIT 1) AS last_fingerprint
 FROM v;
