@@ -646,9 +646,9 @@ Gate 2 등급과 분류 (임계값 `mvp_v3`, provisional)
 |---|---|---|
 | Pool | `seoul_traffic_api_pool`(4), `seoul_registration_api_pool`(2), `ev_charger_api_pool`(1), `github_api_pool`(1), `apt_api_pool`(1), `seoul_parking_api_pool`(1), `vworld_api_pool`(1) | API 키가 데이터셋별로 따로. slots는 `.env` |
 | Celery 큐 | `default` (워커 2), `api` (워커 1) | 외부 API Task는 `queue=api`. API 지연이 적재를 막지 않게 |
-| Connection | `conn_seoul_openapi`, `conn_data_go_kr`, `conn_github_web_data`, `conn_postgis_ev`, `conn_db_postgres_airflow`, `conn_slack_airflow_bot` | `AIRFLOW_CONN_*` 환경변수. 메타DB는 ev12 조회용 |
-| Variable | `apikey_seoul_traffic`, `apikey_seoul_registration`, `apikey_ev_charger`, `ev01_daily_call_limit`(선택) | `AIRFLOW_VAR_*` 환경변수. 임계값은 DB 버전 테이블 |
-| Asset | `ev_traffic_obs`, `ev_reg_snapshot`, `ev_charger_supply`, `ev_master_version`, `ev_mart_published` | `plugins/common/assets.py`에서 한 번만 정의 |
+| Connection | `conn_seoul_openapi`, `conn_data_go_kr`, `conn_vworld`, `conn_github_web_data`, `conn_postgis_ev`, `conn_db_postgres_airflow`, `conn_slack_airflow_bot` | `AIRFLOW_CONN_*` 환경변수. 메타DB는 ev12 조회용 |
+| Variable | `apikey_seoul_traffic`, `apikey_seoul_registration`, `apikey_ev_charger`, `apikey_apt_list`, `apikey_apt_basis`, `apikey_seoul_parking`, `apikey_vworld`, `ev01_daily_call_limit`(선택) | `AIRFLOW_VAR_*` 환경변수. 임계값은 DB 버전 테이블 |
+| Asset | `ev_traffic_obs`, `ev_reg_snapshot`, `ev_charger_supply`, `ev_demand_aux`, `ev_master_version`, `ev_mart_published` | `plugins/common/assets.py`에서 한 번만 정의 |
 | 커스텀 Hook | `SeoulOpenApiHook` | XML 파싱, 결과 코드 → ok / no_data / api_error, 전수 페이지, 링크 단위 부분 실패 허용 |
 | 커스텀 Hook | `DataGoKrHook` | 공공데이터포털 공통. JSON·XML 응답, 게이트웨이 오류(XML) 판정, 전수 페이지 |
 | 커스텀 Hook | `GitHubDataHook` | Git Data API. 바뀐 파일만 커밋 하나로, fast-forward 만 |
