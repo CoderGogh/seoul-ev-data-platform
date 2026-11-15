@@ -117,3 +117,21 @@ def test_no_coordinate_columns(cur, seed):
     assert cols and not [r for r in cols if r["c"] in ("geom", "lng", "lat", "x", "y")]
 
 
+# 같은 날 재실행: 스냅샷 교체(중복 없음), 다음 주 적재는 직전 대비 지표에 반영
+def test_same_day_replace_and_prev(cur, seed):
+    _run(cur, "r1", D1)
+    _, _, load2, _ = _run(cur, "r2", D1, hh0=120)
+    snap = rows(
+        cur, "SELECT load_id, hh_cnt FROM core.apt_complex WHERE snapshot_date = %s AND kapt_code = 'A0'", (D1,)
+    )
+    assert snap == [{"load_id": load2["load_id"], "hh_cnt": 120}]
+    assert rows(cur, "SELECT count(*) AS n FROM core.apt_complex")[0]["n"] == 3
+    _, gate, _, _ = _run(cur, "r3", "2026-11-23")
+    assert (gate["prev_apt_cnt"], gate["prev_parking_cnt"]) == (3, 2)
+
+
+def _resolve(cur):
+    args = {"base_month": None, "target_set": TARGET_SET, **WINDOW}
+    return {**args, **db._run(cur, db.read_sql("ev03/resolve_target.sql"), args, True)[0]}
+
+
