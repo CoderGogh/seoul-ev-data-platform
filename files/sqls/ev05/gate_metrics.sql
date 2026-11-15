@@ -16,3 +16,11 @@ WITH a AS (
     WHERE snapshot_date < %(snapshot_date)s::date ORDER BY snapshot_date DESC, load_id DESC LIMIT 1
 )
 SELECT (SELECT count(*) FROM staging.apt_raw WHERE run_id = %(run_id)s) AS apt_raw,
+       (SELECT count(*) FROM quarantine.aux_record WHERE run_id = %(run_id)s AND src = 'apt') AS apt_quarantine,
+       a.norm AS apt_norm, a.hh AS apt_hh, a.assigned AS apt_assigned, a.hh_assigned AS apt_hh_assigned,
+       a.mismatch AS apt_mismatch,
+       (SELECT count(*) FROM quarantine.aux_record WHERE run_id = %(run_id)s AND src = 'parking') AS parking_quarantine,
+       p.norm AS parking_norm, p.spaces AS parking_spaces, p.assigned AS parking_assigned,
+       p.source_coord AS parking_source_coord,
+       (SELECT apt_cnt FROM prev) AS prev_apt_cnt, (SELECT parking_cnt FROM prev) AS prev_parking_cnt
+FROM a, p;
