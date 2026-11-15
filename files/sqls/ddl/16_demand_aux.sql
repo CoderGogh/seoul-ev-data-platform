@@ -91,3 +91,22 @@ CREATE TABLE IF NOT EXISTS staging.apt_norm (
     PRIMARY KEY (run_id, kapt_code)
 );
 
+-- 공영주차장 정제·동 귀속 (실행 단위, 주차장 코드당 1행: 노상 구획 행 합산)
+CREATE TABLE IF NOT EXISTS staging.parking_norm (
+    run_id          text        NOT NULL,
+    pklt_cd         text        NOT NULL,
+    sgg_cd          char(5)     NOT NULL,
+    pklt_nm         text,
+    addr            text,
+    kind_nm         text,                               -- 노상 / 노외
+    oper_nm         text,                               -- 시간제 / 거주자 우선
+    pay_nm          text,
+    space_cnt       int         NOT NULL,               -- 주차면 (구획 행 합)
+    slot_rows       int         NOT NULL,               -- 원천 행 수
+    boundary_ver    text        NOT NULL,
+    adm_cd          char(10),
+    loc_source      text        NOT NULL,
+    assign_status   text        NOT NULL CHECK (assign_status IN ('assigned', 'outside', 'sgg_mismatch', 'unlocated')),
+    PRIMARY KEY (run_id, pklt_cd)
+);
+
