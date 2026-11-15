@@ -63,3 +63,18 @@ class VWorldGeocoderHook(BaseHook):
         self.get_conn()
         return bool(self._key)
 
+    # 응답 → GeoResult (오류는 코드만, 메시지 미사용)
+    @staticmethod
+    def parse(content):
+        r = json.loads(content).get("response", {})
+        status = r.get("status") or "ERROR"
+        if status == "OK":
+            p = (r.get("result") or {}).get("point") or {}
+            try:
+                return GeoResult("OK", float(p["x"]), float(p["y"]))
+            except (KeyError, TypeError, ValueError):
+                return GeoResult("ERROR", error_code="BAD_POINT")
+        if status == "NOT_FOUND":
+            return GeoResult("NOT_FOUND")
+        return GeoResult("ERROR", error_code=(r.get("error") or {}).get("code") or "UNKNOWN")
+
