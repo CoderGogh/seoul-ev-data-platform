@@ -14,6 +14,7 @@ from airflow.sdk.log import mask_secret
 
 OK_CODES = ("00", "0000")
 LIMIT_CODES = ("22",)  # LIMITED_NUMBER_OF_SERVICE_REQUESTS_EXCEEDS_ERROR
+TRANSIENT_CODES = ("04",)  # 게이트웨이 HTTP_ERROR: 제공기관 서버 간헐 오류, 같은 요청 재호출 시 성공
 
 
 # 호출 한도 초과 (HTTP 429·게이트웨이 22): 재시도해도 같은 결과 → 호출자는 즉시 중단
@@ -48,17 +49,21 @@ class DataGoKrHook(BaseHook):
     default_conn_name = "conn_data_go_kr"
     hook_name = "data.go.kr OpenAPI"
 
-    def __init__(self, api_key_var, conn_id=default_conn_name, timeout=60, min_interval=0.0, **kwargs):
+    def __init__(
+        self, api_key_var, conn_id=default_conn_name, timeout=60, min_interval=0.0, transient_retries=0, **kwargs
+    ):
         """
         api_key_var: 인증키 Variable 이름 (일반 인증키, Encoding·Decoding 모두 허용)
         conn_id: 호스트 Connection
         min_interval: 호출 간 최소 간격 초 (초당 호출 제한 대비)
+        transient_retries: 간헐 오류 코드 재호출 횟수 (1·2·4초 간격)
         """
         super().__init__(**kwargs)
         self.conn_id = conn_id
         self.api_key_var = api_key_var
         self.timeout = timeout
         self.min_interval = min_interval
+        self.transient_retries = transient_retries
         self._last = 0.0
         self._base = None
         self._key = None
@@ -107,8 +112,18 @@ class DataGoKrHook(BaseHook):
             rows=[{c.tag: c.text for c in item} for item in root.iter("item")],
         )
 
-    # 호출 1회, 오류 코드면 예외 (재시도 대상)
+    # 호출 1회 (간헐 오류만 짧게 재호출), 오류 코드면 예외 (재시도 대상)
     def call(self, path, **params):
+        for attempt in range(self.transient_retries + 1):
+            result = self._call_once(path, **params)
+            if result.code not in TRANSIENT_CODES or attempt == self.transient_retries:
+                break
+            time.sleep(2**attempt)
+        if not result.ok:
+            raise RuntimeError(f"{path} 오류 {result.code}: {result.message}")
+        return result
+
+    def _call_once(self, path, **params):
         base = self.get_conn()
         query = {"serviceKey": self._key, "dataType": "JSON", **params}
         wait = self.min_interval - (time.monotonic() - self._last)
@@ -129,8 +144,6 @@ class DataGoKrHook(BaseHook):
         result.resp_ms = int((time.perf_counter() - t0) * 1000)
         if result.code in LIMIT_CODES:
             raise GoKrLimitError(f"{path} 호출 한도 초과 {result.code}")
-        if not result.ok:
-            raise RuntimeError(f"{path} 오류 {result.code}: {result.message}")
         return result
 
     # 전수 페이지 순회 (큰 페이지는 게이트웨이 504)
