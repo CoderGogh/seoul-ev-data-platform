@@ -173,3 +173,17 @@ with DAG(
             r = hook.geocode(addr, addr_type)
             return (r.lng, r.lat) if r.found else None
 
+        points, calls = locate.locate_all(targets, geocode)
+        db.execute_file("ev05/assign_points.sql", {"run_id": run_id, "points": json.dumps(points)})
+        stats = {s: sum(1 for p in points if p["loc_source"] == s)
+                 for s in ("source_coord", "geocoded_road", "geocoded_parcel", "none")}  # fmt: skip
+        ops.record_quality(context, "geocode_calls", "ok", calls, detail=stats)
+        return {"targets": len(points), "calls": calls, **stats}
+
+    @task
+    def normalize_assign(**context):
+        info = _info(context)
+        db.execute_file(
+            "ev05/normalize.sql", {"run_id": context["dag_run"].run_id, "sgg_map": json.dumps(info["sgg_map"])}
+        )
+
