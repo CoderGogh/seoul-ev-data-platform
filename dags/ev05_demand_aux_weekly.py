@@ -32,7 +32,7 @@ APT_POOL = "apt_api_pool"
 PARKING_POOL = "seoul_parking_api_pool"
 VWORLD_POOL = "vworld_api_pool"
 PAGE_SIZE = 1000
-API_INTERVAL = 0.2  # 공동주택 API 호출 간격 초 (연속 호출 시 429)
+API_INTERVAL = 0.2  # 공동주택 API 호출 간격 초 (연속 호출 시 429). 간헐 오류 04는 Hook에서 재호출
 
 # 품질 게이트 기준
 MIN_APT_COLLECT = 0.95  # 원천 단지 대비 정제 단지 (미만 치명, 기본 정보 대량 실패)
@@ -101,9 +101,9 @@ with DAG(
     @task(pool=APT_POOL, queue="api", retries=3)
     def extract_apt(sgg_cd, **context):
         run_id = context["dag_run"].run_id
-        total, items = DataGoKrHook(api_key_var=APT_LIST_KEY_VAR, min_interval=API_INTERVAL).fetch_all(
-            APT_LIST_SERVICE, PAGE_SIZE, sigunguCode=sgg_cd, _type="json"
-        )
+        total, items = DataGoKrHook(
+            api_key_var=APT_LIST_KEY_VAR, min_interval=API_INTERVAL, transient_retries=3
+        ).fetch_all(APT_LIST_SERVICE, PAGE_SIZE, sigunguCode=sgg_cd, _type="json")
         if len(items) != total:
             raise RuntimeError(f"{sgg_cd} 수신 {len(items)} != totalCount {total}")
         done = {
@@ -115,7 +115,7 @@ with DAG(
                 fetch=True,
             )
         }
-        basis_hook = DataGoKrHook(api_key_var=APT_BASIS_KEY_VAR, min_interval=API_INTERVAL)
+        basis_hook = DataGoKrHook(api_key_var=APT_BASIS_KEY_VAR, min_interval=API_INTERVAL, transient_retries=3)
         fetched = dict(done)
         try:
             for it in items:
