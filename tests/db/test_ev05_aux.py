@@ -106,3 +106,14 @@ def test_quarantine_locate_normalize(cur, seed):
     assert (load["apt_cnt"], load["apt_hh_cnt"], load["parking_cnt"], load["parking_space_cnt"]) == (3, 180, 2, 32)
 
 
+# 좌표 컬럼 없음 (지오코더 결과 저장 금지)
+def test_no_coordinate_columns(cur, seed):
+    cols = rows(
+        cur,
+        """SELECT table_schema || '.' || table_name AS t, column_name AS c FROM information_schema.columns
+           WHERE (table_schema, table_name) IN (('staging', 'aux_locate'), ('staging', 'apt_norm'),
+                 ('staging', 'parking_norm'), ('core', 'apt_complex'), ('core', 'public_parking'))""",
+    )
+    assert cols and not [r for r in cols if r["c"] in ("geom", "lng", "lat", "x", "y")]
+
+
