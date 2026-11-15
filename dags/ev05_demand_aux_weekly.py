@@ -218,3 +218,15 @@ with DAG(
         warn = pk_assign < WARN_PARKING_ASSIGN or m["apt_quarantine"] or m["apt_mismatch"]
         return "warn" if warn else "ok"
 
+    # 적재 이력 + 스냅샷 교체 단일 트랜잭션, 성공 시에만 Asset 이벤트
+    @task(outlets=[EV_DEMAND_AUX])
+    def load_snapshot(grade, **context):
+        info = _info(context)
+        params = {"run_id": context["dag_run"].run_id, "snapshot_date": info["snapshot_date"],
+                  "sgg_cds": info["sgg_cds"], "quality_grade": grade}  # fmt: skip
+        res = db.run_in_transaction([("ev05/load_log.sql", params, True), ("ev05/apply_snapshot.sql", params, False)])
+        context["outlet_events"][EV_DEMAND_AUX].extra = {
+            "snapshot_date": info["snapshot_date"], "load_id": res["load_id"],
+        }  # fmt: skip
+        return res
+
