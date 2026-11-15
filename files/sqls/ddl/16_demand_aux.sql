@@ -177,3 +177,14 @@ CREATE TABLE IF NOT EXISTS quarantine.aux_record (
     PRIMARY KEY (run_id, src, row_key)
 );
 
+-- 마트 보조 지표 (판정 미사용, 운영·후보 같은 순서: 게시가 SELECT * 로 복사)
+ALTER TABLE mart.fact_admdong_indicator ADD COLUMN IF NOT EXISTS aux_asof date;               -- 보조 기준일
+ALTER TABLE mart.fact_admdong_indicator ADD COLUMN IF NOT EXISTS apt_complex_cnt int;         -- 공동주택 단지
+ALTER TABLE mart.fact_admdong_indicator ADD COLUMN IF NOT EXISTS apt_hh_cnt int;              -- 공동주택 세대
+ALTER TABLE mart.fact_admdong_indicator ADD COLUMN IF NOT EXISTS parking_lot_cnt int;         -- 공영주차장
+ALTER TABLE mart.fact_admdong_indicator ADD COLUMN IF NOT EXISTS parking_space_cnt int;       -- 공영주차장 주차면
+ALTER TABLE mart.candidate_admdong_indicator ADD COLUMN IF NOT EXISTS aux_asof date;
+ALTER TABLE mart.candidate_admdong_indicator ADD COLUMN IF NOT EXISTS apt_complex_cnt int;
+ALTER TABLE mart.candidate_admdong_indicator ADD COLUMN IF NOT EXISTS apt_hh_cnt int;
+ALTER TABLE mart.candidate_admdong_indicator ADD COLUMN IF NOT EXISTS parking_lot_cnt int;
+ALTER TABLE mart.candidate_admdong_indicator ADD COLUMN IF NOT EXISTS parking_space_cnt int;
