@@ -78,3 +78,25 @@ class VWorldGeocoderHook(BaseHook):
             return GeoResult("NOT_FOUND")
         return GeoResult("ERROR", error_code=(r.get("error") or {}).get("code") or "UNKNOWN")
 
+    # 주소 1건 → GeoResult. 결과 없음은 정상 반환, 키·한도·시스템 오류는 예외
+    def geocode(self, address, addr_type):
+        base = self.get_conn()
+        wait = self.min_interval - (time.monotonic() - self._last)
+        if wait > 0:
+            time.sleep(wait)
+        query = {"service": "address", "request": "getcoord", "version": "2.0", "crs": "epsg:4326",
+                 "address": address, "refine": "true", "simple": "true", "format": "json",
+                 "type": addr_type, "key": self._key}  # fmt: skip
+        if self._domain:
+            query["domain"] = self._domain
+        try:
+            res = self._session.get(base, params=query, timeout=self.timeout)
+        except requests.RequestException as e:
+            raise RuntimeError(f"지오코더 호출 실패: {type(e).__name__}") from None  # 예외 메시지에 인증키 포함 URL
+        finally:
+            self._last = time.monotonic()
+        if not res.ok:
+            raise RuntimeError(f"지오코더 HTTP {res.status_code}")
+        try:
+            result = self.parse(res.content)
+        except ValueError:
