@@ -15,7 +15,7 @@ def _resolve(cur):
 def _publish(cur, run_id):
     info = _resolve(cur)
     args = {**info, "run_id": run_id, "request_id": None}
-    for f in ("admdong_timeband", "indicators", "supply", "region_gate", "classify", "publish"):
+    for f in ("admdong_timeband", "indicators", "supply", "aux", "region_gate", "classify", "publish"):
         db._run(cur, db.read_sql(f"ev03/{f}.sql"), args, False)
     return info
 
