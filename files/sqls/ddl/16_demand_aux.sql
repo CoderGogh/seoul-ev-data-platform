@@ -146,3 +146,23 @@ CREATE TABLE IF NOT EXISTS core.apt_complex (
 );
 CREATE INDEX IF NOT EXISTS apt_complex_load_idx ON core.apt_complex (load_id, adm_cd);
 
+-- 공영주차장 스냅샷
+CREATE TABLE IF NOT EXISTS core.public_parking (
+    snapshot_date   date        NOT NULL,
+    pklt_cd         text        NOT NULL,
+    sgg_cd          char(5)     NOT NULL,
+    pklt_nm         text,
+    addr            text,
+    kind_nm         text,
+    oper_nm         text,
+    pay_nm          text,
+    space_cnt       int         NOT NULL,
+    boundary_ver    text        NOT NULL,
+    adm_cd          char(10),
+    loc_source      text        NOT NULL,
+    assign_status   text        NOT NULL,
+    load_id         bigint      NOT NULL,
+    PRIMARY KEY (snapshot_date, pklt_cd)
+);
+CREATE INDEX IF NOT EXISTS public_parking_load_idx ON core.public_parking (load_id, adm_cd);
+
