@@ -135,3 +135,19 @@ def _resolve(cur):
     return {**args, **db._run(cur, db.read_sql("ev03/resolve_target.sql"), args, True)[0]}
 
 
+# ev03: 보조 스냅샷 없으면 지문 불변·미산출, 있으면 첫 스냅샷 기준 동별 참고 지표
+def test_ev03_aux_indicators(cur, supply):
+    before = _resolve(cur)
+    assert before["aux_load_id"] is None
+    _, _, load, _ = _run(cur, "r1", D1)
+    info = _resolve(cur)
+    assert info["aux_load_id"] == load["load_id"] and info["fingerprint"] != before["fingerprint"]
+    args = {**info, "run_id": "ev03_r1", "request_id": None}
+    for f in ("admdong_timeband", "indicators", "supply", "aux"):
+        db._run(cur, db.read_sql(f"ev03/{f}.sql"), args, False)
+    m = {r["adm_cd"]: r for r in rows(cur, "SELECT * FROM mart.candidate_admdong_indicator WHERE run_id = 'ev03_r1'")}
+    assert (m["1168000001"]["apt_complex_cnt"], m["1168000001"]["apt_hh_cnt"]) == (1, 100)
+    d5 = m["1168000005"]
+    assert (d5["apt_hh_cnt"], d5["parking_lot_cnt"], d5["parking_space_cnt"]) == (50, 1, 30)
+    assert (m["1168000001"]["parking_lot_cnt"], m["1168000001"]["parking_space_cnt"]) == (1, 2)
+    assert m["1168000002"]["apt_hh_cnt"] == 0 and str(m["1168000002"]["aux_asof"]) == D1
