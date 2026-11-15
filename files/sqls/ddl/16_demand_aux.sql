@@ -72,3 +72,22 @@ CREATE TABLE IF NOT EXISTS staging.aux_locate (
     PRIMARY KEY (run_id, src, src_key)
 );
 
+-- 공동주택 정제·동 귀속 (실행 단위)
+CREATE TABLE IF NOT EXISTS staging.apt_norm (
+    run_id          text        NOT NULL,
+    kapt_code       text        NOT NULL,
+    sgg_cd          char(5)     NOT NULL,
+    kapt_name       text,
+    bjd_code        char(10),                           -- 법정동 (참고)
+    hh_cnt          int         NOT NULL,               -- 세대수
+    dong_cnt        int,
+    apt_type        text,                               -- 아파트 / 주상복합 등
+    use_date        date,                               -- 사용승인일
+    doro_juso       text,
+    boundary_ver    text        NOT NULL,
+    adm_cd          char(10),
+    loc_source      text        NOT NULL,
+    assign_status   text        NOT NULL CHECK (assign_status IN ('assigned', 'outside', 'sgg_mismatch', 'unlocated')),
+    PRIMARY KEY (run_id, kapt_code)
+);
+
