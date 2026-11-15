@@ -39,3 +39,26 @@ def road_address(addr):
     return " ".join(tokens)
 
 
+# 판정 순서: 원천 좌표 → 도로명 → 지번. 같은 실행 안에서만 주소별 결과 재사용
+# geocode(address, addr_type) → (lng, lat) 또는 None
+def locate_all(targets, geocode):
+    memo, out, calls = {}, [], 0
+    for t in targets:
+        lng, lat, source = t.get("lng"), t.get("lat"), "source_coord"
+        if lng is None:
+            lng = lat = None
+            source = "none"
+            for addr_type, addr in (("road", road_address(t.get("road_addr"))),
+                                    ("parcel", parcel_address(t.get("parcel_addr")))):  # fmt: skip
+                if not addr:
+                    continue
+                if (addr_type, addr) not in memo:
+                    memo[(addr_type, addr)] = geocode(addr, addr_type)
+                    calls += 1
+                pt = memo[(addr_type, addr)]
+                if pt:
+                    lng, lat = pt
+                    source = f"geocoded_{addr_type}"
+                    break
+        out.append({"src": t["src"], "src_key": t["src_key"], "lng": lng, "lat": lat, "loc_source": source})
+    return out, calls
