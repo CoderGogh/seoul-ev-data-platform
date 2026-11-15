@@ -1386,6 +1386,30 @@ button.side-link {
 .map-wrap {
   position: relative;
 }
+/* 배경지도: 동 색은 반투명, 분석 대상 외는 거의 투명 */
+.map.with-base path {
+  fill-opacity: 0.62;
+}
+.map.with-base path:not(.target) {
+  fill-opacity: 0.12;
+}
+.map.with-base path.dim {
+  opacity: 0.35;
+}
+.map-base image {
+  pointer-events: none;
+}
+.map-credit {
+  position: absolute;
+  right: 6px;
+  bottom: 40px;
+  font-size: 11px;
+  color: var(--muted);
+  background: var(--surface);
+  padding: 0 4px;
+  border-radius: 3px;
+  opacity: 0.85;
+}
 .map-dots circle {
   pointer-events: none;
   stroke: var(--surface);

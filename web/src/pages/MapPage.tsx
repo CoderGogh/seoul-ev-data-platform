@@ -5,6 +5,7 @@ import { CardHead, PageHead } from "../components/PageHead";
 import { Chip, RegionFilterBar, useRegionFilters } from "../components/RegionFilters";
 import { RegionMap, type MapMode, type MapPoint } from "../components/RegionMap";
 import { navigate } from "../router";
+import { basemapEnabled, readBasemapPref, saveBasemapPref } from "../basemap";
 
 type DotFilter = "off" | "all" | "fast" | "slow";
 
@@ -23,6 +24,11 @@ export function MapPage({ data }: { data: AppData }) {
   const f = useRegionFilters(regions);
   const [mode, setMode] = useState<MapMode>("class");
   const [dot, setDot] = useState<DotFilter>("off");
+  const [base, setBase] = useState(readBasemapPref);
+  const toggleBase = (on: boolean) => {
+    setBase(on);
+    saveBasemapPref(on);
+  };
   const matches = useMemo(() => new Set(f.filtered.map((r) => r.adm_cd)), [f.filtered]);
   const stations = data.chargers?.stations;
   const points = useMemo(() => stationPoints(stations, dot), [stations, dot]);
@@ -54,6 +60,19 @@ export function MapPage({ data }: { data: AppData }) {
             </div>
           }
         />
+        {basemapEnabled() && (
+          <div className="filter-row" aria-label="배경지도" style={{ marginBottom: 12 }}>
+            <span className="muted" style={{ fontSize: 13 }}>
+              배경지도
+            </span>
+            <Chip on={base} onClick={() => toggleBase(true)}>
+              켜기
+            </Chip>
+            <Chip on={!base} onClick={() => toggleBase(false)}>
+              끄기
+            </Chip>
+          </div>
+        )}
         {stations && (
           <div className="filter-row" aria-label="충전소 점" style={{ marginBottom: 12 }}>
             <span className="muted" style={{ fontSize: 13 }}>
@@ -73,6 +92,7 @@ export function MapPage({ data }: { data: AppData }) {
           matches={matches}
           supplyMin={supplyMin}
           points={points}
+          basemap={base}
           onSelect={(cd) => navigate(`/regions/${cd}`)}
         />
       </section>

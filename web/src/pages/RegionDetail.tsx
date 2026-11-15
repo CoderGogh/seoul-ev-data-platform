@@ -15,6 +15,7 @@ import {
 import { FLAG_LABEL, GROWTH_DESC, REASON_LABEL, fmtInt, fmtMonth, fmtPct, type AppData, type Region } from "../data";
 import { ClassBadge, HintBadge } from "../components/Badges";
 import { RegionMap } from "../components/RegionMap";
+import { readBasemapPref } from "../basemap";
 import { Tip, chartTipStyle } from "../components/Tip";
 import { CardHead } from "../components/PageHead";
 import { Link, navigate } from "../router";
@@ -282,6 +283,7 @@ export function RegionDetail({ data, admCd }: { data: AppData; admCd: string }) 
             regions={data.regions.filter((x) => x.sgg_nm === r.sgg_nm)}
             mode="class"
             activeCd={r.adm_cd}
+            basemap={readBasemapPref()}
             onSelect={(cd) => navigate(`/regions/${cd}`)}
           />
         </section>
