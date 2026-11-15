@@ -110,3 +110,18 @@ CREATE TABLE IF NOT EXISTS staging.parking_norm (
     PRIMARY KEY (run_id, pklt_cd)
 );
 
+-- 적재 이력 (주간 스냅샷 근거)
+CREATE TABLE IF NOT EXISTS ops.aux_load (
+    load_id         bigint      GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    snapshot_date   date        NOT NULL,               -- 수집일 (KST)
+    run_id          text        NOT NULL,
+    sgg_cds         text[]      NOT NULL,
+    apt_cnt         int         NOT NULL,
+    apt_hh_cnt      int         NOT NULL,
+    parking_cnt     int         NOT NULL,
+    parking_space_cnt int       NOT NULL,
+    quality_grade   text        NOT NULL CHECK (quality_grade IN ('ok', 'warn', 'fatal')),
+    loaded_at       timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS aux_load_date_idx ON ops.aux_load (snapshot_date DESC);
+
