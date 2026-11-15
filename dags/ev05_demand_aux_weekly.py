@@ -44,3 +44,31 @@ MAX_DROP_RATIO = 0.10  # 직전 적재 대비 단지·주차장 감소 비율 (�
 FINAL_TASKS = ["init_run", "list_sgg", "extract_apt", "extract_parking", "quarantine_invalid", "locate_targets",
                "normalize_assign", "aux_gate", "load_snapshot"]  # fmt: skip
 
+INSERT_APT = """INSERT INTO staging.apt_raw (run_id, sgg_cd, row_no, list_payload, basis_payload)
+                VALUES (%s, %s, %s, %s, %s)"""
+INSERT_PARKING = "INSERT INTO staging.parking_raw (run_id, row_no, payload) VALUES (%s, %s, %s)"
+
+
+def _info(context):
+    return context["ti"].xcom_pull(task_ids="init_run")
+
+
+def _dumps(v):
+    return json.dumps(v, ensure_ascii=False) if v is not None else None
+
+
+with DAG(
+    dag_id="ev05_demand_aux_weekly",
+    description="공동주택 세대수·공영주차장 주간 스냅샷 (수요 보조 지표)",
+    schedule=CronTriggerTimetable("30 4 * * 1", timezone=KST),  # 월 04:30, ev04 05:00 이전
+    start_date=pendulum.datetime(2026, 11, 9, tz=KST),
+    catchup=False,
+    max_active_runs=1,
+    default_args=DEFAULT_ARGS,
+    params={
+        "target_set": Param("mvp_3gu_v1", type="string", description="대상 링크 세트 (대상 구 결정)"),
+        "allow_mass_drop": Param(False, type="boolean", description="감소 비율 게이트 생략 (원천 정비 확인 후만)"),
+    },
+    tags=["ev", "collect", "demand"],
+) as dag:
+
