@@ -166,3 +166,14 @@ CREATE TABLE IF NOT EXISTS core.public_parking (
 );
 CREATE INDEX IF NOT EXISTS public_parking_load_idx ON core.public_parking (load_id, adm_cd);
 
+-- 수요 보조 격리 (키 누락·중복·기본 정보 없음·세대수·주차면 오류)
+CREATE TABLE IF NOT EXISTS quarantine.aux_record (
+    run_id          text        NOT NULL,
+    src             text        NOT NULL,               -- apt / parking
+    row_key         text        NOT NULL,               -- 구·행 번호
+    reason_code     text        NOT NULL,
+    raw             jsonb       NOT NULL,
+    created_at      timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (run_id, src, row_key)
+);
+
