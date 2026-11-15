@@ -1,0 +1,22 @@
+"""ev05 수요 보조 주간 배치 (설계서 §4.12)
+
+대상 구 결정 → [공동주택 구별 수집(동적 매핑) | 공영주차장 수집] → 격리 → 위치 판정 → 정제·동 귀속 → 품질 게이트 → 스냅샷 반영
+- 공동주택: 단지 목록(국토부) → 단지별 기본 정보(세대수). 공영주차장: 서울시 안내 정보(서울 전체 → 대상 구)
+- 원천에 좌표 없음(주차장 일부만) → 브이월드 지오코더로 실행 중 행정동 판정. 좌표는 약관상 저장 금지라 행정동 코드만 기록
+- 원천은 현재 상태만 제공 → 수집일(KST) 스냅샷, 같은 날 재실행은 교체
+- ev03 은 이 결과를 참고 지표로만 붙임 (분류 미사용)
+"""
+
+import json
+from contextlib import closing
+
+import pendulum
+from airflow.sdk import DAG, CronTriggerTimetable, Param, task
+from airflow.sdk.exceptions import AirflowFailException
+from common import db, locate, ops
+from common.assets import EV_DEMAND_AUX
+from config.default_args import DEFAULT_ARGS
+from hooks.data_go_kr_hook import DataGoKrHook, GoKrLimitError
+from hooks.seoul_openapi_hook import SeoulOpenApiHook
+from hooks.vworld_hook import VWorldGeocoderHook
+
