@@ -32,6 +32,8 @@ x-airflow-common:
     AIRFLOW_CONN_CONN_DB_POSTGRES_AIRFLOW: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
     AIRFLOW_CONN_CONN_SEOUL_OPENAPI: http://openapi.seoul.go.kr:8088
     AIRFLOW_CONN_CONN_DATA_GO_KR: https://apis.data.go.kr
+    # 지오코더 (domain: 키 발급 시 등록한 서비스 URL)
+    AIRFLOW_CONN_CONN_VWORLD: '{"conn_type": "http", "host": "api.vworld.kr", "extra": {"domain": "${VWORLD_DOMAIN:-http://localhost}"}}'
     # 웹 데이터 브랜치 (fine-grained 토큰: 대상 저장소 Contents 읽기·쓰기만)
     AIRFLOW_CONN_CONN_GITHUB_WEB_DATA: '{"conn_type": "http", "password": "${GITHUB_WEB_DATA_TOKEN:-}", "extra": {"repo": "${GITHUB_WEB_DATA_REPO:-CoderGogh/seoul-ev-data-platform}", "branch": "web-data"}}'
     # 백업 외부 보관 (Supabase Storage 비공개 버킷, 비우면 업로드 생략)
@@ -42,6 +44,10 @@ x-airflow-common:
     AIRFLOW_VAR_APIKEY_SEOUL_TRAFFIC: ${SEOUL_TRAFFIC_API_KEY:?set in .env}
     AIRFLOW_VAR_APIKEY_SEOUL_REGISTRATION: ${SEOUL_REGISTRATION_API_KEY:?set in .env}
     AIRFLOW_VAR_APIKEY_EV_CHARGER: ${EV_CHARGER_API_KEY:-}
+    AIRFLOW_VAR_APIKEY_APT_LIST: ${APT_LIST_API_KEY:-}
+    AIRFLOW_VAR_APIKEY_APT_BASIS: ${APT_BASIS_API_KEY:-}
+    AIRFLOW_VAR_APIKEY_SEOUL_PARKING: ${SEOUL_PARKING_API_KEY:-}
+    AIRFLOW_VAR_APIKEY_VWORLD: ${VWORLD_API_KEY:-}
     AIRFLOW_VAR_EV_REG_SOURCE_MODE: ${EV_REG_SOURCE_MODE:-api}
   volumes:
     - ./dags:/opt/airflow/dags
@@ -231,6 +237,9 @@ services:
           airflow pools set ev_charger_api_pool ${CHARGER_POOL_SLOTS:-1} "충전소 정보 API 동시 호출 제한"
           airflow pools set github_api_pool 1 "웹 데이터 브랜치 커밋 직렬화"
           airflow pools set supabase_storage_pool 1 "백업 외부 업로드 직렬화"
+          airflow pools set apt_api_pool 1 "공동주택 API 동시 호출 제한"
+          airflow pools set seoul_parking_api_pool 1 "공영주차장 API 동시 호출 제한"
+          airflow pools set vworld_api_pool 1 "지오코더 동시 호출 제한"
         '
         # 공유 디렉터리 소유권 정리
         chown -R "${AIRFLOW_UID:-50000}:0" /opt/airflow/{logs,dags,plugins,config}
