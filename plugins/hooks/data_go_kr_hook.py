@@ -142,8 +142,8 @@ class DataGoKrHook(BaseHook):
             raise RuntimeError(f"{path} HTTP {res.status_code} {dict(params)}")  # URL 대신 인자만 기록
         result = self.parse(res.content)
         result.resp_ms = int((time.perf_counter() - t0) * 1000)
-        if not result.ok:
-            raise RuntimeError(f"{path} 오류 {result.code}: {result.message}")
+        if result.code in LIMIT_CODES:
+            raise GoKrLimitError(f"{path} 호출 한도 초과 {result.code}")
         return result
 
     # 전수 페이지 순회 (큰 페이지는 게이트웨이 504)
