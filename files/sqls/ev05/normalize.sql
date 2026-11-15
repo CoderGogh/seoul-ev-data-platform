@@ -26,3 +26,19 @@ WHERE c.run_id = %(run_id)s AND c.reason_code IS NULL;
 
 DELETE FROM staging.parking_norm WHERE run_id = %(run_id)s;
 
+INSERT INTO staging.parking_norm (
+    run_id, pklt_cd, sgg_cd, pklt_nm, addr, kind_nm, oper_nm, pay_nm, space_cnt, slot_rows,
+    boundary_ver, adm_cd, loc_source, assign_status)
+WITH b AS (SELECT version FROM core.master_version WHERE master_type = 'boundary' AND status = 'active'),
+g AS (
+    SELECT c.run_id, c.pklt_cd, (%(sgg_map)s::jsonb ->> min(c.sgg_nm))::char(5) AS sgg_cd,
+           min(c.payload->>'PKLT_NM') AS pklt_nm, min(c.addr) AS addr,
+           min(c.payload->>'PKLT_KND_NM') AS kind_nm, min(c.payload->>'OPER_SE_NM') AS oper_nm,
+           min(c.payload->>'CHGD_FREE_NM') AS pay_nm,
+           round(sum(c.space_cnt))::int AS space_cnt, count(*) AS slot_rows
+    FROM staging.v_parking_check c
+    WHERE c.run_id = %(run_id)s AND c.reason_code IS NULL AND %(sgg_map)s::jsonb ? c.sgg_nm
+    GROUP BY c.run_id, c.pklt_cd
+)
+SELECT g.run_id, g.pklt_cd, g.sgg_cd, g.pklt_nm, g.addr, g.kind_nm, g.oper_nm, g.pay_nm, g.space_cnt, g.slot_rows,
+       b.version, l.adm_cd, coalesce(l.loc_source, 'none'),
