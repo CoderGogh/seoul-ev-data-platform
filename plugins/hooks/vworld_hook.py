@@ -100,3 +100,7 @@ class VWorldGeocoderHook(BaseHook):
         try:
             result = self.parse(res.content)
         except ValueError:
+            raise RuntimeError("지오코더 응답 형식 오류") from None
+        if result.status == "ERROR":
+            raise RuntimeError(f"지오코더 오류 {result.error_code}")
+        return result
