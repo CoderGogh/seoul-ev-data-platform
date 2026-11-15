@@ -95,3 +95,23 @@ with DAG(
     def list_sgg(info):
         return info["sgg_cds"]
 
+    # 구별 단지 목록 → 단지별 기본 정보 → staging (재시도 멱등: 같은 run·구 교체)
+    # 단지 하나 기본 정보 실패는 NULL 로 두고 격리 (대량 실패는 게이트 치명)
+    # 호출 한도 초과는 즉시 중단, 받은 만큼 저장 → 재시도는 받은 단지 재사용 (한도 소모 방지)
+    @task(pool=APT_POOL, queue="api", retries=3)
+    def extract_apt(sgg_cd, **context):
+        run_id = context["dag_run"].run_id
+        total, items = DataGoKrHook(
+            api_key_var=APT_LIST_KEY_VAR, min_interval=API_INTERVAL, transient_retries=3
+        ).fetch_all(APT_LIST_SERVICE, PAGE_SIZE, sigunguCode=sgg_cd, _type="json")
+        if len(items) != total:
+            raise RuntimeError(f"{sgg_cd} 수신 {len(items)} != totalCount {total}")
+        done = {
+            r["kapt_code"]: r["basis"]
+            for r in db.execute(
+                """SELECT list_payload->>'kaptCode' AS kapt_code, basis_payload AS basis FROM staging.apt_raw
+                   WHERE run_id = %s AND sgg_cd = %s AND basis_payload IS NOT NULL""",
+                (run_id, sgg_cd),
+                fetch=True,
+            )
+        }
