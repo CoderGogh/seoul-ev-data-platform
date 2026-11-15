@@ -57,3 +57,21 @@ def _raw(cur, run_id, pts, hh0=100):
     )
 
 
+# DAG 순서대로 실행 (격리 → 위치 판정 → 정제 → 게이트 지표 → 적재 이력 + 스냅샷)
+def _run(cur, run_id, date, hh0=100):
+    pts = _points(cur)
+    by_addr = {
+        ("road", "서울특별시 테스트구 일로 1"): pts[0], ("road", "서울특별시 테스트구 오로 5"): pts[4],
+        ("parcel", "서울특별시 테스트구 마동 5"): pts[4],
+    }  # fmt: skip
+    _raw(cur, run_id, pts, hh0)
+    sgg = {"run_id": run_id, "sgg_nms": [SGG_NM]}
+    db._run(cur, db.read_sql("ev05/quarantine.sql"), sgg, False)
+    targets = db._run(cur, db.read_sql("ev05/locate_targets.sql"), sgg, True)
+    calls = []
+
+    def geocode(addr, addr_type):
+        calls.append(addr)
+        p = by_addr.get((addr_type, addr))
+        return (p["lng"], p["lat"]) if p else None
+
