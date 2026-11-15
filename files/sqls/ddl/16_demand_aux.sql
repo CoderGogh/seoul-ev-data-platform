@@ -21,3 +21,21 @@ CREATE TABLE IF NOT EXISTS staging.parking_raw (
     PRIMARY KEY (run_id, row_no)
 );
 
+-- 공동주택 행 검사 (격리 사유). 검사 규칙은 이 view 한 곳에만
+CREATE OR REPLACE VIEW staging.v_apt_check AS
+WITH r AS (
+    SELECT run_id, sgg_cd, row_no, list_payload, basis_payload,
+           nullif(btrim(list_payload->>'kaptCode'), '') AS kapt_code,
+           btrim(basis_payload->>'kaptdaCnt') AS hh,
+           row_number() OVER (PARTITION BY run_id, list_payload->>'kaptCode' ORDER BY sgg_cd, row_no) AS dup_no
+    FROM staging.apt_raw
+)
+SELECT run_id, sgg_cd, row_no, list_payload, basis_payload, kapt_code,
+       CASE WHEN hh ~ '^[0-9]+(\.0+)?$' THEN hh::numeric::int END AS hh_cnt,
+       CASE WHEN kapt_code IS NULL THEN 'missing_key'
+            WHEN dup_no > 1 THEN 'duplicate_key'
+            WHEN basis_payload IS NULL THEN 'missing_basis'
+            WHEN hh IS NULL OR hh !~ '^[0-9]+(\.0+)?$' OR hh::numeric <= 0 THEN 'invalid_hh'
+       END AS reason_code
+FROM r;
+
