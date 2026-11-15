@@ -230,3 +230,17 @@ with DAG(
         }  # fmt: skip
         return res
 
+    # 최종 상태 확정: 어떤 경로든 실행, 핵심 실패면 DAG 실패
+    @task(trigger_rule="all_done")
+    def record_run(**context):
+        states = ops.task_states(context, FINAL_TASKS)
+        failed = [t for t, s in states.items() if s in ("failed", "upstream_failed")]
+        snapshot_date = (_info(context) or {}).get("snapshot_date")
+        if failed:
+            ops.record_run(context, "failed", snapshot_date, reason=f"실패 Task: {failed}")
+            raise AirflowFailException(f"핵심 처리 실패: {failed}")
+        r = context["ti"].xcom_pull(task_ids="load_snapshot") or {}
+        reason = (f"load_id={r.get('load_id')} 단지 {r.get('apt_cnt')}·세대 {r.get('apt_hh_cnt')}·"
+                  f"주차장 {r.get('parking_cnt')}·주차면 {r.get('parking_space_cnt')}")  # fmt: skip
+        ops.record_run(context, "success", snapshot_date, reason=reason, detail=r)
+
