@@ -10,3 +10,8 @@ FROM staging.apt_norm WHERE run_id = %(run_id)s;
 
 DELETE FROM core.public_parking WHERE snapshot_date = %(snapshot_date)s::date;
 
+INSERT INTO core.public_parking (snapshot_date, pklt_cd, sgg_cd, pklt_nm, addr, kind_nm, oper_nm, pay_nm,
+                                 space_cnt, boundary_ver, adm_cd, loc_source, assign_status, load_id)
+SELECT %(snapshot_date)s::date, pklt_cd, sgg_cd, pklt_nm, addr, kind_nm, oper_nm, pay_nm, space_cnt,
+       boundary_ver, adm_cd, loc_source, assign_status, %(load_id)s
+FROM staging.parking_norm WHERE run_id = %(run_id)s;
