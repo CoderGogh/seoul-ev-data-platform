@@ -125,3 +125,24 @@ CREATE TABLE IF NOT EXISTS ops.aux_load (
 );
 CREATE INDEX IF NOT EXISTS aux_load_date_idx ON ops.aux_load (snapshot_date DESC);
 
+-- 공동주택 스냅샷 (수집일 단위, 같은 날 재실행은 교체)
+CREATE TABLE IF NOT EXISTS core.apt_complex (
+    snapshot_date   date        NOT NULL,
+    kapt_code       text        NOT NULL,
+    sgg_cd          char(5)     NOT NULL,
+    kapt_name       text,
+    bjd_code        char(10),
+    hh_cnt          int         NOT NULL,
+    dong_cnt        int,
+    apt_type        text,
+    use_date        date,
+    doro_juso       text,
+    boundary_ver    text        NOT NULL,
+    adm_cd          char(10),
+    loc_source      text        NOT NULL,
+    assign_status   text        NOT NULL,
+    load_id         bigint      NOT NULL,
+    PRIMARY KEY (snapshot_date, kapt_code)
+);
+CREATE INDEX IF NOT EXISTS apt_complex_load_idx ON core.apt_complex (load_id, adm_cd);
+
