@@ -13,6 +13,13 @@ from airflow.sdk import BaseHook, Variable
 from airflow.sdk.log import mask_secret
 
 OK_CODES = ("00", "0000")
+LIMIT_CODES = ("22",)  # LIMITED_NUMBER_OF_SERVICE_REQUESTS_EXCEEDS_ERROR
+TRANSIENT_CODES = ("04",)  # 게이트웨이 HTTP_ERROR: 제공기관 서버 간헐 오류, 같은 요청 재호출 시 성공
+
+
+# 호출 한도 초과 (HTTP 429·게이트웨이 22): 재시도해도 같은 결과 → 호출자는 즉시 중단
+class GoKrLimitError(RuntimeError):
+    pass
 
 
 @dataclass
@@ -42,15 +49,22 @@ class DataGoKrHook(BaseHook):
     default_conn_name = "conn_data_go_kr"
     hook_name = "data.go.kr OpenAPI"
 
-    def __init__(self, api_key_var, conn_id=default_conn_name, timeout=60, **kwargs):
+    def __init__(
+        self, api_key_var, conn_id=default_conn_name, timeout=60, min_interval=0.0, transient_retries=0, **kwargs
+    ):
         """
         api_key_var: 인증키 Variable 이름 (일반 인증키, Encoding·Decoding 모두 허용)
         conn_id: 호스트 Connection
+        min_interval: 호출 간 최소 간격 초 (초당 호출 제한 대비)
+        transient_retries: 간헐 오류 코드 재호출 횟수 (1·2·4초 간격)
         """
         super().__init__(**kwargs)
         self.conn_id = conn_id
         self.api_key_var = api_key_var
         self.timeout = timeout
+        self.min_interval = min_interval
+        self.transient_retries = transient_retries
+        self._last = 0.0
         self._base = None
         self._key = None
         self._session = None
@@ -67,13 +81,16 @@ class DataGoKrHook(BaseHook):
             self._session = requests.Session()
         return self._base
 
-    # 응답 → GoKrResult (평면형·response/header/body 형·XML 오류 공통)
+    # 응답 → GoKrResult (평면형·response/header/body 형·XML 오류 공통, 단건 조회는 body.item)
     @staticmethod
     def parse(content):
         try:
             d = json.loads(content)
         except ValueError:
             return DataGoKrHook._parse_xml(content)
+        gw = (d.get("OpenAPI_ServiceResponse") or {}).get("cmmMsgHeader")
+        if gw:  # 게이트웨이 오류 (JSON 형식)
+            return GoKrResult(code=gw.get("returnReasonCode"), message=gw.get("returnAuthMsg"))
         d = d.get("response", d)
         header, body = d.get("header", d), d.get("body", d)
         total = body.get("totalCount")
