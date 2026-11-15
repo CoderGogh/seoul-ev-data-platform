@@ -76,3 +76,31 @@ def test_locate_all_order_and_memo():
     assert n == len(calls) == 3  # P2 지번은 A2 결과 재사용
 
 
+def test_vworld_parse():
+    r = VWorldGeocoderHook.parse(GEO_OK)
+    assert r.found and (r.lng, r.lat) == (127.03, 37.49)
+    assert not VWorldGeocoderHook.parse(GEO_NONE).found
+    r = VWorldGeocoderHook.parse(GEO_ERR)
+    assert (r.status, r.error_code) == ("ERROR", "INVALID_KEY")
+
+
+class _Res:
+    def __init__(self, content, ok=True, status_code=200):
+        self.content, self.ok, self.status_code = content, ok, status_code
+
+
+def _hook(session):
+    hook = VWorldGeocoderHook(min_interval=0)
+    hook._base, hook._key, hook._session = "https://x/req/address", "SECRETKEY", session
+    return hook
+
+
+# 결과 없음은 정상, 오류는 코드만 (응답 문구·URL·인증키 미포함)
+def test_vworld_geocode_errors_hide_key():
+    ok = type("S", (), {"get": lambda self, *a, **k: _Res(GEO_NONE)})()
+    assert _hook(ok).geocode("a", "road").status == "NOT_FOUND"
+    err = type("S", (), {"get": lambda self, *a, **k: _Res(GEO_ERR)})()
+    with pytest.raises(RuntimeError) as e:
+        _hook(err).geocode("a", "road")
+    assert "INVALID_KEY" in str(e.value) and "SECRETKEY" not in str(e.value)
+
