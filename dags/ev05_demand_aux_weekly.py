@@ -187,3 +187,24 @@ with DAG(
             "ev05/normalize.sql", {"run_id": context["dag_run"].run_id, "sgg_map": json.dumps(info["sgg_map"])}
         )
 
+    # 품질 게이트: 수집률·세대 가중 귀속률·주차장 귀속률·직전 대비 감소
+    @task
+    def aux_gate(**context):
+        info = _info(context)
+        m = db.execute_file(
+            "ev05/gate_metrics.sql",
+            {"run_id": context["dag_run"].run_id, "snapshot_date": info["snapshot_date"]},
+            fetch=True,
+        )[0]
+        collect = m["apt_norm"] / m["apt_raw"] if m["apt_raw"] else 0
+        hh_assign = m["apt_hh_assigned"] / m["apt_hh"] if m["apt_hh"] else 0
+        pk_assign = m["parking_assigned"] / m["parking_norm"] if m["parking_norm"] else 0
+        drops = {
+            k: 1 - m[f"{k}_norm"] / m[f"prev_{k}_cnt"]
+            for k in ("apt", "parking")
+            if m[f"prev_{k}_cnt"] and not context["params"]["allow_mass_drop"]
+        }
+        checks = [
+            ("apt_collect_rate", collect, MIN_APT_COLLECT, collect < MIN_APT_COLLECT),
+            ("apt_hh_assign_rate", hh_assign, MIN_APT_HH_ASSIGN, hh_assign < MIN_APT_HH_ASSIGN),
+            ("parking_assign_rate", pk_assign, MIN_PARKING_ASSIGN, pk_assign < MIN_PARKING_ASSIGN),
