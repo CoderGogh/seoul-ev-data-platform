@@ -1,4 +1,4 @@
-// 대상 3개 구 행정동 지도 (SVG, 평면 투영)
+// 대상 3개 구 행정동 지도 (SVG, 웹 메르카토르 투영 + 선택 배경지도)
 import { useMemo, useRef, useState, type KeyboardEvent, type MouseEvent } from "react";
 import { geoPath, geoTransform } from "d3-geo";
 import {
@@ -12,6 +12,7 @@ import {
   type Region,
 } from "../data";
 import { Tip } from "./Tip";
+import { basemapEnabled, mercX, mercY, pickZoom, tileUrl, tilesFor, useBaseLayer } from "../basemap";
 
 export type MapMode = "class" | "hint" | "supply";
 
@@ -37,13 +38,13 @@ interface RegionMapProps {
   height?: number;
   supplyMin?: number;
   points?: MapPoint[];
+  basemap?: boolean;
   onSelect?: (admCd: string) => void;
 }
 
 const WIDTH = 640;
 const PAD = 8;
-// 서울 위도 경도 보정
-const LAT_K = Math.cos((37.5 * Math.PI) / 180);
+const TILE_PX = WIDTH * 2; // 타일 해상도 기준 화면 폭 (고해상도 화면 대비)
 
 function fillOf(region: Region | undefined, isTarget: boolean, mode: MapMode, supplyMin = 1) {
   if (!isTarget || !region) return "var(--outside)";
@@ -55,10 +56,23 @@ function fillOf(region: Region | undefined, isTarget: boolean, mode: MapMode, su
   return region.classification === "A" ? "var(--accent)" : "var(--ref)";
 }
 
-export function RegionMap({ geo, regions, mode, matches, activeCd, height, supplyMin, points, onSelect }: RegionMapProps) {
+export function RegionMap({
+  geo,
+  regions,
+  mode,
+  matches,
+  activeCd,
+  height,
+  supplyMin,
+  points,
+  basemap,
+  onSelect,
+}: RegionMapProps) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const [tip, setTip] = useState<{ x: number; y: number; props: AdmdongProps } | null>(null);
   const byCd = useMemo(() => new Map(regions.map((r) => [r.adm_cd, r])), [regions]);
+  const layer = useBaseLayer();
+  const withBase = !!basemap && basemapEnabled();
 
   // 대상 구 경계만 사용
   const features = useMemo(() => {
@@ -66,26 +80,41 @@ export function RegionMap({ geo, regions, mode, matches, activeCd, height, suppl
     return geo.features.filter((f) => sggs.has(f.properties.sgg_nm));
   }, [geo, regions]);
 
-  // 경계 범위 → 화면 좌표 변환
-  const { paths, viewHeight, project } = useMemo(() => {
+  // 경계 범위 → 화면 좌표 변환 (세계 좌표 → viewBox)
+  const { paths, viewHeight, project, toView, world } = useMemo(() => {
     const raw = geoTransform({
       point(x, y) {
-        this.stream.point(x * LAT_K, -y);
+        this.stream.point(mercX(x), mercY(y));
       },
     });
     const fc = { type: "FeatureCollection" as const, features };
     const [[x0, y0], [x1, y1]] = geoPath(raw).bounds(fc);
     const s = (WIDTH - PAD * 2) / (x1 - x0);
     const h = (y1 - y0) * s + PAD * 2;
+    const toView = (wx: number, wy: number) => [(wx - x0) * s + PAD, (wy - y0) * s + PAD];
     const fit = geoTransform({
       point(x, y) {
-        this.stream.point((x * LAT_K - x0) * s + PAD, (-y - y0) * s + PAD);
+        const [vx, vy] = toView(mercX(x), mercY(y));
+        this.stream.point(vx, vy);
       },
     });
     const path = geoPath(fit);
-    const project = (lng: number, lat: number) => [(lng * LAT_K - x0) * s + PAD, (-lat - y0) * s + PAD];
-    return { paths: features.map((f) => ({ props: f.properties, d: path(f) ?? "" })), viewHeight: h, project };
+    const project = (lng: number, lat: number) => toView(mercX(lng), mercY(lat));
+    // 화면 가장자리까지 덮는 세계 좌표 범위
+    const pad = PAD / s;
+    const world = { box: [x0 - pad, y0 - pad, x1 + pad, y1 + pad] as [number, number, number, number], s };
+    return { paths: features.map((f) => ({ props: f.properties, d: path(f) ?? "" })), viewHeight: h, project, toView, world };
   }, [features]);
+
+  // 배경지도 타일
+  const tiles = useMemo(() => {
+    if (!withBase) return [];
+    const [x0, , x1] = world.box;
+    return tilesFor(world.box, pickZoom(x1 - x0, TILE_PX)).map((t) => {
+      const [x, y] = toView(t.wx, t.wy);
+      return { key: `${t.z}/${t.x}/${t.y}`, x, y, size: t.size * world.s, href: tileUrl(t, layer) };
+    });
+  }, [withBase, world, toView, layer]);
 
   // 점 좌표 (급속은 위에 그림)
   const dots = useMemo(
@@ -116,12 +145,28 @@ export function RegionMap({ geo, regions, mode, matches, activeCd, height, suppl
   return (
     <div className="map-wrap" ref={wrapRef}>
       <svg
-        className="map"
+        className={withBase ? "map with-base" : "map"}
         viewBox={`0 0 ${WIDTH} ${viewHeight}`}
         style={height ? { maxHeight: height } : undefined}
         role="img"
         aria-label="강남·서초·송파 행정동 지도"
       >
+        {tiles.length > 0 && (
+          <g className="map-base" aria-hidden="true">
+            {tiles.map((t) => (
+              <image
+                key={t.key}
+                href={t.href}
+                x={t.x}
+                y={t.y}
+                width={t.size + 0.5}
+                height={t.size + 0.5}
+                preserveAspectRatio="none"
+                onError={(e) => (e.currentTarget.style.display = "none")}
+              />
+            ))}
+          </g>
+        )}
         {paths.map(({ props, d }) => {
           const region = byCd.get(props.adm_cd);
           const isTarget = props.is_target && !!region;
@@ -155,6 +200,7 @@ export function RegionMap({ geo, regions, mode, matches, activeCd, height, suppl
           </g>
         )}
       </svg>
+      {withBase && <div className="map-credit">배경지도 © 브이월드</div>}
       {tip && tipRegion && (
         <Tip
           style={{ left: tip.x, top: tip.y }}
