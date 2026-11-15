@@ -133,3 +133,17 @@ def test_go_kr_parse_gateway_json():
 def test_go_kr_429_limit_error(monkeypatch):
     from hooks.data_go_kr_hook import GoKrLimitError
 
+    hook = DataGoKrHook(api_key_var="k")
+    res = type("R", (), {"ok": False, "status_code": 429, "content": b""})()
+    hook._base, hook._key = "https://x", "SECRETKEY"
+    hook._session = type("S", (), {"get": lambda self, *a, **k: res})()
+    monkeypatch.setattr(hook, "get_conn", lambda: hook._base)
+    with pytest.raises(GoKrLimitError) as e:
+        hook.call("p", kaptCode="A1")
+    assert "SECRETKEY" not in str(e.value)
+
+
+# 간헐 오류 04: 재호출로 성공, 횟수 넘으면 예외
+def test_go_kr_transient_retry(monkeypatch):
+    import hooks.data_go_kr_hook as m
+
