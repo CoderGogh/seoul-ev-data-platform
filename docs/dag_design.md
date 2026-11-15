@@ -24,6 +24,7 @@
    - [ev14 웹 데이터 게시](#49-ev14-웹-데이터-게시)
    - [ev15 SLA 감시](#410-ev15-sla-감시)
    - [ev16 DB 백업](#411-ev16-db-백업)
+   - [ev05 수요 보조](#412-ev05-수요-보조)
 5. [품질 게이트와 분류](#5-품질-게이트와-분류)
 6. [멱등성과 재처리](#6-멱등성과-재처리)
 7. [상태 모델](#7-상태-모델)
@@ -93,6 +94,7 @@ Task 성공과 데이터 준비 완료는 다르다. 세 가지를 따로 판단
 | `ev02_registration_monthly` | 등록현황 월 스냅샷 | `0 9 1 * *`, 수동 | `ev_reg_snapshot` (`load_snapshot`) |
 | `ev03_mart_integration` | 적격성 확인 → 지표·분류 → 마트 게시 | `0 6 * * *` 또는 Asset | `ev_mart_published` (`publish_mart`) |
 | `ev04_charger_daily` | 충전기 공급 일 스냅샷 (이력 관리) | `0 5 * * *` | `ev_charger_supply` (`load_charger`) |
+| `ev05_demand_aux_weekly` | 공동주택 세대수·공영주차장 주간 스냅샷 | `30 4 * * 1` | `ev_demand_aux` (`load_snapshot`) |
 | `ev10_master_refresh` | 링크 매핑·행정동 경계 버전 | 수동 | `ev_master_version` (`activate_version`) |
 | `ev11_reprocess` | 재처리 요청 진입점 | 수동 | - |
 | `ev12_quality_monitor` | 실행 상태 × 데이터 상태 리포트 | `0 8 * * *` | - |
@@ -109,6 +111,7 @@ Task 성공과 데이터 준비 완료는 다르다. 세 가지를 따로 판단
 ev01 ──write──▶ [ DB: core 관측·집계 / ops 상태 ] ◀──read── ev03 (매일 06:00)
 ev02 ──Asset: ev_reg_snapshot ────────────────────────────▶ ev03
 ev04 ──write──▶ [ DB: core.charger 이력 ] ◀──read── ev03 (공급 기준일 시점)
+ev05 ──write──▶ [ DB: core 공동주택·공영주차장 스냅샷 ] ◀──read── ev03 (보조 기준일 시점)
 ev10 ──Asset: ev_master_version ──────────────────────────▶ ev03
 ev11 ─┬─ registration: ev02 트리거 (ev03는 ev02 Asset으로)
       ├─ timeband: 재집계 → ev03 트리거
@@ -125,6 +128,7 @@ ev04 ──Asset: ev_charger_supply ─┘
 | ev01 → ev03 | DB 조회 | 30분마다 마트를 다시 계산할 이유 없음 |
 | ev02 → ev03 | Asset | 새 스냅샷 즉시 반영 |
 | ev04 → ev03 | DB 조회 | 공급 기준일(기준월 말일)이 고정이라 일별 적재로 재게시하지 않음 |
+| ev05 → ev03 | DB 조회 | 참고 지표라 주간 적재로 재게시할 이유 없음. 기준일 규칙은 공급과 같음 |
 | ev10 → ev03 | Asset | 마스터 버전 활성화는 재계산 사유 |
 | ev03 자체 | 매일 06:00 (Asset과 OR) | 분석 기간 종료, 보류 해소를 주기적으로 재평가 |
 | ev03·ev04 → ev14 | Asset + 매일 07:10 | 게시·공급 변경 즉시 반영, 매일 재평가 시각도 웹 신선도에 반영 |
@@ -470,6 +474,26 @@ dump_db (pg_dump -Fc) ─▶ verify_restore (임시 DB 복원) ─▶ upload_off
 - 서버 주 버전 맞춤 `pg_dump` 사용 (`/usr/lib/postgresql/<주버전>/bin`)
 
 ---
+
+### 4.12 ev05 수요 보조
+
+원천 세 개를 묶어 동별 공동주택 세대수와 공영주차장을 만든다. 분류에는 안 쓰고 마트 참고 지표로만 붙인다.
+
+| 원천 | 서비스 | 받는 것 |
+|---|---|---|
+| 국토교통부 공동주택 단지 목록 (공공데이터포털 15057332) | `AptListService4/getSigunguAptList4` | 구별 단지 코드 |
+| 국토교통부 공동주택 기본 정보 (15058453) | `AptBasisInfoServiceV5/getAphusBassInfoV5` | 세대수·동수·도로명·지번 주소·사용승인일 |
+| 서울시 공영주차장 안내 정보 (OA-13122) | `GetParkInfo` | 서울 전체 주차장·주차면, 일부만 좌표 |
+| 브이월드 지오코더 2.0 | `req/address` | 주소 → 좌표 (실행 중에만 사용) |
+
+```
+init_run (수집일·대상 구, 과거 날짜 차단)
+  ─▶ extract_apt × 구 (단지 목록 → 단지별 기본 정보, apt_api_pool)
+  ─▶ extract_parking (서울 전체, seoul_parking_api_pool)
+  ─▶ quarantine_invalid ─▶ locate_targets (지오코딩 → 행정동, vworld_api_pool)
+  ─▶ normalize_assign ─▶ aux_gate ─▶ load_snapshot (Asset ev_demand_aux)
+  ─▶ record_run [all_done]
+```
 
 ## 5. 품질 게이트와 분류
 
