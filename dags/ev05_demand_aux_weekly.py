@@ -208,3 +208,13 @@ with DAG(
             ("apt_collect_rate", collect, MIN_APT_COLLECT, collect < MIN_APT_COLLECT),
             ("apt_hh_assign_rate", hh_assign, MIN_APT_HH_ASSIGN, hh_assign < MIN_APT_HH_ASSIGN),
             ("parking_assign_rate", pk_assign, MIN_PARKING_ASSIGN, pk_assign < MIN_PARKING_ASSIGN),
+            *[(f"{k}_drop_ratio", v, MAX_DROP_RATIO, v > MAX_DROP_RATIO) for k, v in drops.items()],
+        ]
+        fatal = [name for name, _, _, bad in checks if bad] + (["parking_empty"] if not m["parking_norm"] else [])
+        for name, metric, threshold, bad in checks:
+            ops.record_quality(context, name, "fatal" if bad else "ok", round(metric, 4), threshold, detail=m)
+        if fatal:
+            raise AirflowFailException(f"품질 치명: {fatal} {m}")
+        warn = pk_assign < WARN_PARKING_ASSIGN or m["apt_quarantine"] or m["apt_mismatch"]
+        return "warn" if warn else "ok"
+
