@@ -39,3 +39,21 @@ SELECT run_id, sgg_cd, row_no, list_payload, basis_payload, kapt_code,
        END AS reason_code
 FROM r;
 
+-- 공영주차장 행 검사 (주차장 코드·주차면). 대상 구 판정용 구 이름 포함
+CREATE OR REPLACE VIEW staging.v_parking_check AS
+WITH r AS (
+    SELECT run_id, row_no, payload,
+           nullif(btrim(payload->>'PKLT_CD'), '') AS pklt_cd,
+           regexp_replace(btrim(payload->>'ADDR'), '^서울(특별)?시\s+', '') AS addr,
+           btrim(payload->>'TPKCT') AS tpkct,
+           btrim(payload->>'LAT') AS lat, btrim(payload->>'LOT') AS lng
+    FROM staging.parking_raw
+)
+SELECT run_id, row_no, payload, pklt_cd, addr, split_part(addr, ' ', 1) AS sgg_nm,
+       CASE WHEN tpkct ~ '^[0-9]+(\.[0-9]+)?$' THEN tpkct::numeric END AS space_cnt,
+       CASE WHEN lat ~ '^[0-9]+(\.[0-9]+)?$' AND lng ~ '^[0-9]+(\.[0-9]+)?$'
+             AND lat::numeric BETWEEN 33 AND 39 AND lng::numeric BETWEEN 124 AND 132
+            THEN lat::numeric END AS lat,  -- 원천 좌표 0.0 다수 → 범위 밖은 없음 취급
+       CASE WHEN lat ~ '^[0-9]+(\.[0-9]+)?$' AND lng ~ '^[0-9]+(\.[0-9]+)?$'
+             AND lat::numeric BETWEEN 33 AND 39 AND lng::numeric BETWEEN 124 AND 132
+            THEN lng::numeric END AS lng,
