@@ -42,3 +42,8 @@ g AS (
 )
 SELECT g.run_id, g.pklt_cd, g.sgg_cd, g.pklt_nm, g.addr, g.kind_nm, g.oper_nm, g.pay_nm, g.space_cnt, g.slot_rows,
        b.version, l.adm_cd, coalesce(l.loc_source, 'none'),
+       CASE WHEN l.adm_cd IS NULL THEN CASE WHEN coalesce(l.loc_source, 'none') = 'none' THEN 'unlocated' ELSE 'outside' END
+            WHEN left(l.adm_cd, 5) <> g.sgg_cd THEN 'sgg_mismatch' ELSE 'assigned' END
+FROM g
+CROSS JOIN b
+LEFT JOIN staging.aux_locate l ON l.run_id = g.run_id AND l.src = 'parking' AND l.src_key = g.pklt_cd;
