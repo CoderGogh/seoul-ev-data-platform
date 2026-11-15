@@ -11,6 +11,10 @@
 - **서울시 공공데이터 API 키** (도로소통정보·등록현황 수집용)
 - **GitHub fine-grained 토큰** (웹 데이터 자동 게시용, 선택). Settings → Developer settings → Fine-grained tokens → 이 저장소만, Repository permissions에서 Contents: Read and write만 → `.env`의 `GITHUB_WEB_DATA_TOKEN`. 없으면 ev14만 실패하고 웹은 배포 스냅샷 사용
 - **공공데이터포털 API 키** (충전소 정보 수집용, [15076352](https://www.data.go.kr/data/15076352/openapi.do) 활용신청 → `.env`의 `EV_CHARGER_API_KEY`). 없으면 ev04만 실패
+- **수요 보조 API 키** (ev05, 없으면 ev05만 실패)
+  - 공공데이터포털 [15057332](https://www.data.go.kr/data/15057332/openapi.do) 단지 목록 · [15058453](https://www.data.go.kr/data/15058453/openapi.do) 기본 정보 → `APT_LIST_API_KEY`, `APT_BASIS_API_KEY`
+  - 서울 열린데이터광장 [OA-13122](https://data.seoul.go.kr/dataList/OA-13122/S/1/datasetView.do) 공영주차장 → `SEOUL_PARKING_API_KEY`
+  - 브이월드 지오코더 (vworld.kr 인증키, 서비스 URL `http://localhost`) → `VWORLD_API_KEY`. 다른 URL로 받았으면 `VWORLD_DOMAIN`
 
 ## 2. 빠른 시작
 
@@ -47,6 +51,7 @@ docker compose up -d --build
 | ev02_registration_monthly | 매월 1일 | 등록현황 스냅샷 (api / file) |
 | ev03_mart_integration | 매일 06:00 또는 Asset | 지표·분류·마트 게시 |
 | ev04_charger_daily | 매일 05:00 | 충전기 공급 스냅샷 (이력 관리) |
+| ev05_demand_aux_weekly | 매주 월 04:30 | 공동주택 세대수·공영주차장 스냅샷 |
 | ev10_master_refresh | 수동 | 링크·경계 마스터 버전 |
 | ev11_reprocess | 수동 | 재처리 요청 |
 | ev12_quality_monitor | 매일 08:00 | 실행 상태 × 데이터 상태 리포트 |
