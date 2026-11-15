@@ -67,7 +67,7 @@ class DataGoKrHook(BaseHook):
             self._session = requests.Session()
         return self._base
 
-    # 응답 → GoKrResult (평면형·response/header/body 형·XML 오류 공통)
+    # 응답 → GoKrResult (평면형·response/header/body 형·XML 오류 공통, 단건 조회는 body.item)
     @staticmethod
     def parse(content):
         try:
@@ -81,7 +81,7 @@ class DataGoKrHook(BaseHook):
             code=str(header.get("resultCode")),
             message=header.get("resultMsg"),
             total=int(total) if total not in (None, "") else 0,
-            rows=_as_list(body.get("items")),
+            rows=_as_list(body["items"] if "items" in body else {"item": body.get("item", [])}),
         )
 
     @staticmethod
