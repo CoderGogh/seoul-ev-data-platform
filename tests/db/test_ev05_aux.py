@@ -85,3 +85,16 @@ def _run(cur, run_id, date, hh0=100):
     return targets, gate, load, calls
 
 
+def test_quarantine_locate_normalize(cur, seed):
+    targets, gate, load, calls = _run(cur, "r1", D1)
+    q = {(r["src"], r["reason_code"]) for r in rows(cur, "SELECT src, reason_code FROM quarantine.aux_record")}
+    assert q == {("apt", "missing_basis"), ("apt", "invalid_hh"), ("apt", "duplicate_key"), ("parking", "missing_key")}
+    # 주차장 원천 좌표는 구획 평균, 다른 구 제외
+    t = {r["src_key"]: r for r in targets}
+    assert set(t) == {"A0", "A1", "A2", "P1", "P2"} and t["P1"]["lng"] is not None and t["P2"]["lng"] is None
+    assert "서울특별시 테스트구 마동 5" in calls  # 부번 0 제거한 지번
+    apt = {r["kapt_code"]: r for r in rows(cur, "SELECT * FROM staging.apt_norm WHERE run_id = 'r1'")}
+    assert (apt["A0"]["adm_cd"], apt["A0"]["loc_source"], apt["A0"]["assign_status"]) == (
+        "1168000001", "geocoded_road", "assigned")  # fmt: skip
+    assert apt["A1"]["adm_cd"] == "1168000005" and apt["A0"]["use_date"].isoformat() == "2005-11-08"
+    assert (apt["A2"]["assign_status"], apt["A2"]["loc_source"]) == ("unlocated", "none")
