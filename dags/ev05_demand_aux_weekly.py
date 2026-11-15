@@ -244,3 +244,16 @@ with DAG(
                   f"주차장 {r.get('parking_cnt')}·주차면 {r.get('parking_space_cnt')}")  # fmt: skip
         ops.record_run(context, "success", snapshot_date, reason=reason, detail=r)
 
+    info = init_run()
+    apts = extract_apt.expand(sgg_cd=list_sgg(info))
+    parking = extract_parking()
+    quarantined = quarantine_invalid()
+    located = locate_targets()
+    normalized = normalize_assign()
+    grade = aux_gate()
+    loaded = load_snapshot(grade)
+    done = record_run()
+
+    info >> parking
+    [apts, parking] >> quarantined >> located >> normalized >> grade
+    loaded >> done
