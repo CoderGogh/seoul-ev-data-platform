@@ -104,3 +104,32 @@ def test_vworld_geocode_errors_hide_key():
         _hook(err).geocode("a", "road")
     assert "INVALID_KEY" in str(e.value) and "SECRETKEY" not in str(e.value)
 
+    class _Boom:
+        def get(self, url, params=None, timeout=None):
+            raise requests.ConnectionError(f"{url}?key={params['key']}")
+
+    with pytest.raises(RuntimeError) as e:
+        _hook(_Boom()).geocode("a", "road")
+    assert "SECRETKEY" not in str(e.value) and e.value.__cause__ is None
+    bad = type("S", (), {"get": lambda self, *a, **k: _Res(b"", ok=False, status_code=502)})()
+    with pytest.raises(RuntimeError) as e:
+        _hook(bad).geocode("a", "road")
+    assert "502" in str(e.value)
+
+
+GATEWAY_JSON = (
+    b'{"OpenAPI_ServiceResponse":{"cmmMsgHeader":{"errMsg":"SERVICE ERROR","returnAuthMsg":"HTTP \\uc5d0\\ub7ec",'
+    b'"returnReasonCode":"04"}}}'
+)
+
+
+# 게이트웨이 오류 JSON: 사유 코드로 판정 (코드 None 방지)
+def test_go_kr_parse_gateway_json():
+    r = DataGoKrHook.parse(GATEWAY_JSON)
+    assert (r.ok, r.code) == (False, "04")
+
+
+# HTTP 429 → 한도 오류 (호출자 즉시 중단)
+def test_go_kr_429_limit_error(monkeypatch):
+    from hooks.data_go_kr_hook import GoKrLimitError
+
