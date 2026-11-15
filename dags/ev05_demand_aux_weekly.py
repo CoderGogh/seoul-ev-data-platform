@@ -16,7 +16,7 @@ from airflow.sdk.exceptions import AirflowFailException
 from common import db, locate, ops
 from common.assets import EV_DEMAND_AUX
 from config.default_args import DEFAULT_ARGS
-from hooks.data_go_kr_hook import DataGoKrHook
+from hooks.data_go_kr_hook import DataGoKrHook, GoKrLimitError
 from hooks.seoul_openapi_hook import SeoulOpenApiHook
 from hooks.vworld_hook import VWorldGeocoderHook
 
@@ -32,6 +32,7 @@ APT_POOL = "apt_api_pool"
 PARKING_POOL = "seoul_parking_api_pool"
 VWORLD_POOL = "vworld_api_pool"
 PAGE_SIZE = 1000
+API_INTERVAL = 0.2  # 공동주택 API 호출 간격 초 (연속 호출 시 429)
 
 # 품질 게이트 기준
 MIN_APT_COLLECT = 0.95  # 원천 단지 대비 정제 단지 (미만 치명, 기본 정보 대량 실패)
@@ -60,7 +61,7 @@ with DAG(
     dag_id="ev05_demand_aux_weekly",
     description="공동주택 세대수·공영주차장 주간 스냅샷 (수요 보조 지표)",
     schedule=CronTriggerTimetable("30 4 * * 1", timezone=KST),  # 월 04:30, ev04 05:00 이전
-    start_date=pendulum.datetime(2026, 11, 16, tz=KST),
+    start_date=pendulum.datetime(2026, 11, 9, tz=KST),
     catchup=False,
     max_active_runs=1,
     default_args=DEFAULT_ARGS,
@@ -94,33 +95,49 @@ with DAG(
     def list_sgg(info):
         return info["sgg_cds"]
 
-    # 구별 단지 목록 → 단지별 기본 정보 → staging (재시도 멱등: 같은 run·구 삭제 후 적재)
+    # 구별 단지 목록 → 단지별 기본 정보 → staging (재시도 멱등: 같은 run·구 교체)
     # 단지 하나 기본 정보 실패는 NULL 로 두고 격리 (대량 실패는 게이트 치명)
+    # 호출 한도 초과는 즉시 중단, 받은 만큼 저장 → 재시도는 받은 단지 재사용 (한도 소모 방지)
     @task(pool=APT_POOL, queue="api", retries=3)
     def extract_apt(sgg_cd, **context):
         run_id = context["dag_run"].run_id
-        total, items = DataGoKrHook(api_key_var=APT_LIST_KEY_VAR).fetch_all(
+        total, items = DataGoKrHook(api_key_var=APT_LIST_KEY_VAR, min_interval=API_INTERVAL).fetch_all(
             APT_LIST_SERVICE, PAGE_SIZE, sigunguCode=sgg_cd, _type="json"
         )
         if len(items) != total:
             raise RuntimeError(f"{sgg_cd} 수신 {len(items)} != totalCount {total}")
-        basis_hook = DataGoKrHook(api_key_var=APT_BASIS_KEY_VAR)
-        rows, missing = [], 0
-        for i, it in enumerate(items, 1):
-            basis = None
-            if it.get("kaptCode"):
+        done = {
+            r["kapt_code"]: r["basis"]
+            for r in db.execute(
+                """SELECT list_payload->>'kaptCode' AS kapt_code, basis_payload AS basis FROM staging.apt_raw
+                   WHERE run_id = %s AND sgg_cd = %s AND basis_payload IS NOT NULL""",
+                (run_id, sgg_cd),
+                fetch=True,
+            )
+        }
+        basis_hook = DataGoKrHook(api_key_var=APT_BASIS_KEY_VAR, min_interval=API_INTERVAL)
+        fetched = dict(done)
+        try:
+            for it in items:
+                code = it.get("kaptCode")
+                if not code or code in fetched:
+                    continue
                 try:
-                    res = basis_hook.call(APT_BASIS_SERVICE, kaptCode=it["kaptCode"], _type="json")
-                    basis = next((r for r in res.rows if r.get("kaptCode")), None)  # 없는 단지는 빈 item
+                    res = basis_hook.call(APT_BASIS_SERVICE, kaptCode=code, _type="json")
+                    fetched[code] = next((r for r in res.rows if r.get("kaptCode")), None)  # 없는 단지는 빈 item
+                except GoKrLimitError:
+                    raise
                 except RuntimeError:  # 메시지에 인증키 없음 (Hook 처리)
-                    basis = None
-            missing += basis is None
-            rows.append((run_id, sgg_cd, i, _dumps(it), _dumps(basis)))
-        with closing(db.get_conn()) as conn, conn, conn.cursor() as cur:
-            cur.execute("DELETE FROM staging.apt_raw WHERE run_id = %s AND sgg_cd = %s", (run_id, sgg_cd))
-            cur.executemany(INSERT_APT, rows)
+                    fetched[code] = None
+        finally:
+            rows = [(run_id, sgg_cd, i, _dumps(it), _dumps(fetched.get(it.get("kaptCode"))))
+                    for i, it in enumerate(items, 1)]  # fmt: skip
+            with closing(db.get_conn()) as conn, conn, conn.cursor() as cur:
+                cur.execute("DELETE FROM staging.apt_raw WHERE run_id = %s AND sgg_cd = %s", (run_id, sgg_cd))
+                cur.executemany(INSERT_APT, rows)
+        missing = sum(1 for r in rows if r[4] is None)
         ops.record_quality(context, "apt_basis_missing", "warn" if missing else "ok", missing, scope_key=sgg_cd)
-        return {"sgg_cd": sgg_cd, "total": total, "basis_missing": missing}
+        return {"sgg_cd": sgg_cd, "total": total, "reused": len(done), "basis_missing": missing}
 
     # 서울 전체 공영주차장 → staging (대상 구 필터는 SQL)
     @task(pool=PARKING_POOL, queue="api", retries=3)
