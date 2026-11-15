@@ -3,6 +3,7 @@
 대상 기준월 결정 → [Gate 1: 6개 점검 병렬] → 판정 분기(보류 | 변경 없음 | 진행)
 → 귀속 확인 → 시간대 집계 → 지표 → 공급 → Gate 2 → 분류 → 후보 검증 → 게시(단일 트랜잭션) → 결과 확정
 - 충전기 공급(ev04)도 DB 조회. 공급 기준일 고정이라 일별 적재로 재게시하지 않음
+- 수요 보조(ev05)도 같은 규칙으로 DB 조회, 참고 지표만 (분류 미사용)
 - 수집 DAG 성공을 기다리지 않고 DB 상태를 조회 (cron 또는 Asset 이벤트로 시작)
 - Asset 이벤트는 힌트일 뿐, 대상 기준월은 DB 와 params 로 결정
 """
@@ -24,8 +25,8 @@ MIN_RUN_COVERAGE = 60  # 실행 전체 커버리지 % (Gate 1)
 MIN_RUN_HOURS = 6  # 관측된 주간 시간대 수 (Gate 1)
 FINAL_TASKS = ["resolve_target_period", "no_eligible_period", *[f"{GATE}.{c}" for c in CHECKS], "evaluate_gate1",
                "hold_publish", "mark_stale_and_alert", "skip_unchanged", "spatial_join", "admdong_timeband_agg",
-               "compute_indicators", "compute_supply", "region_quality_gate", "classify_abc", "verify_candidate",
-               "publish_mart"]  # fmt: skip
+               "compute_indicators", "compute_supply", "compute_aux", "region_quality_gate", "classify_abc",
+               "verify_candidate", "publish_mart"]  # fmt: skip
 
 
 def _info(context):
@@ -198,6 +199,11 @@ with DAG(
     def compute_supply(**context):
         db.execute_file("ev03/supply.sql", _run_args(context))
 
+    # 보조 기준일 스냅샷 동별 공동주택 세대·공영주차장 (참고 지표)
+    @task
+    def compute_aux(**context):
+        db.execute_file("ev03/aux.sql", _run_args(context))
+
     # Gate 2: 지역별 품질 등급
     @task
     def region_quality_gate(**context):
@@ -289,6 +295,7 @@ with DAG(
     tb = admdong_timeband_agg()
     ind = compute_indicators()
     sup = compute_supply()
+    aux = compute_aux()
     g2 = region_quality_gate()
     cls = classify_abc()
     verified = verify_candidate()
@@ -303,5 +310,6 @@ with DAG(
     evaluated >> Label("입력 지문 동일") >> skip_unchanged
     evaluated >> Label("통과") >> joined
     hold_publish >> Label("이전 결과 유지") >> stale
-    joined >> tb >> ind >> sup >> g2 >> Label("지역별 품질 등급") >> cls >> verified >> Label("검증 통과") >> published
+    joined >> tb >> ind >> sup >> aux >> g2
+    g2 >> Label("지역별 품질 등급") >> cls >> verified >> Label("검증 통과") >> published
     [no_eligible_period, stale, skip_unchanged, published] >> Label("all_done") >> final
