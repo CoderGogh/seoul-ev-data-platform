@@ -98,3 +98,11 @@ def test_quarantine_locate_normalize(cur, seed):
         "1168000001", "geocoded_road", "assigned")  # fmt: skip
     assert apt["A1"]["adm_cd"] == "1168000005" and apt["A0"]["use_date"].isoformat() == "2005-11-08"
     assert (apt["A2"]["assign_status"], apt["A2"]["loc_source"]) == ("unlocated", "none")
+    pk = {r["pklt_cd"]: r for r in rows(cur, "SELECT * FROM staging.parking_norm WHERE run_id = 'r1'")}
+    assert (pk["P1"]["space_cnt"], pk["P1"]["slot_rows"], pk["P1"]["loc_source"]) == (2, 2, "source_coord")
+    assert (pk["P2"]["space_cnt"], pk["P2"]["adm_cd"], pk["P2"]["loc_source"]) == (30, "1168000005", "geocoded_parcel")
+    assert (gate["apt_raw"], gate["apt_norm"], gate["apt_hh"], gate["apt_hh_assigned"]) == (6, 3, 180, 150)
+    assert (gate["parking_norm"], gate["parking_assigned"], gate["prev_apt_cnt"]) == (2, 2, None)
+    assert (load["apt_cnt"], load["apt_hh_cnt"], load["parking_cnt"], load["parking_space_cnt"]) == (3, 180, 2, 32)
+
+
