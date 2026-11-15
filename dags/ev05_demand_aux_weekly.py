@@ -151,3 +151,25 @@ with DAG(
             cur.executemany(INSERT_PARKING, [(run_id, i, _dumps(r)) for i, r in enumerate(items, 1)])
         return {"total": total}
 
+    @task
+    def quarantine_invalid(**context):
+        info = _info(context)
+        db.execute_file("ev05/quarantine.sql", {"run_id": context["dag_run"].run_id, "sgg_nms": list(info["sgg_map"])})
+
+    # 위치 판정: 원천 좌표 → 도로명 → 지번 지오코딩 → 행정동 (좌표는 이 Task 메모리에서만)
+    @task(pool=VWORLD_POOL, queue="api", retries=2)
+    def locate_targets(**context):
+        run_id = context["dag_run"].run_id
+        info = _info(context)
+        targets = db.execute_file(
+            "ev05/locate_targets.sql", {"run_id": run_id, "sgg_nms": list(info["sgg_map"])}, fetch=True
+        )
+        hook = VWorldGeocoderHook(api_key_var=VWORLD_KEY_VAR)
+        need = [t for t in targets if t["lng"] is None]
+        if need and not hook.has_key():
+            raise AirflowFailException(f"브이월드 키 미설정: 위치 판정 대상 {len(need)}건")
+
+        def geocode(addr, addr_type):
+            r = hook.geocode(addr, addr_type)
+            return (r.lng, r.lat) if r.found else None
+
