@@ -30,3 +30,20 @@ class VWorldGeocoderHook(BaseHook):
     default_conn_name = "conn_vworld"
     hook_name = "VWorld Geocoder"
 
+    def __init__(self, api_key_var="apikey_vworld", conn_id=default_conn_name, timeout=20, min_interval=0.05, **kwargs):
+        """
+        api_key_var: 인증키 Variable 이름
+        conn_id: 호스트 Connection (extra.domain: 키 발급 시 등록한 서비스 URL)
+        min_interval: 호출 간 최소 간격 초
+        """
+        super().__init__(**kwargs)
+        self.conn_id = conn_id
+        self.api_key_var = api_key_var
+        self.timeout = timeout
+        self.min_interval = min_interval
+        self._base = None
+        self._key = None
+        self._domain = None
+        self._session = None
+        self._last = 0.0
+
