@@ -134,3 +134,20 @@ with DAG(
                     for i, it in enumerate(items, 1)]  # fmt: skip
             with closing(db.get_conn()) as conn, conn, conn.cursor() as cur:
                 cur.execute("DELETE FROM staging.apt_raw WHERE run_id = %s AND sgg_cd = %s", (run_id, sgg_cd))
+                cur.executemany(INSERT_APT, rows)
+        missing = sum(1 for r in rows if r[4] is None)
+        ops.record_quality(context, "apt_basis_missing", "warn" if missing else "ok", missing, scope_key=sgg_cd)
+        return {"sgg_cd": sgg_cd, "total": total, "reused": len(done), "basis_missing": missing}
+
+    # 서울 전체 공영주차장 → staging (대상 구 필터는 SQL)
+    @task(pool=PARKING_POOL, queue="api", retries=3)
+    def extract_parking(**context):
+        run_id = context["dag_run"].run_id
+        total, items = SeoulOpenApiHook(api_key_var=PARKING_KEY_VAR).fetch_all(PARKING_SERVICE, PAGE_SIZE)
+        if len(items) != total:
+            raise RuntimeError(f"주차장 수신 {len(items)} != list_total_count {total}")
+        with closing(db.get_conn()) as conn, conn, conn.cursor() as cur:
+            cur.execute("DELETE FROM staging.parking_raw WHERE run_id = %s", (run_id,))
+            cur.executemany(INSERT_PARKING, [(run_id, i, _dumps(r)) for i, r in enumerate(items, 1)])
+        return {"total": total}
+
