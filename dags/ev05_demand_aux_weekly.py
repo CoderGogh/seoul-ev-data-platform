@@ -72,3 +72,26 @@ with DAG(
     tags=["ev", "collect", "demand"],
 ) as dag:
 
+    # 수집일·대상 구 결정, 과거 날짜 재적재 차단
+    @task
+    def init_run(**context):
+        p = context["params"]
+        snapshot_date = pendulum.now(KST).date()
+        sggs = db.execute_file("ev04/target_sgg.sql", {"target_set": p["target_set"]}, fetch=True)
+        if not sggs:
+            raise AirflowFailException(f"대상 구 없음: {p['target_set']}")
+        last = db.execute("SELECT max(snapshot_date) AS d FROM ops.aux_load", fetch=True)[0]["d"]
+        if last and snapshot_date < last:
+            raise AirflowFailException(f"수집일 {snapshot_date} < 최근 적재 {last}: 과거 날짜 재적재 불가")
+        info = {
+            "snapshot_date": snapshot_date.isoformat(),
+            "sgg_cds": [r["sgg_cd"] for r in sggs],
+            "sgg_map": {r["sgg_nm"]: r["sgg_cd"] for r in sggs},
+        }
+        ops.record_run(context, "running", partition_key=info["snapshot_date"], detail=info)
+        return info
+
+    @task
+    def list_sgg(info):
+        return info["sgg_cds"]
+
