@@ -47,3 +47,19 @@ class VWorldGeocoderHook(BaseHook):
         self._session = None
         self._last = 0.0
 
+    # 기본 주소·인증키 (인증키 로그 출력 금지)
+    def get_conn(self):
+        if self._base is None:
+            c = self.get_connection(self.conn_id)
+            self._base = f"https://{c.host}/req/address"
+            self._domain = (c.extra_dejson or {}).get("domain") or None
+            self._key = Variable.get(self.api_key_var, default="") or ""
+            if self._key:
+                mask_secret(self._key)
+            self._session = requests.Session()
+        return self._base
+
+    def has_key(self):
+        self.get_conn()
+        return bool(self._key)
+
