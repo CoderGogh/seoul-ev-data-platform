@@ -75,3 +75,13 @@ def _run(cur, run_id, date, hh0=100):
         p = by_addr.get((addr_type, addr))
         return (p["lng"], p["lat"]) if p else None
 
+    points, _ = locate.locate_all(targets, geocode)
+    db._run(cur, db.read_sql("ev05/assign_points.sql"), {"run_id": run_id, "points": json.dumps(points)}, False)
+    db._run(cur, db.read_sql("ev05/normalize.sql"), {"run_id": run_id, "sgg_map": json.dumps({SGG_NM: "11680"})}, False)
+    gate = db._run(cur, db.read_sql("ev05/gate_metrics.sql"), {"run_id": run_id, "snapshot_date": date}, True)[0]
+    p = {"run_id": run_id, "snapshot_date": date, "sgg_cds": ["11680"], "quality_grade": "ok"}
+    load = db._run(cur, db.read_sql("ev05/load_log.sql"), p, True)[0]
+    db._run(cur, db.read_sql("ev05/apply_snapshot.sql"), {**p, **load}, False)
+    return targets, gate, load, calls
+
+
