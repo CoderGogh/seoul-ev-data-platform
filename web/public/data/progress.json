@@ -527,22 +527,6 @@
    "merged_at": "2026-11-03T05:22:07Z",
    "url": "https://github.com/CoderGogh/seoul-ev-data-platform/pull/66",
    "closes": []
-  },
-  {
-   "number": 65,
-   "title": "feat: 웹 사이드바 접기·상단 바·기준일 칩",
-   "merged_at": "2026-11-03T03:31:49Z",
-   "url": "https://github.com/CoderGogh/seoul-ev-data-platform/pull/65",
-   "closes": []
-  },
-  {
-   "number": 64,
-   "title": "feat: ev14 웹 데이터 자동 게시",
-   "merged_at": "2026-11-02T14:40:13Z",
-   "url": "https://github.com/CoderGogh/seoul-ev-data-platform/pull/64",
-   "closes": [
-    38
-   ]
   }
  ]
 }
