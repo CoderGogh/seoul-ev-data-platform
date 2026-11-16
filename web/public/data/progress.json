@@ -85,8 +85,8 @@
   },
   "54": {
    "title": "수요 보조 지표 추가",
-   "state": "OPEN",
-   "closed_at": null,
+   "state": "CLOSED",
+   "closed_at": "2026-11-16T04:40:59Z",
    "url": "https://github.com/CoderGogh/seoul-ev-data-platform/issues/54",
    "labels": [
     "area:analysis",
@@ -275,6 +275,43 @@
   }
  },
  "merged": [
+  {
+   "number": 99,
+   "title": "feat: ev05 수요 보조 지표 (공동주택 세대수·공영주차장)",
+   "merged_at": "2026-11-16T04:40:58Z",
+   "url": "https://github.com/CoderGogh/seoul-ev-data-platform/pull/99",
+   "closes": [
+    54
+   ]
+  },
+  {
+   "number": 98,
+   "title": "feat: 지도 배경지도 (브이월드 WMTS)",
+   "merged_at": "2026-11-15T13:23:29Z",
+   "url": "https://github.com/CoderGogh/seoul-ev-data-platform/pull/98",
+   "closes": []
+  },
+  {
+   "number": 96,
+   "title": "feat: 역할별 마이페이지",
+   "merged_at": "2026-11-12T23:59:29Z",
+   "url": "https://github.com/CoderGogh/seoul-ev-data-platform/pull/96",
+   "closes": []
+  },
+  {
+   "number": 94,
+   "title": "feat: 팀장 보고·받은 보고함·Slack 알림",
+   "merged_at": "2026-11-12T23:47:51Z",
+   "url": "https://github.com/CoderGogh/seoul-ev-data-platform/pull/94",
+   "closes": []
+  },
+  {
+   "number": 95,
+   "title": "chore: 웹 개발 진행 데이터 갱신 (#89~#93, #41 완료)",
+   "merged_at": "2026-11-12T23:43:33Z",
+   "url": "https://github.com/CoderGogh/seoul-ev-data-platform/pull/95",
+   "closes": []
+  },
   {
    "number": 91,
    "title": "feat: ev16 백업 Supabase Storage 외부 보관",
@@ -469,43 +506,6 @@
    "merged_at": "2026-11-03T05:47:06Z",
    "url": "https://github.com/CoderGogh/seoul-ev-data-platform/pull/69",
    "closes": []
-  },
-  {
-   "number": 68,
-   "title": "feat: 웹 데이터 버전 화면(운영 이상)·하단 버전 표시",
-   "merged_at": "2026-11-03T05:41:00Z",
-   "url": "https://github.com/CoderGogh/seoul-ev-data-platform/pull/68",
-   "closes": []
-  },
-  {
-   "number": 67,
-   "title": "feat: 웹 포털형 레이아웃(상단 바·카테고리 탭·좌우 바·바로가기)",
-   "merged_at": "2026-11-03T05:33:15Z",
-   "url": "https://github.com/CoderGogh/seoul-ev-data-platform/pull/67",
-   "closes": []
-  },
-  {
-   "number": 66,
-   "title": "feat: 웹 Google·카카오 로그인·역할 관리",
-   "merged_at": "2026-11-03T05:22:07Z",
-   "url": "https://github.com/CoderGogh/seoul-ev-data-platform/pull/66",
-   "closes": []
-  },
-  {
-   "number": 65,
-   "title": "feat: 웹 사이드바 접기·상단 바·기준일 칩",
-   "merged_at": "2026-11-03T03:31:49Z",
-   "url": "https://github.com/CoderGogh/seoul-ev-data-platform/pull/65",
-   "closes": []
-  },
-  {
-   "number": 64,
-   "title": "feat: ev14 웹 데이터 자동 게시",
-   "merged_at": "2026-11-02T14:40:13Z",
-   "url": "https://github.com/CoderGogh/seoul-ev-data-platform/pull/64",
-   "closes": [
-    38
-   ]
   }
  ]
 }
