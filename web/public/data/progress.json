@@ -276,6 +276,43 @@
  },
  "merged": [
   {
+   "number": 99,
+   "title": "feat: ev05 수요 보조 지표 (공동주택 세대수·공영주차장)",
+   "merged_at": "2026-11-16T04:40:58Z",
+   "url": "https://github.com/CoderGogh/seoul-ev-data-platform/pull/99",
+   "closes": [
+    54
+   ]
+  },
+  {
+   "number": 98,
+   "title": "feat: 지도 배경지도 (브이월드 WMTS)",
+   "merged_at": "2026-11-15T13:23:29Z",
+   "url": "https://github.com/CoderGogh/seoul-ev-data-platform/pull/98",
+   "closes": []
+  },
+  {
+   "number": 96,
+   "title": "feat: 역할별 마이페이지",
+   "merged_at": "2026-11-12T23:59:29Z",
+   "url": "https://github.com/CoderGogh/seoul-ev-data-platform/pull/96",
+   "closes": []
+  },
+  {
+   "number": 94,
+   "title": "feat: 팀장 보고·받은 보고함·Slack 알림",
+   "merged_at": "2026-11-12T23:47:51Z",
+   "url": "https://github.com/CoderGogh/seoul-ev-data-platform/pull/94",
+   "closes": []
+  },
+  {
+   "number": 95,
+   "title": "chore: 웹 개발 진행 데이터 갱신 (#89~#93, #41 완료)",
+   "merged_at": "2026-11-12T23:43:33Z",
+   "url": "https://github.com/CoderGogh/seoul-ev-data-platform/pull/95",
+   "closes": []
+  },
+  {
    "number": 91,
    "title": "feat: ev16 백업 Supabase Storage 외부 보관",
    "merged_at": "2026-11-12T23:31:03Z",
