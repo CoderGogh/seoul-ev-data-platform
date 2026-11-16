@@ -506,27 +506,6 @@
    "merged_at": "2026-11-03T05:47:06Z",
    "url": "https://github.com/CoderGogh/seoul-ev-data-platform/pull/69",
    "closes": []
-  },
-  {
-   "number": 68,
-   "title": "feat: 웹 데이터 버전 화면(운영 이상)·하단 버전 표시",
-   "merged_at": "2026-11-03T05:41:00Z",
-   "url": "https://github.com/CoderGogh/seoul-ev-data-platform/pull/68",
-   "closes": []
-  },
-  {
-   "number": 67,
-   "title": "feat: 웹 포털형 레이아웃(상단 바·카테고리 탭·좌우 바·바로가기)",
-   "merged_at": "2026-11-03T05:33:15Z",
-   "url": "https://github.com/CoderGogh/seoul-ev-data-platform/pull/67",
-   "closes": []
-  },
-  {
-   "number": 66,
-   "title": "feat: 웹 Google·카카오 로그인·역할 관리",
-   "merged_at": "2026-11-03T05:22:07Z",
-   "url": "https://github.com/CoderGogh/seoul-ev-data-platform/pull/66",
-   "closes": []
   }
  ]
 }
