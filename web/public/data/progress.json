@@ -85,8 +85,8 @@
   },
   "54": {
    "title": "수요 보조 지표 추가",
-   "state": "OPEN",
-   "closed_at": null,
+   "state": "CLOSED",
+   "closed_at": "2026-11-16T04:40:59Z",
    "url": "https://github.com/CoderGogh/seoul-ev-data-platform/issues/54",
    "labels": [
     "area:analysis",
