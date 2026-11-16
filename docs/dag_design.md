@@ -24,6 +24,7 @@
    - [ev14 웹 데이터 게시](#49-ev14-웹-데이터-게시)
    - [ev15 SLA 감시](#410-ev15-sla-감시)
    - [ev16 DB 백업](#411-ev16-db-백업)
+   - [ev05 수요 보조](#412-ev05-수요-보조)
 5. [품질 게이트와 분류](#5-품질-게이트와-분류)
 6. [멱등성과 재처리](#6-멱등성과-재처리)
 7. [상태 모델](#7-상태-모델)
@@ -93,6 +94,7 @@ Task 성공과 데이터 준비 완료는 다르다. 세 가지를 따로 판단
 | `ev02_registration_monthly` | 등록현황 월 스냅샷 | `0 9 1 * *`, 수동 | `ev_reg_snapshot` (`load_snapshot`) |
 | `ev03_mart_integration` | 적격성 확인 → 지표·분류 → 마트 게시 | `0 6 * * *` 또는 Asset | `ev_mart_published` (`publish_mart`) |
 | `ev04_charger_daily` | 충전기 공급 일 스냅샷 (이력 관리) | `0 5 * * *` | `ev_charger_supply` (`load_charger`) |
+| `ev05_demand_aux_weekly` | 공동주택 세대수·공영주차장 주간 스냅샷 | `30 4 * * 1` | `ev_demand_aux` (`load_snapshot`) |
 | `ev10_master_refresh` | 링크 매핑·행정동 경계 버전 | 수동 | `ev_master_version` (`activate_version`) |
 | `ev11_reprocess` | 재처리 요청 진입점 | 수동 | - |
 | `ev12_quality_monitor` | 실행 상태 × 데이터 상태 리포트 | `0 8 * * *` | - |
@@ -109,6 +111,7 @@ Task 성공과 데이터 준비 완료는 다르다. 세 가지를 따로 판단
 ev01 ──write──▶ [ DB: core 관측·집계 / ops 상태 ] ◀──read── ev03 (매일 06:00)
 ev02 ──Asset: ev_reg_snapshot ────────────────────────────▶ ev03
 ev04 ──write──▶ [ DB: core.charger 이력 ] ◀──read── ev03 (공급 기준일 시점)
+ev05 ──write──▶ [ DB: core 공동주택·공영주차장 스냅샷 ] ◀──read── ev03 (보조 기준일 시점)
 ev10 ──Asset: ev_master_version ──────────────────────────▶ ev03
 ev11 ─┬─ registration: ev02 트리거 (ev03는 ev02 Asset으로)
       ├─ timeband: 재집계 → ev03 트리거
@@ -125,6 +128,7 @@ ev04 ──Asset: ev_charger_supply ─┘
 | ev01 → ev03 | DB 조회 | 30분마다 마트를 다시 계산할 이유 없음 |
 | ev02 → ev03 | Asset | 새 스냅샷 즉시 반영 |
 | ev04 → ev03 | DB 조회 | 공급 기준일(기준월 말일)이 고정이라 일별 적재로 재게시하지 않음 |
+| ev05 → ev03 | DB 조회 | 참고 지표라 주간 적재로 재게시할 이유 없음. 기준일 규칙은 공급과 같음 |
 | ev10 → ev03 | Asset | 마스터 버전 활성화는 재계산 사유 |
 | ev03 자체 | 매일 06:00 (Asset과 OR) | 분석 기간 종료, 보류 해소를 주기적으로 재평가 |
 | ev03·ev04 → ev14 | Asset + 매일 07:10 | 게시·공급 변경 즉시 반영, 매일 재평가 시각도 웹 신선도에 반영 |
@@ -471,6 +475,46 @@ dump_db (pg_dump -Fc) ─▶ verify_restore (임시 DB 복원) ─▶ upload_off
 
 ---
 
+### 4.12 ev05 수요 보조
+
+원천 세 개를 묶어 동별 공동주택 세대수와 공영주차장을 만든다. 분류에는 안 쓰고 마트 참고 지표로만 붙인다.
+
+| 원천 | 서비스 | 받는 것 |
+|---|---|---|
+| 국토교통부 공동주택 단지 목록 (공공데이터포털 15057332) | `AptListService4/getSigunguAptList4` | 구별 단지 코드 |
+| 국토교통부 공동주택 기본 정보 (15058453) | `AptBasisInfoServiceV5/getAphusBassInfoV5` | 세대수·동수·도로명·지번 주소·사용승인일 |
+| 서울시 공영주차장 안내 정보 (OA-13122) | `GetParkInfo` | 서울 전체 주차장·주차면, 일부만 좌표 |
+| 브이월드 지오코더 2.0 | `req/address` | 주소 → 좌표 (실행 중에만 사용) |
+
+```
+init_run (수집일·대상 구, 과거 날짜 차단)
+  ─▶ extract_apt × 구 (단지 목록 → 단지별 기본 정보, apt_api_pool)
+  ─▶ extract_parking (서울 전체, seoul_parking_api_pool)
+  ─▶ quarantine_invalid ─▶ locate_targets (지오코딩 → 행정동, vworld_api_pool)
+  ─▶ normalize_assign ─▶ aux_gate ─▶ load_snapshot (Asset ev_demand_aux)
+  ─▶ record_run [all_done]
+```
+
+- 매주 월 04:30. 단지·주차장은 자주 안 바뀐다. 3개 구 단지 617곳이라 기본 정보 호출은 주 600번 남짓
+- 단지 목록은 법정동까지만 준다. 역삼동·서초동·잠실동처럼 법정동 하나가 행정동 여러 개로 나뉘는 곳에 단지가 몰려 있어서 대응표로는 귀속이 안 된다 → 주소를 좌표로 바꿔 활성 경계에 점 포함으로 귀속
+- 주차장 좌표는 147곳 중 15곳만 있다 (나머지는 0). 좌표 있으면 그대로, 없으면 지번 주소로 지오코딩
+- 판정 순서: 원천 좌표 → 도로명 → 지번. 같은 주소는 한 실행 안에서 한 번만 부른다
+- **좌표는 저장하지 않는다.** 브이월드 약관이 결과 저장을 금지해서 좌표는 `locate_targets` 메모리와 `assign_points.sql` 한 문장 안에서만 쓰고, DB에는 행정동 코드와 판정 방법(`loc_source`)만 남긴다. 테이블에 좌표 컬럼이 없는 것을 DB 테스트로 확인
+- 노상 주차장은 구획마다 원천 1행 (`TPKCT=1`). 주차장 코드로 묶어 주차면을 합친다
+- 기본 정보가 없는 단지(없는 코드는 빈 item)는 격리. 단지 하나 실패로 구 전체를 다시 받지 않는다
+- 같은 날 재실행은 그날 스냅샷 교체
+
+품질 게이트
+
+| 검사 | 기준 | 미달 시 |
+|---|---|---|
+| 단지 수집률 | 원천 대비 정제 95% 이상 | 치명 (기본 정보 대량 실패) |
+| 세대 가중 귀속률 | 90% 이상 | 치명 |
+| 주차장 귀속률 | 50% 이상 / 90% 이상 | 치명 / 경고 |
+| 직전 대비 감소 | 단지·주차장 10% 이하 | 치명. 원천 정비면 `allow_mass_drop` |
+
+ev03 연결: 보조 기준일은 공급과 같은 규칙(기준월 말일, 이력 전이면 첫 스냅샷). 그 시점 `load_id`를 지문에 넣는다. 스냅샷이 없으면 NULL이라 지문이 안 바뀐다. 마트 컬럼 `aux_asof`, `apt_complex_cnt`, `apt_hh_cnt`, `parking_lot_cnt`, `parking_space_cnt`.
+
 ## 5. 품질 게이트와 분류
 
 | 게이트 | 위치 | 단위 | 미달 시 |
@@ -600,13 +644,14 @@ Gate 2 등급과 분류 (임계값 `mvp_v3`, provisional)
 
 | 종류 | 이름 | 비고 |
 |---|---|---|
-| Pool | `seoul_traffic_api_pool`(4), `seoul_registration_api_pool`(2), `ev_charger_api_pool`(1), `github_api_pool`(1) | API 키가 데이터셋별로 따로. slots는 `.env` |
+| Pool | `seoul_traffic_api_pool`(4), `seoul_registration_api_pool`(2), `ev_charger_api_pool`(1), `github_api_pool`(1), `apt_api_pool`(1), `seoul_parking_api_pool`(1), `vworld_api_pool`(1) | API 키가 데이터셋별로 따로. slots는 `.env` |
 | Celery 큐 | `default` (워커 2), `api` (워커 1) | 외부 API Task는 `queue=api`. API 지연이 적재를 막지 않게 |
-| Connection | `conn_seoul_openapi`, `conn_data_go_kr`, `conn_github_web_data`, `conn_postgis_ev`, `conn_db_postgres_airflow`, `conn_slack_airflow_bot` | `AIRFLOW_CONN_*` 환경변수. 메타DB는 ev12 조회용 |
-| Variable | `apikey_seoul_traffic`, `apikey_seoul_registration`, `apikey_ev_charger`, `ev01_daily_call_limit`(선택) | `AIRFLOW_VAR_*` 환경변수. 임계값은 DB 버전 테이블 |
-| Asset | `ev_traffic_obs`, `ev_reg_snapshot`, `ev_charger_supply`, `ev_master_version`, `ev_mart_published` | `plugins/common/assets.py`에서 한 번만 정의 |
+| Connection | `conn_seoul_openapi`, `conn_data_go_kr`, `conn_vworld`, `conn_github_web_data`, `conn_postgis_ev`, `conn_db_postgres_airflow`, `conn_slack_airflow_bot` | `AIRFLOW_CONN_*` 환경변수. 메타DB는 ev12 조회용 |
+| Variable | `apikey_seoul_traffic`, `apikey_seoul_registration`, `apikey_ev_charger`, `apikey_apt_list`, `apikey_apt_basis`, `apikey_seoul_parking`, `apikey_vworld`, `ev01_daily_call_limit`(선택) | `AIRFLOW_VAR_*` 환경변수. 임계값은 DB 버전 테이블 |
+| Asset | `ev_traffic_obs`, `ev_reg_snapshot`, `ev_charger_supply`, `ev_demand_aux`, `ev_master_version`, `ev_mart_published` | `plugins/common/assets.py`에서 한 번만 정의 |
 | 커스텀 Hook | `SeoulOpenApiHook` | XML 파싱, 결과 코드 → ok / no_data / api_error, 전수 페이지, 링크 단위 부분 실패 허용 |
 | 커스텀 Hook | `DataGoKrHook` | 공공데이터포털 공통. JSON·XML 응답, 게이트웨이 오류(XML) 판정, 전수 페이지 |
+| 커스텀 Hook | `VWorldGeocoderHook` | 주소 → 좌표. 결과 없음은 정상, 키·한도 오류는 코드만 예외. 결과 저장 금지 |
 | 커스텀 Hook | `GitHubDataHook` | Git Data API. 바뀐 파일만 커밋 하나로, fast-forward 만 |
 | 커스텀 Sensor | `SeoulApiBaseMonthSensor` | 원천 최신 기준월 = 대상 월이면 통과, `reschedule`, 파일 경로는 즉시 통과 |
 
@@ -618,15 +663,15 @@ DDL은 `files/sqls/ddl/`, 적용은 `scripts/apply_ddl.sh`. 모두 `IF NOT EXIST
 
 | 스키마 | 주요 테이블 | 비고 |
 |---|---|---|
-| `staging` | `traffic_raw`, `registration_raw`, `registration_norm`, `charger_raw`, `charger_norm` | 원천 그대로. 등록은 API·파일 공통 |
-| `core` | `traffic_obs`, `link_timeband`, `reg_snapshot`, `charger` | 관측, 시간대 대표값, 월 스냅샷, 충전기 이력(SCD2) |
+| `staging` | `traffic_raw`, `registration_raw`, `registration_norm`, `charger_raw`, `charger_norm`, `apt_raw`, `parking_raw`, `aux_locate`, `apt_norm`, `parking_norm` | 원천 그대로. 등록은 API·파일 공통 |
+| `core` | `traffic_obs`, `link_timeband`, `reg_snapshot`, `charger`, `apt_complex`, `public_parking` | 관측, 시간대 대표값, 월 스냅샷, 충전기 이력(SCD2), 수요 보조 주간 스냅샷 |
 | | `master_version`, `admdong`, `service_link_map`, `std_link`, `service_link`, `link_admdong`, `target_link`, `fuel_code` | 마스터. 대상 링크는 `mvp_3gu_v1` 914개, 전기차는 `fuel_code.is_ev` |
 | `ops` | `pipeline_run`, `poll_chunk`, `poll_coverage`, `reg_load`, `quality_result` | 실행 상태, 수집·품질 근거 |
-| | `threshold_version`, `mart_eval`, `publish_log`, `publish_status`, `reprocess_request`, `charger_load` | 임계값 버전, fingerprint, 게시 계보, 재처리 요청 |
+| | `threshold_version`, `mart_eval`, `publish_log`, `publish_status`, `reprocess_request`, `charger_load`, `aux_load` | 임계값 버전, fingerprint, 게시 계보, 재처리 요청 |
 | `mart` | `fact_admdong_indicator`, `fact_admdong_timeband` | 운영 마트 (`base_month`, `adm_cd`) |
 | | `candidate_admdong_indicator`, `candidate_admdong_timeband` | 실행별 후보, 검증 후 교체 |
 | | `v_admdong_result`, `v_reg_trend`, `v_reg_monthly`, `v_reg_momentum`, `v_timeband_profile`, `v_active_threshold` | Rshiny 조회 뷰 |
-| `quarantine` | `traffic_record`, `registration_record`, `charger_record` | 사유 코드와 원문 |
+| `quarantine` | `traffic_record`, `registration_record`, `charger_record`, `aux_record` | 사유 코드와 원문 |
 
 Rshiny는 읽기 전용 계정 `rshiny_reader`로 `mart`, `ops`만 조회한다.
 
@@ -645,6 +690,7 @@ Rshiny는 읽기 전용 계정 `rshiny_reader`로 `mart`, `ops`만 조회한다.
 | `db/test_ev03_publish.py` | 실제 SQL로 게시 경로: 분류 결과, 파티션 교체(중복 없음), 계보, 보류(`never_published`·`stale`), 무변경 지문, 게시 중 실패 시 롤백 |
 | `db/test_ev02_load.py` | 신규 적재, 같은 내용 재공표 판정, 내용 변경 재공표(차이 기록·교체) |
 | `db/test_ev04_charger.py` | 격리 사유·동 귀속·급속 판정, SCD2 변경·삭제 표시·소멸, 시점 조회, 같은 날 재실행 |
+| `test_demand_aux.py`, `db/test_ev05_aux.py` | 주소 정리·판정 순서, 지오코더 오류 키 비노출, 격리·주차면 합산·귀속, 좌표 컬럼 없음, 같은 날 교체, ev03 참고 지표·지문 |
 | `test_api_usage.py` | 오류율 계산·등급 경계, 호출 한도 판정, 한도 오류 코드 |
 | `db/test_ev12_charger.py`, `db/test_ev12_api_usage.py` | ev12 충전기 확인일(무변경 포함), 호출량·한도 오류·오류율 분포 |
 | `test_drift.py`, `db/test_ev03_drift.py` | PSI·분류 변경·A 수 변화 판정, 직전 게시 행 선택(같은 기준월 우선) |
@@ -683,6 +729,7 @@ CI (PR 필수 검사, GitHub Actions)
 | 지각 허용 | 미구현 (확정 시간대만 사용) | 수집 지연 분포 확인 |
 | 일일 호출 한도 | 한도 수치 미공개, `ERROR-337` 오류로 감시 | 한도 확인되면 `ev01_daily_call_limit` 설정 |
 | 도로 분석 기간 | MVP 고정 기간 | 원안대로 기준월과 같은 월로 전환 |
+| 수요 보조 지표 | 마트 참고 지표만 | 웹 동 상세 표시, 세대 대비 전기차 같은 비율 지표·분류 반영 검토 |
 | 백업 보관 위치 | 같은 호스트 `files/backups` | 서버·외부 저장소 정해지면 업로드 단계 추가 |
 
 ---
@@ -728,6 +775,7 @@ Airflow 3.3.2 동작
 
 | 버전 | 날짜 | 내용 |
 |---|---|---|
+| v0.11 | 2026-11-15 | ev05 수요 보조 (공동주택 세대수·공영주차장, 지오코딩 행정동 귀속·좌표 미보관), ev03 참고 지표 |
 | v0.10 | 2026-11-10 | ev16 분석 DB 주간 백업·복원 리허설 |
 | v0.9 | 2026-11-08 | ev12 충전기 줄·호출량·오류율 분포·연속 보류, ev01 `partial` 오류율 등급·한도 초과 재시도 생략, ev15 SLA 감시, ev03 분포 급변 경고, 등록 추세 플래그·예측, 게시 이력 A 목록, `traffic_obs` 월 파티션 |
 | v0.8 | 2026-11-02 | ev14 웹 데이터 게시 (데이터 브랜치 원자 커밋, 웹 커밋 고정 로드·배포 스냅샷 대체) |
